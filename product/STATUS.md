@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-01 committed; WS-02 queued next |
+| Implementation | In progress | WS-01 done; WS-02 diff tracing checkpoint ready for review |
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
