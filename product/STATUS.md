@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-03 done; WS-04 property-check checkpoint in review |
+| Implementation | In progress | WS-04 done; WS-05 DST runtime checkpoint in review |
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -59,8 +59,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-01 | Repo and CLI foundation | Codex | Done | None | 2026-03-29 |
 | WS-02 | App discovery, diff tracing, endpoint mapping | Codex | Done | WS-01 | 2026-03-29 |
 | WS-03 | Invariants, scenario sourcing, LLM suggestions | Codex | Done | WS-01, WS-02 | 2026-03-30 |
-| WS-04 | Property checks and differential replay | Codex | In review | WS-01, WS-03 | 2026-03-30 |
-| WS-05 | Deterministic runtime and DST scheduler | Unassigned | Queued | WS-01, WS-02 | 2026-03-29 |
+| WS-04 | Property checks and differential replay | Codex | Done | WS-01, WS-03 | 2026-03-30 |
+| WS-05 | Deterministic runtime and DST scheduler | Codex | In review | WS-01, WS-02 | 2026-03-30 |
 | WS-06 | Semantic simulators | Unassigned | Queued | WS-05 | 2026-03-29 |
 | WS-07 | Reporting, watch mode, GitHub Action | Unassigned | Queued | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-29 |
 | WS-08 | Demo app, docs, packaging, release path | Unassigned | Queued | WS-01 through WS-07 | 2026-03-29 |
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-04 property-check runner checkpoint.
-2. Keep replay and property result models aligned for later reporting work.
+1. Review the first WS-05 deterministic runtime checkpoint.
+2. Keep DST runtime contracts stable enough for simulator work to build on top.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
