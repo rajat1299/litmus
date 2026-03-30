@@ -111,3 +111,50 @@ def test_run_property_checks_skips_non_property_invariants() -> None:
     assert results[0].status is PropertyCheckStatus.SKIPPED
     assert results[0].reason == "only property invariants can run in the property layer"
     assert calls == []
+
+
+def test_run_property_checks_preserves_empty_list_shape() -> None:
+    invariant = Invariant(
+        name="items_list_can_be_empty",
+        source="mined:tests/test_payment.py::test_items_list_can_be_empty",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.PROPERTY,
+        request=RequestExample(
+            method="POST",
+            path="/payments/charge",
+            payload={"items": []},
+        ),
+    )
+
+    def checker(_: Invariant, request: RequestExample) -> bool:
+        return request.payload["items"] == []
+
+    results = run_property_checks([invariant], checker, max_examples=20)
+
+    assert len(results) == 1
+    assert results[0].status is PropertyCheckStatus.PASSED
+    assert results[0].failing_request is None
+
+
+def test_run_property_checks_preserves_heterogeneous_list_shape() -> None:
+    invariant = Invariant(
+        name="items_list_preserves_element_kinds",
+        source="mined:tests/test_payment.py::test_items_list_preserves_element_kinds",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.PROPERTY,
+        request=RequestExample(
+            method="POST",
+            path="/payments/charge",
+            payload={"items": [1, "a"]},
+        ),
+    )
+
+    def checker(_: Invariant, request: RequestExample) -> bool:
+        items = request.payload["items"]
+        return isinstance(items[0], int) and isinstance(items[1], str)
+
+    results = run_property_checks([invariant], checker, max_examples=20)
+
+    assert len(results) == 1
+    assert results[0].status is PropertyCheckStatus.PASSED
+    assert results[0].failing_request is None

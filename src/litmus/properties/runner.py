@@ -123,6 +123,7 @@ def _value_strategy(value: Any) -> st.SearchStrategy[Any]:
         return st.fixed_dictionaries({key: _value_strategy(item) for key, item in value.items()})
     if isinstance(value, list):
         if not value:
-            return st.lists(st.none(), max_size=3)
-        return st.lists(_value_strategy(value[0]), min_size=len(value), max_size=max(len(value), 3))
+            return st.just([])
+        # With only one example, preserve list shape instead of inventing new arities or element kinds.
+        return st.tuples(*[_value_strategy(item) for item in value]).map(list)
     return st.just(value)
