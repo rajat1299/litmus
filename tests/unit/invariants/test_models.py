@@ -29,3 +29,14 @@ def test_invariant_model_preserves_confirmed_and_suggested_statuses() -> None:
     assert suggested.status is InvariantStatus.SUGGESTED
     assert confirmed.request.path == "/payments/charge"
     assert confirmed.response.status_code == 200
+
+
+def test_invariant_model_accepts_state_transition_type() -> None:
+    invariant = Invariant(
+        name="charge_rollback_on_partial_failure",
+        source="llm:code_context",
+        status=InvariantStatus.SUGGESTED,
+        type=InvariantType.STATE_TRANSITION,
+    )
+
+    assert invariant.type is InvariantType.STATE_TRANSITION

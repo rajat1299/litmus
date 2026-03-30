@@ -14,6 +14,7 @@ class InvariantStatus(str, Enum):
 class InvariantType(str, Enum):
     DIFFERENTIAL = "differential"
     PROPERTY = "property"
+    STATE_TRANSITION = "state_transition"
 
 
 class RequestExample(BaseModel):

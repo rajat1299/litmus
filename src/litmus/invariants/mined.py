@@ -26,7 +26,7 @@ def _mine_invariants_from_test_file(path: Path) -> list[Invariant]:
     mined: list[Invariant] = []
 
     for node in tree.body:
-        if not isinstance(node, ast.FunctionDef) or not node.name.startswith("test_"):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or not node.name.startswith("test_"):
             continue
 
         request_payload = _extract_literal_assignment(node, "request")
@@ -37,6 +37,9 @@ def _mine_invariants_from_test_file(path: Path) -> list[Invariant]:
             response_payload = {"status_code": status_code}
         elif response_payload is not None and status_code is not None:
             response_payload.setdefault("status_code", status_code)
+
+        if request_payload is None and response_payload is None:
+            continue
 
         mined.append(
             Invariant(
@@ -52,7 +55,7 @@ def _mine_invariants_from_test_file(path: Path) -> list[Invariant]:
     return mined
 
 
-def _extract_literal_assignment(node: ast.FunctionDef, variable_name: str) -> dict | None:
+def _extract_literal_assignment(node: ast.FunctionDef | ast.AsyncFunctionDef, variable_name: str) -> dict | None:
     for statement in node.body:
         if not isinstance(statement, ast.Assign):
             continue
@@ -67,7 +70,7 @@ def _extract_literal_assignment(node: ast.FunctionDef, variable_name: str) -> di
     return None
 
 
-def _extract_response_status_code(node: ast.FunctionDef) -> int | None:
+def _extract_response_status_code(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int | None:
     for statement in node.body:
         if not isinstance(statement, ast.Assert):
             continue

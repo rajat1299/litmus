@@ -20,3 +20,49 @@ def test_mine_invariants_from_pytest_style_payment_tests() -> None:
     assert invariants[0].request.path == "/payments/charge"
     assert invariants[0].response.status_code == 200
     assert invariants[1].response.status_code == 402
+
+
+def test_mine_invariants_skips_tests_without_supported_request_response_pattern(
+    tmp_path: Path,
+) -> None:
+    fixture_file = tmp_path / "test_helper.py"
+    fixture_file.write_text(
+        """
+def test_helper_case():
+    assert 1 == 1
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    invariants = mine_invariants_from_tests([fixture_file])
+
+    assert invariants == []
+
+
+def test_mine_invariants_from_async_pytest_style_payment_tests(tmp_path: Path) -> None:
+    fixture_file = tmp_path / "test_async_payment.py"
+    fixture_file.write_text(
+        """
+async def test_async_charge():
+    request = {
+        "method": "POST",
+        "path": "/payments/charge",
+        "json": {"amount": 100},
+    }
+    response = {
+        "status_code": 200,
+        "json": {"status": "charged"},
+    }
+
+    assert response["status_code"] == 200
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    invariants = mine_invariants_from_tests([fixture_file])
+
+    assert [invariant.name for invariant in invariants] == ["async_charge"]
+    assert invariants[0].request.path == "/payments/charge"
+    assert invariants[0].response.status_code == 200
