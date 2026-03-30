@@ -33,19 +33,36 @@ def extract_routes(path: Path | str, root: Path | str) -> list[RouteDefinition]:
     repo_root = Path(root)
     tree = ast.parse(file_path.read_text(encoding="utf-8"))
     relative_path = file_path.relative_to(repo_root).as_posix()
-    module_name = module_name_from_path(file_path, repo_root)
+    package_name = _package_name_for_file(file_path, repo_root)
 
     imported_symbols: dict[str, ImportedSymbol] = {}
     imported_module_aliases: dict[str, str] = {}
 
     for node in tree.body:
         if isinstance(node, ast.ImportFrom):
-            module_path = _resolve_import_from_path(node, module_name, repo_root)
-            if module_path is None:
+            base_module_name = _resolve_import_from_module_name(node, package_name)
+            if base_module_name is None:
                 continue
+
+            base_module_path = _resolve_module_path(base_module_name, repo_root)
             for alias in node.names:
-                imported_symbols[alias.asname or alias.name] = ImportedSymbol(
-                    module_path=module_path,
+                if alias.name == "*":
+                    continue
+
+                local_name = alias.asname or alias.name
+                imported_module_path = _resolve_module_path(
+                    f"{base_module_name}.{alias.name}",
+                    repo_root,
+                )
+                if imported_module_path is not None:
+                    imported_module_aliases[local_name] = imported_module_path
+                    continue
+
+                if base_module_path is None:
+                    continue
+
+                imported_symbols[local_name] = ImportedSymbol(
+                    module_path=base_module_path,
                     original_name=alias.name,
                 )
 
@@ -146,23 +163,33 @@ def _resolve_module_path(module_name: str, root: Path) -> str | None:
     return None
 
 
-def _resolve_import_from_path(node: ast.ImportFrom, current_module_name: str, root: Path) -> str | None:
+def _package_name_for_file(path: Path, root: Path) -> str:
+    module_name = module_name_from_path(path, root)
+
+    if path.name == "__init__.py":
+        return module_name
+
+    if "." in module_name:
+        return module_name.rsplit(".", maxsplit=1)[0]
+
+    return ""
+
+
+def _resolve_import_from_module_name(node: ast.ImportFrom, package_name: str) -> str | None:
     module_reference = node.module or ""
 
     if node.level:
-        if current_module_name.endswith(".__init__"):
-            package_name = current_module_name.removesuffix(".__init__")
-        else:
-            package_name = current_module_name.rsplit(".", maxsplit=1)[0] if "." in current_module_name else ""
+        if not package_name:
+            return None
 
         relative_name = "." * node.level + module_reference
         try:
             resolved_name = importlib.util.resolve_name(relative_name, package_name)
         except ImportError:
             return None
-        return _resolve_module_path(resolved_name, root)
+        return resolved_name
 
     if not module_reference:
         return None
 
-    return _resolve_module_path(module_reference, root)
+    return module_reference
