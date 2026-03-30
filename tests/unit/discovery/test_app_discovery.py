@@ -40,3 +40,24 @@ def test_load_asgi_app_imports_reference(monkeypatch) -> None:
     app = load_asgi_app("main:app")
 
     assert app.__class__.__name__ == "FastAPI"
+
+
+def test_load_asgi_app_imports_discovered_reference_from_repo_root(tmp_path: Path) -> None:
+    service = tmp_path / "service"
+    service.mkdir()
+    (service / "main.py").write_text(
+        """
+class FastAPI:
+    pass
+
+app = FastAPI()
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    reference = discover_app_reference(tmp_path)
+
+    app = load_asgi_app(reference, tmp_path)
+
+    assert app.__class__.__name__ == "FastAPI"

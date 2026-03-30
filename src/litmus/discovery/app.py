@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import ast
+from contextlib import contextmanager
 import importlib
 from pathlib import Path
+import sys
 
 from litmus.config import load_repo_config
 from litmus.discovery.project import iter_python_files, module_name_from_path
@@ -24,9 +26,10 @@ def discover_app_reference(root: Path | str) -> str:
     raise LookupError(f"Could not discover an ASGI app in {repo_root}")
 
 
-def load_asgi_app(reference: str):
+def load_asgi_app(reference: str, root: Path | str | None = None):
     module_name, attribute_name = reference.split(":", maxsplit=1)
-    module = importlib.import_module(module_name)
+    with _temporary_import_root(root):
+        module = importlib.import_module(module_name)
     return getattr(module, attribute_name)
 
 
@@ -57,3 +60,24 @@ def _is_supported_app_call(node: ast.AST | None) -> bool:
         factory_name = node.func.attr
 
     return factory_name in _SUPPORTED_APP_FACTORIES
+
+
+@contextmanager
+def _temporary_import_root(root: Path | str | None):
+    if root is None:
+        yield
+        return
+
+    root_path = str(Path(root).resolve())
+    already_present = root_path in sys.path
+
+    if not already_present:
+        sys.path.insert(0, root_path)
+        importlib.invalidate_caches()
+
+    try:
+        yield
+    finally:
+        if not already_present:
+            sys.path.remove(root_path)
+            importlib.invalidate_caches()
