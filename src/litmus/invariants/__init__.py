@@ -7,6 +7,7 @@ from litmus.invariants.models import (
     ResponseExample,
 )
 from litmus.invariants.store import load_invariants, save_invariants
+from litmus.invariants.suggested import SuggestionContext, suggest_invariants
 
 __all__ = [
     "Invariant",
@@ -17,4 +18,6 @@ __all__ = [
     "load_invariants",
     "mine_invariants_from_tests",
     "save_invariants",
+    "SuggestionContext",
+    "suggest_invariants",
 ]

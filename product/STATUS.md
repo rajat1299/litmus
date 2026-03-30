@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-01 and WS-02 done; WS-03 Task 4 complete and Task 5 queued next |
+| Implementation | In progress | WS-01 and WS-02 done; WS-03 Task 5 in review |
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -58,7 +58,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | --- | --- | --- | --- | --- | --- |
 | WS-01 | Repo and CLI foundation | Codex | Done | None | 2026-03-29 |
 | WS-02 | App discovery, diff tracing, endpoint mapping | Codex | Done | WS-01 | 2026-03-29 |
-| WS-03 | Invariants, scenario sourcing, LLM suggestions | Codex | Partial | WS-01, WS-02 | 2026-03-29 |
+| WS-03 | Invariants, scenario sourcing, LLM suggestions | Codex | In review | WS-01, WS-02 | 2026-03-30 |
 | WS-04 | Property checks and differential replay | Unassigned | Queued | WS-01, WS-03 | 2026-03-29 |
 | WS-05 | Deterministic runtime and DST scheduler | Unassigned | Queued | WS-01, WS-02 | 2026-03-29 |
 | WS-06 | Semantic simulators | Unassigned | Queued | WS-05 | 2026-03-29 |
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Initialize the actual Python project and packaging/tooling skeleton.
-2. Claim WS-01 and WS-02 so route discovery and CLI scaffolding can start in parallel.
+1. Review the WS-03 suggested-invariants and scenario-builder checkpoint.
+2. Move differential replay into WS-04 after the WS-03 interfaces are approved.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

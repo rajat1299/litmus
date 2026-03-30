@@ -37,5 +37,6 @@ class Invariant(BaseModel):
     source: str
     status: InvariantStatus
     type: InvariantType
+    reasoning: str | None = None
     request: RequestExample | None = None
     response: ResponseExample | None = None
