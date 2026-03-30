@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
+from litmus.discovery.routes import RouteDefinition
+from litmus.invariants.models import Invariant, InvariantStatus, InvariantType
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.replay.differential import ReplayClassification, run_differential_replay
+from litmus.scenarios.builder import build_scenarios
 from litmus.scenarios.builder import Scenario
 
 
@@ -24,6 +27,43 @@ def test_run_differential_replay_skips_scenarios_without_baseline_response() -> 
 
     results = asyncio.run(run_differential_replay(scenarios=scenarios, runner=runner))
 
+    assert results == []
+    assert calls == []
+
+
+def test_run_differential_replay_skips_suggested_only_scenarios_from_builder() -> None:
+    calls: list[Scenario] = []
+    routes = [
+        RouteDefinition(
+            method="POST",
+            path="/payments/charge",
+            handler_name="charge",
+            file_path="service/api.py",
+        )
+    ]
+    invariants = [
+        Invariant(
+            name="charge_accepts_async_processing",
+            source="llm:diff_analysis",
+            status=InvariantStatus.SUGGESTED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(
+                method="POST",
+                path="/payments/charge",
+                payload={"amount": 100},
+            ),
+            response=ResponseExample(status_code=202),
+        )
+    ]
+    scenarios = build_scenarios(routes=routes, invariants=invariants)
+
+    async def runner(scenario: Scenario) -> ResponseExample:
+        calls.append(scenario)
+        return ResponseExample(status_code=202)
+
+    results = asyncio.run(run_differential_replay(scenarios=scenarios, runner=runner))
+
+    assert len(scenarios) == 1
     assert results == []
     assert calls == []
 

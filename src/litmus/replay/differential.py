@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from litmus.invariants.models import ResponseExample
+from litmus.invariants.models import InvariantStatus, ResponseExample
 from litmus.scenarios.builder import Scenario
 
 
@@ -35,7 +35,7 @@ async def run_differential_replay(
     results: list[DifferentialReplayResult] = []
 
     for scenario in scenarios:
-        baseline_response = scenario.expected_response
+        baseline_response = _baseline_response_for_replay(scenario)
         if baseline_response is None:
             continue
 
@@ -53,6 +53,17 @@ async def run_differential_replay(
         )
 
     return results
+
+
+def _baseline_response_for_replay(scenario: Scenario) -> ResponseExample | None:
+    if not scenario.invariants:
+        return scenario.expected_response
+
+    for invariant in scenario.invariants:
+        if invariant.status is InvariantStatus.CONFIRMED and invariant.response is not None:
+            return invariant.response
+
+    return None
 
 
 def _response_diff(
