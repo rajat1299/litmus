@@ -47,7 +47,7 @@ def patch_aiohttp(simulator: HttpSimulator):
             raise aiohttp.ClientConnectionError(str(exc)) from exc
 
         if response.latency_ms:
-            await asyncio.sleep(0)
+            await asyncio.sleep(response.latency_ms / 1000)
 
         return _SimulatedAiohttpResponse(response)
 

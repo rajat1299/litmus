@@ -22,7 +22,7 @@ def patch_httpx(simulator: HttpSimulator):
             raise httpx.ConnectError(str(exc)) from exc
 
         if response.latency_ms:
-            await asyncio.sleep(0)
+            await asyncio.sleep(response.latency_ms / 1000)
 
         request = httpx.Request(method=method, url=str(url))
         return httpx.Response(

@@ -67,4 +67,3 @@ def test_http_simulator_applies_timeout_connection_refusal_http_error_and_slow_r
     assert http_error.status_code == 500
     assert slow_response.status_code == 200
     assert slow_response.latency_ms == 250
-
