@@ -11,6 +11,14 @@ from litmus.simulators.sqlalchemy_async import (
     TableSchema,
     UnsupportedDatabaseOperationError,
 )
+from litmus.simulators.redis_async import (
+    RedisConnectionRefusedError,
+    RedisMovedError,
+    RedisPartialWriteError,
+    RedisTimeoutError,
+    SimulatedRedis,
+    UnsupportedRedisOperationError,
+)
 from litmus.simulators.httpx_adapter import patch_httpx
 from litmus.simulators.aiohttp_adapter import patch_aiohttp
 
@@ -20,10 +28,16 @@ __all__ = [
     "HttpConnectionRefusedError",
     "HttpSimulator",
     "HttpTimeoutError",
+    "RedisConnectionRefusedError",
+    "RedisMovedError",
+    "RedisPartialWriteError",
+    "RedisTimeoutError",
     "SimulatedHttpResponse",
     "SimulatedAsyncEngine",
+    "SimulatedRedis",
     "TableSchema",
     "UnsupportedDatabaseOperationError",
+    "UnsupportedRedisOperationError",
     "patch_aiohttp",
     "patch_httpx",
 ]

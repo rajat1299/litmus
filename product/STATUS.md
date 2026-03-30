@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-06 SQLAlchemy simulator checkpoint in review after HTTP approval |
+| Implementation | In progress | WS-06 Redis simulator checkpoint in review after HTTP and SQLAlchemy approval |
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-06 SQLAlchemy async simulator checkpoint.
-2. Extend WS-06 into Redis async semantics once the database contract is approved.
+1. Review the WS-06 Redis async simulator checkpoint.
+2. Reconcile the final WS-06 handoff and decide whether the remaining pub/sub and adapter gaps stay as documented launch limits.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
