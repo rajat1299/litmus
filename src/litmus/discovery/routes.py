@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
+import importlib.util
 from pathlib import Path
+
+from litmus.discovery.project import module_name_from_path
 
 
 _HTTP_METHOD_NAMES = {"get", "post", "put", "patch", "delete", "options", "head"}
+
+
+@dataclass(slots=True)
+class ImportedSymbol:
+    module_path: str
+    original_name: str
 
 
 @dataclass(slots=True)
@@ -14,7 +23,7 @@ class RouteDefinition:
     path: str
     handler_name: str
     file_path: str
-    imported_symbols: dict[str, str] = field(default_factory=dict)
+    imported_symbols: dict[str, ImportedSymbol] = field(default_factory=dict)
     imported_module_aliases: dict[str, str] = field(default_factory=dict)
     called_targets: set[str] = field(default_factory=set)
 
@@ -24,17 +33,21 @@ def extract_routes(path: Path | str, root: Path | str) -> list[RouteDefinition]:
     repo_root = Path(root)
     tree = ast.parse(file_path.read_text(encoding="utf-8"))
     relative_path = file_path.relative_to(repo_root).as_posix()
+    module_name = module_name_from_path(file_path, repo_root)
 
-    imported_symbols: dict[str, str] = {}
+    imported_symbols: dict[str, ImportedSymbol] = {}
     imported_module_aliases: dict[str, str] = {}
 
     for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module:
-            module_path = _resolve_module_path(node.module, repo_root)
+        if isinstance(node, ast.ImportFrom):
+            module_path = _resolve_import_from_path(node, module_name, repo_root)
             if module_path is None:
                 continue
             for alias in node.names:
-                imported_symbols[alias.asname or alias.name] = module_path
+                imported_symbols[alias.asname or alias.name] = ImportedSymbol(
+                    module_path=module_path,
+                    original_name=alias.name,
+                )
 
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -50,44 +63,45 @@ def extract_routes(path: Path | str, root: Path | str) -> list[RouteDefinition]:
             continue
 
         for decorator in node.decorator_list:
-            route_signature = _extract_route_signature(decorator)
-            if route_signature is None:
+            route_signatures = _extract_route_signatures(decorator)
+            if not route_signatures:
                 continue
 
-            method, route_path = route_signature
-            routes.append(
-                RouteDefinition(
-                    method=method,
-                    path=route_path,
-                    handler_name=node.name,
-                    file_path=relative_path,
-                    imported_symbols=dict(imported_symbols),
-                    imported_module_aliases=dict(imported_module_aliases),
-                    called_targets=_collect_called_targets(node),
+            called_targets = _collect_called_targets(node)
+            for method, route_path in route_signatures:
+                routes.append(
+                    RouteDefinition(
+                        method=method,
+                        path=route_path,
+                        handler_name=node.name,
+                        file_path=relative_path,
+                        imported_symbols=dict(imported_symbols),
+                        imported_module_aliases=dict(imported_module_aliases),
+                        called_targets=set(called_targets),
+                    )
                 )
-            )
 
     return routes
 
 
-def _extract_route_signature(decorator: ast.AST) -> tuple[str, str] | None:
+def _extract_route_signatures(decorator: ast.AST) -> list[tuple[str, str]]:
     if not isinstance(decorator, ast.Call):
-        return None
+        return []
 
     route_path = _literal_string(decorator.args[0]) if decorator.args else None
     if route_path is None:
-        return None
+        return []
 
     if isinstance(decorator.func, ast.Attribute):
         decorator_name = decorator.func.attr.lower()
         if decorator_name in _HTTP_METHOD_NAMES:
-            return decorator_name.upper(), route_path
+            return [(decorator_name.upper(), route_path)]
         if decorator_name == "route":
             methods = _extract_route_methods(decorator)
             if methods:
-                return methods[0], route_path
+                return [(method, route_path) for method in methods]
 
-    return None
+    return []
 
 
 def _extract_route_methods(decorator: ast.Call) -> list[str]:
@@ -130,3 +144,25 @@ def _resolve_module_path(module_name: str, root: Path) -> str | None:
         return package_init.relative_to(root).as_posix()
 
     return None
+
+
+def _resolve_import_from_path(node: ast.ImportFrom, current_module_name: str, root: Path) -> str | None:
+    module_reference = node.module or ""
+
+    if node.level:
+        if current_module_name.endswith(".__init__"):
+            package_name = current_module_name.removesuffix(".__init__")
+        else:
+            package_name = current_module_name.rsplit(".", maxsplit=1)[0] if "." in current_module_name else ""
+
+        relative_name = "." * node.level + module_reference
+        try:
+            resolved_name = importlib.util.resolve_name(relative_name, package_name)
+        except ImportError:
+            return None
+        return _resolve_module_path(resolved_name, root)
+
+    if not module_reference:
+        return None
+
+    return _resolve_module_path(module_reference, root)

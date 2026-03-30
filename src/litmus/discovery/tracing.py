@@ -51,10 +51,15 @@ def _matches_imported_symbol(
     if not symbols:
         return False
 
-    for symbol in symbols:
-        if route.imported_symbols.get(symbol) == changed_file and symbol in route.called_targets:
+    for local_name, binding in route.imported_symbols.items():
+        if (
+            binding.module_path == changed_file
+            and binding.original_name in symbols
+            and local_name in route.called_targets
+        ):
             return True
 
+    for symbol in symbols:
         for alias, module_path in route.imported_module_aliases.items():
             if module_path == changed_file and f"{alias}.{symbol}" in route.called_targets:
                 return True
