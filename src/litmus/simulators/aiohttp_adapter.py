@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import asyncio
+from contextlib import contextmanager
+import json
+
+import aiohttp
+
+from litmus.simulators.base import HttpConnectionRefusedError, HttpTimeoutError, SimulatedHttpResponse
+from litmus.simulators.http import HttpSimulator
+
+
+class _SimulatedAiohttpResponse:
+    def __init__(self, response: SimulatedHttpResponse) -> None:
+        self._response = response
+        self.status = response.status_code
+        self.headers = response.headers
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def json(self):
+        if self._response.json_body is not None:
+            return self._response.json_body
+        return json.loads(await self.text())
+
+    async def text(self):
+        return self._response.content_bytes().decode("utf-8")
+
+    async def read(self):
+        return self._response.content_bytes()
+
+
+@contextmanager
+def patch_aiohttp(simulator: HttpSimulator):
+    original_request = aiohttp.ClientSession._request
+
+    async def simulated_request(self, method, url, *args, **kwargs):
+        try:
+            response = await simulator.handle_request(method, str(url))
+        except HttpTimeoutError as exc:
+            raise asyncio.TimeoutError(str(exc)) from exc
+        except HttpConnectionRefusedError as exc:
+            raise aiohttp.ClientConnectionError(str(exc)) from exc
+
+        if response.latency_ms:
+            await asyncio.sleep(0)
+
+        return _SimulatedAiohttpResponse(response)
+
+    aiohttp.ClientSession._request = simulated_request
+    try:
+        yield
+    finally:
+        aiohttp.ClientSession._request = original_request
