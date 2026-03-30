@@ -87,6 +87,7 @@ def _decode_body(body: bytes, headers: list[tuple[bytes, bytes]]) -> Any:
     if not body:
         return None
 
+    decoded_body = body.decode("utf-8")
     content_type = next(
         (
             value.decode("utf-8")
@@ -96,6 +97,9 @@ def _decode_body(body: bytes, headers: list[tuple[bytes, bytes]]) -> Any:
         "",
     )
     if "application/json" in content_type:
-        return json.loads(body.decode("utf-8"))
+        try:
+            return json.loads(decoded_body)
+        except json.JSONDecodeError:
+            return decoded_body
 
-    return body.decode("utf-8")
+    return decoded_body

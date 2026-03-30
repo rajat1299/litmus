@@ -122,3 +122,33 @@ def test_run_asgi_app_preserves_plain_text_response_body() -> None:
 
     assert result.status_code == 200
     assert result.body == "123"
+
+
+def test_run_asgi_app_preserves_malformed_json_response_body() -> None:
+    async def app(scope, receive, send):
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": b"{bad json",
+            }
+        )
+
+    result = asyncio.run(
+        run_asgi_app(
+            app=app,
+            method="GET",
+            path="/broken-json",
+            seed=5,
+            fault_plan=FaultPlan(seed=5),
+        )
+    )
+
+    assert result.status_code == 200
+    assert result.body == "{bad json"
