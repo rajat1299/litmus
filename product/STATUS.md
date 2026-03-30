@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-03 done; WS-04 differential replay checkpoint in review |
+| Implementation | In progress | WS-03 done; WS-04 property-check checkpoint in review |
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the first WS-04 differential replay checkpoint.
-2. Add property-check execution after replay result models are stable.
+1. Review the WS-04 property-check runner checkpoint.
+2. Keep replay and property result models aligned for later reporting work.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
