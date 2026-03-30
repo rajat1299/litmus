@@ -60,6 +60,28 @@ def test_simulated_async_engine_uses_read_committed_transactions() -> None:
     asyncio.run(exercise())
 
 
+def test_simulated_async_engine_reader_transaction_sees_newly_committed_rows() -> None:
+    engine = SimulatedAsyncEngine(
+        schemas={
+            "orders": TableSchema(primary_key="id", columns=("id", "status")),
+        }
+    )
+
+    async def exercise() -> None:
+        async with engine.session() as writer:
+            async with engine.session() as reader:
+                await reader.begin()
+                assert await reader.get("orders", "ord-1") is None
+
+                await writer.begin()
+                await writer.insert("orders", {"id": "ord-1", "status": "pending"})
+                await writer.commit()
+
+                assert await reader.get("orders", "ord-1") == {"id": "ord-1", "status": "pending"}
+
+    asyncio.run(exercise())
+
+
 def test_simulated_async_engine_fails_clearly_for_unsupported_operations() -> None:
     engine = SimulatedAsyncEngine(
         schemas={

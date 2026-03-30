@@ -63,3 +63,31 @@ def test_simulated_async_engine_enforces_pool_limits() -> None:
             await first.__aexit__(None, None, None)
 
     asyncio.run(exercise())
+
+
+def test_simulated_async_engine_merges_non_conflicting_concurrent_commits() -> None:
+    engine = SimulatedAsyncEngine(
+        schemas={
+            "orders": TableSchema(primary_key="id", columns=("id", "status")),
+        }
+    )
+
+    async def exercise() -> None:
+        async with engine.session() as writer_one:
+            async with engine.session() as writer_two:
+                await writer_one.begin()
+                await writer_two.begin()
+
+                await writer_one.insert("orders", {"id": "ord-1", "status": "pending"})
+                await writer_two.insert("orders", {"id": "ord-2", "status": "paid"})
+
+                await writer_one.commit()
+                await writer_two.commit()
+
+        async with engine.session() as reader:
+            assert await reader.all("orders") == [
+                {"id": "ord-1", "status": "pending"},
+                {"id": "ord-2", "status": "paid"},
+            ]
+
+    asyncio.run(exercise())
