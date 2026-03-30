@@ -18,6 +18,7 @@ Read these files in order before doing substantial work:
 3. Prefer disjoint file ownership. If a shared interface must change, document it first.
 4. Update status before handing off or stopping.
 5. Every workstream must end with targeted verification and a review note.
+6. Prefer small, coherent commits for each execution chunk.
 
 ---
 
