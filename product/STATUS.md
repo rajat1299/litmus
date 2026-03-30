@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | Not started | No product code in repo yet |
+| Implementation | In progress | WS-01 committed; WS-02 queued next |
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -56,7 +56,7 @@ Update this table whenever work is claimed, blocked, or completed.
 
 | ID | Workstream | Owner | Status | Dependencies | Last Update |
 | --- | --- | --- | --- | --- | --- |
-| WS-01 | Repo and CLI foundation | Codex | In review | None | 2026-03-29 |
+| WS-01 | Repo and CLI foundation | Codex | Done | None | 2026-03-29 |
 | WS-02 | App discovery, diff tracing, endpoint mapping | Unassigned | Queued | WS-01 | 2026-03-29 |
 | WS-03 | Invariants, scenario sourcing, LLM suggestions | Unassigned | Queued | WS-01, WS-02 | 2026-03-29 |
 | WS-04 | Property checks and differential replay | Unassigned | Queued | WS-01, WS-03 | 2026-03-29 |

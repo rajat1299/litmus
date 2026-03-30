@@ -40,3 +40,10 @@ None.
 ## Handoff Notes
 
 Publish any package-management or entrypoint decisions here before closing.
+
+### 2026-03-29 checkpoint
+
+- Package management uses `uv` with a PEP 621 `pyproject.toml` and a generated `uv.lock`.
+- The distributable package name is `litmus-cli`; the console entrypoint is `litmus`.
+- The CLI entrypoint resolves through `litmus.main:main`, which delegates to the Typer app in `litmus.cli`.
+- WS-01 intentionally stops at a placeholder command surface and smoke coverage for `litmus --help`.
