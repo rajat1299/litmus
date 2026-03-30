@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import json
 
 from litmus.discovery.routes import RouteDefinition
-from litmus.invariants.models import Invariant, RequestExample, ResponseExample
+from litmus.invariants.models import Invariant, InvariantStatus, RequestExample, ResponseExample
 
 
 @dataclass(slots=True)
@@ -44,14 +44,25 @@ def build_scenarios(
                 method=route_key[0],
                 path=route_key[1],
                 request=request.model_copy(update={"method": route_key[0]}),
-                expected_response=invariant.response,
+                expected_response=_preferred_response([invariant]),
                 invariants=[invariant],
             )
             scenarios_by_key[scenario_key] = scenario
             continue
 
         scenario.invariants.append(invariant)
-        if scenario.expected_response is None and invariant.response is not None:
-            scenario.expected_response = invariant.response
+        scenario.expected_response = _preferred_response(scenario.invariants)
 
     return list(scenarios_by_key.values())
+
+
+def _preferred_response(invariants: list[Invariant]) -> ResponseExample | None:
+    for invariant in invariants:
+        if invariant.status is InvariantStatus.CONFIRMED and invariant.response is not None:
+            return invariant.response
+
+    for invariant in invariants:
+        if invariant.response is not None:
+            return invariant.response
+
+    return None

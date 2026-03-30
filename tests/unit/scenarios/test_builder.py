@@ -112,3 +112,46 @@ def test_build_scenarios_keeps_distinct_requests_separate_on_same_endpoint() -> 
         {"amount": 10_000},
     ]
     assert [scenario.expected_response.status_code for scenario in scenarios] == [200, 402]
+
+
+def test_build_scenarios_prefers_confirmed_response_over_suggested_response_for_same_request() -> None:
+    routes = [
+        RouteDefinition(
+            method="POST",
+            path="/payments/charge",
+            handler_name="charge",
+            file_path="service/api.py",
+        )
+    ]
+    invariants = [
+        Invariant(
+            name="charge_accepts_async_processing",
+            source="llm:diff_analysis",
+            status=InvariantStatus.SUGGESTED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(
+                method="POST",
+                path="/payments/charge",
+                payload={"amount": 100},
+            ),
+            response=ResponseExample(status_code=202),
+        ),
+        Invariant(
+            name="charge_returns_200_on_success",
+            source="mined:tests/test_payment.py::test_charge_success",
+            status=InvariantStatus.CONFIRMED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(
+                method="POST",
+                path="/payments/charge",
+                payload={"amount": 100},
+            ),
+            response=ResponseExample(status_code=200),
+        ),
+    ]
+
+    scenarios = build_scenarios(routes=routes, invariants=invariants)
+
+    assert len(scenarios) == 1
+    assert scenarios[0].expected_response is not None
+    assert scenarios[0].expected_response.status_code == 200

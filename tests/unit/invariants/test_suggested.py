@@ -73,4 +73,3 @@ def test_suggest_invariants_delegates_to_provider_and_normalizes_status() -> Non
     assert [invariant.name for invariant in suggestions] == ["charge_is_idempotent_on_retry"]
     assert suggestions[0].status is InvariantStatus.SUGGESTED
     assert suggestions[0].reasoning == "Retry logic replays the charge call without a dedupe key."
-
