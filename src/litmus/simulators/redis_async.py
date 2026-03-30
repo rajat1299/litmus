@@ -81,7 +81,8 @@ class SimulatedRedis:
     async def incr(self, key: str) -> int:
         self._expire_due_keys()
         self._apply_fault()
-        current_value = await self.get(key)
+        entry = self._entry(key, expected_kind="string", allow_missing=True)
+        current_value = None if entry is None else entry.value
         next_value = 1 if current_value is None else int(current_value) + 1
         self._entries[key] = _RedisEntry(kind="string", value=next_value)
         return next_value
@@ -181,8 +182,6 @@ class SimulatedRedis:
     async def _push(self, key: str, values: tuple[Any, ...], left: bool) -> int:
         self._expire_due_keys()
         fault = self._apply_fault(allow_partial_write=True)
-        entry = self._list_entry(key, create=True)
-        assert entry is not None
 
         values_to_apply = values
         partial_applied_count: int | None = None
@@ -190,18 +189,21 @@ class SimulatedRedis:
             partial_applied_count = max(0, min(len(values), int(fault.params.get("applied_count", 1))))
             values_to_apply = values[:partial_applied_count]
 
-        for value in values_to_apply:
-            if left:
-                entry.value.insert(0, deepcopy(value))
-            else:
-                entry.value.append(deepcopy(value))
+        entry = self._list_entry(key, create=bool(values_to_apply))
 
-        self._deliver_blocking_pops(key)
+        if entry is not None:
+            for value in values_to_apply:
+                if left:
+                    entry.value.insert(0, deepcopy(value))
+                else:
+                    entry.value.append(deepcopy(value))
+
+            self._deliver_blocking_pops(key)
 
         if partial_applied_count is not None:
             raise RedisPartialWriteError(applied_count=partial_applied_count)
 
-        return len(entry.value)
+        return 0 if entry is None else len(entry.value)
 
     def _entry(
         self,

@@ -52,6 +52,28 @@ def test_simulated_redis_raises_timeout_fault_for_blocking_pop() -> None:
     asyncio.run(exercise())
 
 
+def test_simulated_redis_incr_consumes_only_one_fault_step() -> None:
+    redis = SimulatedRedis(
+        fault_plan=FaultPlan(
+            seed=25,
+            schedule={
+                2: FaultSpec(kind="timeout", target="redis"),
+            },
+        )
+    )
+
+    async def exercise() -> None:
+        assert await redis.incr("counter") == 1
+
+        try:
+            await redis.get("counter")
+        except RedisTimeoutError:
+            return
+        raise AssertionError("expected redis timeout on the second operation")
+
+    asyncio.run(exercise())
+
+
 def test_simulated_redis_applies_partial_write_fault_to_multi_value_push() -> None:
     redis = SimulatedRedis(
         fault_plan=FaultPlan(
@@ -75,6 +97,34 @@ def test_simulated_redis_applies_partial_write_fault_to_multi_value_push() -> No
             raise AssertionError("expected redis partial write")
 
         assert await redis.lpop("jobs") == "job-1"
+        assert await redis.lpop("jobs") is None
+
+    asyncio.run(exercise())
+
+
+def test_simulated_redis_partial_write_with_zero_applied_values_leaves_no_key() -> None:
+    redis = SimulatedRedis(
+        fault_plan=FaultPlan(
+            seed=26,
+            schedule={
+                1: FaultSpec(
+                    kind="partial_write",
+                    target="redis",
+                    params={"applied_count": 0},
+                ),
+            },
+        )
+    )
+
+    async def exercise() -> None:
+        try:
+            await redis.rpush("jobs", "job-1")
+        except RedisPartialWriteError as exc:
+            assert exc.applied_count == 0
+        else:
+            raise AssertionError("expected redis partial write")
+
+        assert await redis.delete("jobs") == 0
         assert await redis.lpop("jobs") is None
 
     asyncio.run(exercise())
