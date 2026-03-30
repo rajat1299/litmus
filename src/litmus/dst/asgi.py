@@ -42,21 +42,22 @@ async def run_asgi_app(
         fault_events=len(runtime.fault_plan.schedule),
     )
 
-    sent_request = False
+    receive_calls = 0
     response_status = 500
     response_headers: list[tuple[bytes, bytes]] = []
     response_chunks: list[bytes] = []
 
     async def receive() -> dict[str, Any]:
-        nonlocal sent_request
-        if not sent_request:
-            sent_request = True
+        nonlocal receive_calls
+        if receive_calls == 0:
+            receive_calls += 1
             return {
                 "type": "http.request",
                 "body": request_body,
                 "more_body": False,
             }
-        return {"type": "http.disconnect"}
+        receive_calls += 1
+        return {"type": "http.request", "body": b"", "more_body": False}
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal response_status, response_headers
@@ -97,7 +98,4 @@ def _decode_body(body: bytes, headers: list[tuple[bytes, bytes]]) -> Any:
     if "application/json" in content_type:
         return json.loads(body.decode("utf-8"))
 
-    try:
-        return json.loads(body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return body.decode("utf-8")
+    return body.decode("utf-8")

@@ -23,4 +23,3 @@ def test_build_fault_plan_is_deterministic_and_lookup_works() -> None:
     populated_steps = sorted(plan_one.schedule)
     assert populated_steps
     assert plan_one.fault_for_step(populated_steps[0]) == plan_two.fault_for_step(populated_steps[0])
-

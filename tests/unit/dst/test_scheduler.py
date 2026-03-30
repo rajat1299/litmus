@@ -13,4 +13,3 @@ def test_deterministic_scheduler_repeats_same_order_for_same_seed() -> None:
 
     assert order_one == order_two
     assert sorted(order_one) == sorted(runnable)
-
