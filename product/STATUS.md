@@ -42,7 +42,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | ID | Milestone | Status | Exit Condition |
 | --- | --- | --- | --- |
 | M0 | Repo operating system | Complete | Spec, plan, status, and workstream docs exist |
-| M1 | CLI + config foundation | Queued | `litmus init/verify/watch/replay` command skeleton works |
+| M1 | CLI + config foundation | Complete | `litmus init/verify/watch/replay` command skeleton works |
 | M2 | Verification core | Queued | Invariants, property tests, diff tracing, and differential replay run locally |
 | M3 | DST engine | Queued | Deterministic runtime and semantic simulators catch seeded failures |
 | M4 | Team workflow | Queued | GitHub Action and PR comment are usable end-to-end |
@@ -57,7 +57,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | ID | Workstream | Owner | Status | Dependencies | Last Update |
 | --- | --- | --- | --- | --- | --- |
 | WS-01 | Repo and CLI foundation | Codex | Done | None | 2026-03-29 |
-| WS-02 | App discovery, diff tracing, endpoint mapping | Unassigned | Queued | WS-01 | 2026-03-29 |
+| WS-02 | App discovery, diff tracing, endpoint mapping | Codex | In review | WS-01 | 2026-03-29 |
 | WS-03 | Invariants, scenario sourcing, LLM suggestions | Unassigned | Queued | WS-01, WS-02 | 2026-03-29 |
 | WS-04 | Property checks and differential replay | Unassigned | Queued | WS-01, WS-03 | 2026-03-29 |
 | WS-05 | Deterministic runtime and DST scheduler | Unassigned | Queued | WS-01, WS-02 | 2026-03-29 |
