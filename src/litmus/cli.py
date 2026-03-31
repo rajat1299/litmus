@@ -57,7 +57,14 @@ def watch() -> None:
 def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -> None:
     """Replay a deterministic failing seed."""
     repo_root = Path.cwd()
-    record = replay_record_for_seed(repo_root, seed)
+    try:
+        record = replay_record_for_seed(repo_root, seed)
+    except FileNotFoundError:
+        typer.echo("No replay traces found. Run `litmus verify` first.", err=True)
+        raise typer.Exit(code=1) from None
+    except LookupError:
+        typer.echo(f"No replay trace found for {seed}.", err=True)
+        raise typer.Exit(code=1) from None
     app = load_asgi_app(record.app_reference, repo_root)
     current_result = asyncio.run(
         run_asgi_app(
