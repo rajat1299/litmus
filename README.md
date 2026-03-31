@@ -1,7 +1,7 @@
 <p align="center">
   <br />
   <br />
-  <img src="assets/litmus-logo.svg" alt="litmus" width="160" />
+  <img src="assets/litmus-logo.png" alt="litmus" width="160" />
   <br />
   <br />
 </p>
