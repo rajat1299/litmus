@@ -14,6 +14,7 @@ from litmus.replay.differential import ReplayClassification, run_differential_re
 from litmus.replay.trace import replay_record_for_seed, save_replay_trace_records
 from litmus.reporting.console import render_replay_summary, render_verification_summary
 from litmus.scenarios.builder import Scenario
+from litmus.watch import run_watch
 
 app = typer.Typer(
     add_completion=False,
@@ -50,7 +51,10 @@ def verify() -> None:
 @app.command()
 def watch() -> None:
     """Watch for changes and rerun Litmus verification."""
-    typer.echo("litmus watch is not implemented yet.")
+    try:
+        run_watch(Path.cwd(), emit=typer.echo)
+    except KeyboardInterrupt:
+        typer.echo("Litmus watch stopped.")
 
 
 @app.command()

@@ -1,7 +1,7 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-03-30
+**Status Date:** 2026-03-31
 **Phase:** Pre-development / execution setup
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-07 replay trace checkpoint in review after verify/reporting approval
+| Implementation | In progress | WS-07 watch checkpoint in review after replay CLI stabilization
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -62,7 +62,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-04 | Property checks and differential replay | Codex | Done | WS-01, WS-03 | 2026-03-30 |
 | WS-05 | Deterministic runtime and DST scheduler | Codex | Done | WS-01, WS-02 | 2026-03-30 |
 | WS-06 | Semantic simulators | Codex | Done | WS-05 | 2026-03-30 |
-| WS-07 | Reporting, watch mode, GitHub Action | Codex | In review | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-30 |
+| WS-07 | Reporting, watch mode, GitHub Action | Codex | In review | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-31 |
 | WS-08 | Demo app, docs, packaging, release path | Unassigned | Queued | WS-01 through WS-07 | 2026-03-29 |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-07 replay trace and `litmus replay` checkpoint.
-2. Add `litmus watch` once replay artifacts and result models are stable.
+1. Review the WS-07 `litmus watch` checkpoint.
+2. Add PR-comment and GitHub Action rendering on top of the current verify/replay/watch loop.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
