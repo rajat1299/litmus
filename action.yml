@@ -46,6 +46,7 @@ runs:
       env:
         PYTHONPATH: ${{ github.action_path }}/src
         LITMUS_WORKSPACE: ${{ github.workspace }}
+        LITMUS_GITHUB_TOKEN: ${{ inputs.token }}
         LITMUS_COMMENT_PATH: ${{ runner.temp }}/litmus-pr-comment.md
         LITMUS_MIN_SCORE: ${{ inputs.min-score }}
         LITMUS_MODE: ${{ inputs.mode }}

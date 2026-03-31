@@ -112,6 +112,10 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
         "litmus.github_action.report.save_replay_trace_records",
         lambda *_args, **_kwargs: None,
     )
+    monkeypatch.setattr(
+        "litmus.github_action.report.publish_pr_comment",
+        lambda **_kwargs: None,
+    )
 
     report = run_github_action(
         workspace=tmp_path,
@@ -121,8 +125,62 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
         output_path=None,
         summary_path=None,
         comment_path=tmp_path / "litmus-pr-comment.md",
+        github_token=None,
+        repository=None,
+        event_path=None,
     )
 
     assert captured["root"] == str(tmp_path)
     assert captured["mode"] == "ci"
     assert report.verdict == "fail"
+
+
+def test_run_github_action_publishes_comment_when_github_context_exists(monkeypatch, tmp_path) -> None:
+    scenario = Scenario(
+        method="GET",
+        path="/health",
+        request=RequestExample(method="GET", path="/health"),
+        expected_response=ResponseExample(status_code=200, json={"status": "ok"}),
+    )
+    result = VerificationResult(
+        app_reference="service.app:app",
+        routes=[],
+        invariants=[],
+        scenarios=[scenario],
+        replay_results=[],
+        replay_traces=[],
+        property_results=[],
+    )
+    captured: dict[str, object] = {}
+    event_path = tmp_path / "event.json"
+    event_path.write_text('{"pull_request": {"number": 5}}', encoding="utf-8")
+
+    monkeypatch.setattr("litmus.github_action.report.run_verification", lambda *_args, **_kwargs: result)
+    monkeypatch.setattr(
+        "litmus.github_action.report.save_replay_trace_records",
+        lambda *_args, **_kwargs: None,
+    )
+
+    def fake_publish_pr_comment(**kwargs):
+        captured.update(kwargs)
+        return "https://github.example/comment/5"
+
+    monkeypatch.setattr("litmus.github_action.report.publish_pr_comment", fake_publish_pr_comment)
+
+    run_github_action(
+        workspace=tmp_path,
+        mode="ci",
+        min_score=parse_min_score("80"),
+        include_comment=True,
+        output_path=None,
+        summary_path=None,
+        comment_path=tmp_path / "litmus-pr-comment.md",
+        github_token="token-123",
+        repository="acme/litmus",
+        event_path=event_path,
+    )
+
+    assert captured["repository"] == "acme/litmus"
+    assert captured["token"] == "token-123"
+    assert captured["event_path"] == event_path
+    assert "## Litmus Verification" in str(captured["comment"])

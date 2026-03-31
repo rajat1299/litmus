@@ -11,6 +11,7 @@ jobs:
 
       - uses: ./
         with:
+          token: ${{ github.token }}
           mode: ci
           min-score: '80'
           comment: 'true'

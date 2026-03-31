@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from litmus.dst.engine import run_verification
+from litmus.github_action.publish import publish_pr_comment
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
 from litmus.replay.trace import save_replay_trace_records
@@ -102,8 +103,12 @@ def main() -> None:
     comment_path = Path(
         os.getenv("LITMUS_COMMENT_PATH", str(workspace / ".litmus" / "pr-comment.md"))
     )
+    event_path = _optional_path(os.getenv("GITHUB_EVENT_PATH"))
     mode = os.getenv("LITMUS_MODE", "local")
     include_comment = os.getenv("LITMUS_COMMENT", "true").strip().lower() != "false"
+    github_token = _optional_string(os.getenv("LITMUS_GITHUB_TOKEN"))
+    repository = _optional_string(os.getenv("GITHUB_REPOSITORY"))
+    api_url = os.getenv("GITHUB_API_URL", "https://api.github.com")
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
 
     report = run_github_action(
@@ -114,6 +119,10 @@ def main() -> None:
         output_path=output_path,
         summary_path=summary_path,
         comment_path=comment_path,
+        github_token=github_token,
+        repository=repository,
+        event_path=event_path,
+        api_url=api_url,
     )
     raise SystemExit(1 if report.should_fail else 0)
 
@@ -122,6 +131,12 @@ def _optional_path(raw_value: str | None) -> Path | None:
     if raw_value is None or not raw_value.strip():
         return None
     return Path(raw_value)
+
+
+def _optional_string(raw_value: str | None) -> str | None:
+    if raw_value is None or not raw_value.strip():
+        return None
+    return raw_value
 
 
 def run_github_action(
@@ -133,6 +148,10 @@ def run_github_action(
     output_path: Path | None,
     summary_path: Path | None,
     comment_path: Path | None,
+    github_token: str | None = None,
+    repository: str | None = None,
+    event_path: Path | None = None,
+    api_url: str = "https://api.github.com",
 ) -> ActionReport:
     result = run_verification(workspace, mode=mode)
     save_replay_trace_records(workspace, result.replay_traces)
@@ -148,6 +167,19 @@ def run_github_action(
         summary_path=summary_path,
         comment_path=comment_path,
     )
+    if (
+        include_comment
+        and github_token is not None
+        and repository is not None
+        and event_path is not None
+    ):
+        publish_pr_comment(
+            api_url=api_url,
+            repository=repository,
+            event_path=event_path,
+            token=github_token,
+            comment=report.comment,
+        )
     return report
 
 

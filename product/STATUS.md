@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-07 GitHub Action checkpoint in review after PR-comment approval
+| Implementation | In progress | WS-07 GitHub Action publication checkpoint in review
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-07 GitHub Action wrapper checkpoint.
-2. Move to the demo app, README, and release-path slice once the action wrapper is approved.
+1. Review the WS-07 GitHub Action publication checkpoint.
+2. Move to the demo app, README, and release-path slice once the GitHub Action path is approved.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
