@@ -17,6 +17,8 @@ from litmus.scenarios.builder import Scenario, build_scenarios
 
 LOCAL_PROPERTY_MAX_EXAMPLES = 100
 CI_PROPERTY_MAX_EXAMPLES = 500
+LOCAL_REPLAY_SEEDS_PER_SCENARIO = 1
+CI_REPLAY_SEEDS_PER_SCENARIO = 500
 
 
 @dataclass(slots=True)
@@ -37,7 +39,14 @@ def run_verification(root: Path | str, mode: str = "local") -> VerificationResul
     routes = _collect_routes(repo_root)
     invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
     scenarios = build_scenarios(routes, invariants)
-    replay_results, replay_traces = asyncio.run(_run_replay(app, app_reference, scenarios))
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            app,
+            app_reference,
+            scenarios,
+            seeds_per_scenario=_replay_seed_count_for_mode(mode),
+        )
+    )
     property_results = _run_property_checks(
         app,
         invariants,
@@ -69,47 +78,48 @@ async def _run_replay(
     app,
     app_reference: str,
     scenarios: list[Scenario],
+    *,
+    seeds_per_scenario: int = LOCAL_REPLAY_SEEDS_PER_SCENARIO,
 ) -> tuple[list[DifferentialReplayResult], list[ReplayTraceRecord]]:
     replay_results: list[DifferentialReplayResult] = []
     replay_traces: list[ReplayTraceRecord] = []
     next_seed_value = 1
 
     for scenario in scenarios:
-        result = await run_asgi_app(
-            app,
-            method=scenario.method,
-            path=scenario.path,
-            json_body=scenario.request.payload,
-            seed=next_seed_value,
-        )
-        changed_response = ResponseExample(
-            status_code=result.status_code,
-            json=result.body if isinstance(result.body, dict) else None,
-        )
-
-        async def runner(_: Scenario) -> ResponseExample:
-            return changed_response
-
-        differential_results = await run_differential_replay(scenarios=[scenario], runner=runner)
-        if not differential_results:
-            continue
-
-        replay_result = differential_results[0]
-        replay_results.append(replay_result)
-        replay_traces.append(
-            ReplayTraceRecord(
-                seed=f"seed:{next_seed_value}",
-                seed_value=next_seed_value,
-                app_reference=app_reference,
+        for _ in range(seeds_per_scenario):
+            result = await run_asgi_app(
+                app,
                 method=scenario.method,
                 path=scenario.path,
-                request_payload=scenario.request.payload,
-                baseline_status_code=replay_result.baseline_response.status_code,
-                baseline_body=replay_result.baseline_response.body,
-                trace=result.trace,
+                json_body=scenario.request.payload,
+                seed=next_seed_value,
             )
-        )
-        next_seed_value += 1
+            changed_response = ResponseExample(
+                status_code=result.status_code,
+                json=result.body if isinstance(result.body, dict) else None,
+            )
+
+            async def runner(_: Scenario) -> ResponseExample:
+                return changed_response
+
+            differential_results = await run_differential_replay(scenarios=[scenario], runner=runner)
+            if differential_results:
+                replay_result = differential_results[0]
+                replay_results.append(replay_result)
+                replay_traces.append(
+                    ReplayTraceRecord(
+                        seed=f"seed:{next_seed_value}",
+                        seed_value=next_seed_value,
+                        app_reference=app_reference,
+                        method=scenario.method,
+                        path=scenario.path,
+                        request_payload=scenario.request.payload,
+                        baseline_status_code=replay_result.baseline_response.status_code,
+                        baseline_body=replay_result.baseline_response.body,
+                        trace=result.trace,
+                    )
+                )
+            next_seed_value += 1
 
     return replay_results, replay_traces
 
@@ -147,9 +157,25 @@ def _run_property_checks(
 
 
 def _property_max_examples_for_mode(mode: str) -> int:
-    normalized_mode = mode.strip().lower()
+    normalized_mode = _normalize_mode(mode)
     if normalized_mode == "local":
         return LOCAL_PROPERTY_MAX_EXAMPLES
     if normalized_mode == "ci":
         return CI_PROPERTY_MAX_EXAMPLES
+    raise AssertionError(f"unreachable verification mode: {normalized_mode}")
+
+
+def _replay_seed_count_for_mode(mode: str) -> int:
+    normalized_mode = _normalize_mode(mode)
+    if normalized_mode == "local":
+        return LOCAL_REPLAY_SEEDS_PER_SCENARIO
+    if normalized_mode == "ci":
+        return CI_REPLAY_SEEDS_PER_SCENARIO
+    raise AssertionError(f"unreachable verification mode: {normalized_mode}")
+
+
+def _normalize_mode(mode: str) -> str:
+    normalized_mode = mode.strip().lower()
+    if normalized_mode in {"local", "ci"}:
+        return normalized_mode
     raise ValueError(f"unsupported verification mode: {mode}")
