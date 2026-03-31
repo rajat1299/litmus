@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-07 watch checkpoint in review after replay CLI stabilization
+| Implementation | In progress | WS-07 PR-comment checkpoint in review after watch approval
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-07 `litmus watch` checkpoint.
-2. Add PR-comment and GitHub Action rendering on top of the current verify/replay/watch loop.
+1. Review the WS-07 PR-comment rendering checkpoint.
+2. Add the GitHub Action wrapper on top of the current verify/replay/watch/reporting loop.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
