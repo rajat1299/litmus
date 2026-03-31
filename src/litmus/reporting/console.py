@@ -31,3 +31,28 @@ def render_verification_summary(result) -> str:
             f"Confidence: {confidence:.2f}",
         ]
     )
+
+
+def render_replay_summary(
+    *,
+    seed: str,
+    method: str,
+    path: str,
+    baseline_status_code: int | None,
+    baseline_body,
+    current_status_code: int | None,
+    current_body,
+    classification: ReplayClassification,
+    trace,
+) -> str:
+    lines = [
+        "Litmus replay",
+        f"Seed: {seed}",
+        f"Route: {method} {path}",
+        f"Baseline: {baseline_status_code} {baseline_body}",
+        f"Current: {current_status_code} {current_body}",
+        f"Classification: {classification.value}",
+        "Trace:",
+    ]
+    lines.extend(f"- {event.kind}" for event in trace)
+    return "\n".join(lines)

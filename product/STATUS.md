@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-07 verify and reporting checkpoint in review after WS-06 completion
+| Implementation | In progress | WS-07 replay trace checkpoint in review after verify/reporting approval
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the first WS-07 checkpoint for `litmus verify` and shared reporting.
-2. Add replay trace serialization and `litmus replay` once verify results are stable.
+1. Review the WS-07 replay trace and `litmus replay` checkpoint.
+2. Add `litmus watch` once replay artifacts and result models are stable.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

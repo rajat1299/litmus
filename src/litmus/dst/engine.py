@@ -12,6 +12,7 @@ from litmus.invariants.mined import mine_invariants_from_tests
 from litmus.invariants.models import Invariant, InvariantType, RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
+from litmus.replay.trace import ReplayTraceRecord
 from litmus.scenarios.builder import Scenario, build_scenarios
 
 
@@ -22,6 +23,7 @@ class VerificationResult:
     invariants: list[Invariant]
     scenarios: list[Scenario]
     replay_results: list[DifferentialReplayResult]
+    replay_traces: list[ReplayTraceRecord]
     property_results: list[PropertyCheckResult]
 
 
@@ -32,7 +34,7 @@ def run_verification(root: Path | str) -> VerificationResult:
     routes = _collect_routes(repo_root)
     invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
     scenarios = build_scenarios(routes, invariants)
-    replay_results = asyncio.run(_run_replay(app, scenarios))
+    replay_results, replay_traces = asyncio.run(_run_replay(app, app_reference, scenarios))
     property_results = _run_property_checks(app, invariants)
     return VerificationResult(
         app_reference=app_reference,
@@ -40,6 +42,7 @@ def run_verification(root: Path | str) -> VerificationResult:
         invariants=invariants,
         scenarios=scenarios,
         replay_results=replay_results,
+        replay_traces=replay_traces,
         property_results=property_results,
     )
 
@@ -55,17 +58,53 @@ def _collect_test_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("test_*.py") if path.is_file())
 
 
-async def _run_replay(app, scenarios: list[Scenario]) -> list[DifferentialReplayResult]:
-    async def runner(scenario: Scenario) -> ResponseExample:
+async def _run_replay(
+    app,
+    app_reference: str,
+    scenarios: list[Scenario],
+) -> tuple[list[DifferentialReplayResult], list[ReplayTraceRecord]]:
+    replay_results: list[DifferentialReplayResult] = []
+    replay_traces: list[ReplayTraceRecord] = []
+    next_seed_value = 1
+
+    for scenario in scenarios:
         result = await run_asgi_app(
             app,
             method=scenario.method,
             path=scenario.path,
             json_body=scenario.request.payload,
+            seed=next_seed_value,
         )
-        return ResponseExample(status_code=result.status_code, json=result.body if isinstance(result.body, dict) else None)
+        changed_response = ResponseExample(
+            status_code=result.status_code,
+            json=result.body if isinstance(result.body, dict) else None,
+        )
 
-    return await run_differential_replay(scenarios=scenarios, runner=runner)
+        async def runner(_: Scenario) -> ResponseExample:
+            return changed_response
+
+        differential_results = await run_differential_replay(scenarios=[scenario], runner=runner)
+        if not differential_results:
+            continue
+
+        replay_result = differential_results[0]
+        replay_results.append(replay_result)
+        replay_traces.append(
+            ReplayTraceRecord(
+                seed=f"seed:{next_seed_value}",
+                seed_value=next_seed_value,
+                app_reference=app_reference,
+                method=scenario.method,
+                path=scenario.path,
+                request_payload=scenario.request.payload,
+                baseline_status_code=replay_result.baseline_response.status_code,
+                baseline_body=replay_result.baseline_response.body,
+                trace=result.trace,
+            )
+        )
+        next_seed_value += 1
+
+    return replay_results, replay_traces
 
 
 def _run_property_checks(app, invariants: list[Invariant]) -> list[PropertyCheckResult]:
