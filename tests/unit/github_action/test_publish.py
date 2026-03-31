@@ -152,3 +152,53 @@ def test_publish_pr_comment_walks_pages_before_posting_duplicate_litmus_comment(
     )
     assert seen_requests[2][0] == "PATCH"
     assert seen_requests[2][1] == "https://api.github.example/repos/acme/litmus/issues/comments/77"
+
+
+def test_publish_pr_comment_removes_duplicate_marker_comments_after_update(tmp_path) -> None:
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps({"pull_request": {"number": 42}}), encoding="utf-8")
+    seen_requests: list[tuple[str, str, str | None]] = []
+
+    def fake_urlopen(request):
+        body = request.data.decode("utf-8") if request.data is not None else None
+        seen_requests.append((request.get_method(), request.full_url, body))
+        if request.get_method() == "GET":
+            if request.full_url.endswith("/issues/42/comments"):
+                return _FakeResponse([{"id": index, "body": f"Comment {index}"} for index in range(30)])
+            if request.full_url.endswith("/issues/42/comments?page=2"):
+                return _FakeResponse(
+                    [
+                        {"id": 77, "body": f"{COMMENT_MARKER}\nOlder Litmus comment"},
+                        {"id": 88, "body": f"{COMMENT_MARKER}\nDuplicate Litmus comment"},
+                    ]
+                )
+        if request.get_method() == "PATCH":
+            return _FakeResponse({"id": 77, "html_url": "https://github.example/comment/77"})
+        if request.get_method() == "DELETE":
+            return _FakeResponse({})
+        raise AssertionError(f"Unexpected request: {request.get_method()} {request.full_url}")
+
+    comment_url = publish_pr_comment(
+        api_url="https://api.github.example",
+        repository="acme/litmus",
+        event_path=event_path,
+        token="token-123",
+        comment="## Litmus Verification\n\nUpdated after dedupe.",
+        urlopen_fn=fake_urlopen,
+    )
+
+    assert comment_url == "https://github.example/comment/77"
+    assert seen_requests[0] == (
+        "GET",
+        "https://api.github.example/repos/acme/litmus/issues/42/comments",
+        None,
+    )
+    assert seen_requests[1] == (
+        "GET",
+        "https://api.github.example/repos/acme/litmus/issues/42/comments?page=2",
+        None,
+    )
+    assert seen_requests[2][0] == "PATCH"
+    assert seen_requests[2][1] == "https://api.github.example/repos/acme/litmus/issues/comments/77"
+    assert seen_requests[3][0] == "DELETE"
+    assert seen_requests[3][1] == "https://api.github.example/repos/acme/litmus/issues/comments/88"

@@ -26,13 +26,13 @@ def publish_pr_comment(
     issue_comments_url = (
         f"{api_url.rstrip('/')}/repos/{repository}/issues/{pull_request_number}/comments"
     )
-    existing_comment = _find_existing_comment(
+    existing_comments = _find_existing_comments(
         issue_comments_url=issue_comments_url,
         token=token,
         urlopen_fn=urlopen_fn,
     )
 
-    if existing_comment is None:
+    if not existing_comments:
         response = _request_json(
             method="POST",
             url=issue_comments_url,
@@ -41,13 +41,22 @@ def publish_pr_comment(
             urlopen_fn=urlopen_fn,
         )
     else:
+        primary_comment = existing_comments[0]
         response = _request_json(
             method="PATCH",
-            url=f"{api_url.rstrip('/')}/repos/{repository}/issues/comments/{existing_comment['id']}",
+            url=f"{api_url.rstrip('/')}/repos/{repository}/issues/comments/{primary_comment['id']}",
             token=token,
             payload={"body": comment_body},
             urlopen_fn=urlopen_fn,
         )
+        for duplicate_comment in existing_comments[1:]:
+            _request_json(
+                method="DELETE",
+                url=f"{api_url.rstrip('/')}/repos/{repository}/issues/comments/{duplicate_comment['id']}",
+                token=token,
+                payload=None,
+                urlopen_fn=urlopen_fn,
+            )
 
     html_url = response.get("html_url")
     return str(html_url) if html_url is not None else None
@@ -66,12 +75,13 @@ def _pull_request_number(event_path: Path) -> int | None:
     return number if isinstance(number, int) else None
 
 
-def _find_existing_comment(
+def _find_existing_comments(
     *,
     issue_comments_url: str,
     token: str,
     urlopen_fn: Callable[[Request], Any],
-) -> dict[str, Any] | None:
+) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
     page = 1
     while True:
         comments = _request_json(
@@ -82,19 +92,19 @@ def _find_existing_comment(
             urlopen_fn=urlopen_fn,
         )
         if not isinstance(comments, list):
-            return None
+            return matches
 
         for comment in comments:
             if not isinstance(comment, dict):
                 continue
             body = comment.get("body")
             if isinstance(body, str) and COMMENT_MARKER in body:
-                return comment
+                matches.append(comment)
 
         if len(comments) < COMMENTS_PAGE_SIZE:
-            return None
+            return matches
         page += 1
-    return None
+    return matches
 
 
 def _request_json(
