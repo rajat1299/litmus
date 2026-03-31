@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+from typing import Any
 
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
@@ -75,10 +76,34 @@ def _affected_endpoints(result) -> list[str]:
 
 
 def _failing_seed_lines(result) -> list[str]:
+    trace_records_by_key = {
+        _replay_identity_key(
+            method=replay_trace.method,
+            path=replay_trace.path,
+            payload=replay_trace.request_payload,
+        ): replay_trace
+        for replay_trace in result.replay_traces
+    }
     lines: list[str] = []
-    for replay_result, replay_trace in zip(result.replay_results, result.replay_traces, strict=False):
+    for replay_result in result.replay_results:
         if replay_result.classification is not ReplayClassification.BREAKING_CHANGE:
             continue
+
+        replay_trace = trace_records_by_key.get(
+            _replay_identity_key(
+                method=replay_result.scenario.method,
+                path=replay_result.scenario.path,
+                payload=replay_result.scenario.request.payload,
+            )
+        )
+        if replay_trace is None:
+            lines.append(
+                "- "
+                f"Replay trace missing for `{replay_result.scenario.method} {replay_result.scenario.path}`; "
+                "rerun `litmus verify` before replaying."
+            )
+            continue
+
         lines.append(
             "- "
             f"`{replay_trace.seed}` on `{replay_result.scenario.method} {replay_result.scenario.path}` "
@@ -139,3 +164,11 @@ def _property_explanation(property_result) -> str:
 
 def _format_value(value) -> str:
     return json.dumps(value, sort_keys=True)
+
+
+def _replay_identity_key(*, method: str, path: str, payload: dict[str, Any] | None) -> tuple[str, str, str]:
+    return (
+        method.upper(),
+        path,
+        json.dumps(payload, sort_keys=True) if payload is not None else "null",
+    )
