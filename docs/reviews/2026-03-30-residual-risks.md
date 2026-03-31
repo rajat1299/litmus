@@ -1,7 +1,7 @@
-# Residual Risks Through WS-06 Reviews
+# Residual Risks Through WS-07 Reviews
 
-**Status Date:** 2026-03-30
-**Scope:** Residual risks and open limitations that still remain after the reviewed WS-01 through WS-06 checkpoints. This list excludes findings that were already fixed during review.
+**Status Date:** 2026-03-31
+**Scope:** Residual risks and open limitations that still remain after the reviewed WS-01 through WS-07 checkpoints. This list excludes findings that were already fixed during review.
 
 ## Purpose
 
@@ -86,6 +86,20 @@ The SQLAlchemy slice now avoids losing non-conflicting commits, but concurrent w
 ### R-WS06-5 Redis fault and queue semantics are still intentionally shallow
 
 The Redis simulator now handles strings, hashes, lists, expiry, blocking single-key `brpop`, and several explicit fault modes, but it still omits richer Redis behavior such as multi-key blocking pops, transactions, scripts, streams, and pub/sub delivery semantics. It is a narrow semantic state machine, not a drop-in replacement for broader Redis usage.
+
+## WS-07 Reporting, Verify, And Replay Workflows
+
+### R-WS07-1 Replay artifacts are local scenario records, not full DST seed replays
+
+`litmus replay` now works over persisted local replay records, which is a useful workflow step forward. However, the current `seed:N` identifiers are deterministic artifact IDs over replayable scenarios, not a full DST seed plus fault-schedule reproduction contract. That means replay is understandable and useful, but it is not yet the deeper deterministic execution story described in the product vision.
+
+### R-WS07-2 Verify still reports over all discovered scenarios
+
+The current `verify` path composes discovery, mined invariants, replay, and properties successfully, but it still runs over all replayable scenarios in the repo rather than a real changed-files diff input. That keeps the pipeline simple for now, but it does not yet match the intended “affected endpoints only” operating mode.
+
+### R-WS07-3 Workflow surfaces remain incomplete
+
+The core console reporting, `litmus verify`, `litmus replay`, and `litmus watch` now exist, but the workflow surface is still incomplete. Watch-mode failures now invalidate stale replay traces so broken reruns do not leave replayable old artifacts behind, yet error handling still surfaces only plain console failures instead of richer diagnostics or recovery guidance. Replay output is still intentionally minimal, and GitHub Action / PR comment rendering are still unimplemented. The developer-facing loop exists now, but the team-facing launch workflow is not yet complete.
 
 ## Cross-Workstream Risks
 

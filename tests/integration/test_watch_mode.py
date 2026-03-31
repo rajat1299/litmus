@@ -5,6 +5,7 @@ import textwrap
 from typer.testing import CliRunner
 
 from litmus.cli import app
+from litmus.watch import run_watch
 
 
 def test_litmus_watch_reruns_verification_on_python_change(tmp_path, monkeypatch) -> None:
@@ -119,3 +120,24 @@ def test_litmus_watch_ignores_litmus_artifacts(tmp_path, monkeypatch) -> None:
     assert "Watching for changes in" in result.output
     assert "Changed:" not in result.output
     assert "Litmus verify" not in result.output
+
+
+def test_litmus_watch_clears_stale_replay_traces_after_verification_error(tmp_path) -> None:
+    repo_root = tmp_path
+    trace_dir = repo_root / ".litmus"
+    trace_dir.mkdir()
+    trace_path = trace_dir / "replay-traces.json"
+    trace_path.write_text('{"records": [{"seed": "seed:1"}]}\n', encoding="utf-8")
+
+    def fake_watch(*_args, **_kwargs):
+        yield {("modified", str(repo_root / "service" / "app.py"))}
+
+    def fake_verify_runner(_root):
+        raise RuntimeError("broken verification")
+
+    messages: list[str] = []
+    run_watch(repo_root, watcher=fake_watch, emit=messages.append, verify_runner=fake_verify_runner)
+
+    assert not trace_path.exists()
+    assert "Changed: service/app.py" in messages
+    assert "Verification error: broken verification" in messages

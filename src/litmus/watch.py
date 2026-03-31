@@ -7,7 +7,7 @@ from typing import TypeAlias
 from watchfiles import watch
 
 from litmus.dst.engine import VerificationResult, run_verification
-from litmus.replay.trace import save_replay_trace_records
+from litmus.replay.trace import replay_trace_path, save_replay_trace_records
 from litmus.reporting.console import render_verification_summary
 
 WatchChange: TypeAlias = tuple[object, str]
@@ -48,6 +48,7 @@ def run_watch(
         try:
             result = verify_runner(repo_root)
         except Exception as exc:  # pragma: no cover - exercised via CLI path later
+            replay_trace_path(repo_root).unlink(missing_ok=True)
             emit(f"Verification error: {exc}")
             continue
 
