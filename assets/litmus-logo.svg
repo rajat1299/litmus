@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Litmus">
+  <rect width="160" height="160" rx="28" fill="#0a0a0a"/>
+  <!-- Litmus strip: dual tone suggesting acid/base indicator -->
+  <rect x="56" y="24" width="48" height="112" rx="8" fill="#1a1a1a" stroke="#262626" stroke-width="2"/>
+  <rect x="62" y="32" width="36" height="44" rx="4" fill="url(#a)"/>
+  <rect x="62" y="84" width="36" height="44" rx="4" fill="url(#b)"/>
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+</svg>
