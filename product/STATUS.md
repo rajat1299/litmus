@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-06 Redis simulator checkpoint in review after HTTP and SQLAlchemy approval |
+| Implementation | In progress | WS-07 verify and reporting checkpoint in review after WS-06 completion
 | Release readiness | Not started | Depends on implementation and demo app |
 
 ---
@@ -61,8 +61,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-03 | Invariants, scenario sourcing, LLM suggestions | Codex | Done | WS-01, WS-02 | 2026-03-30 |
 | WS-04 | Property checks and differential replay | Codex | Done | WS-01, WS-03 | 2026-03-30 |
 | WS-05 | Deterministic runtime and DST scheduler | Codex | Done | WS-01, WS-02 | 2026-03-30 |
-| WS-06 | Semantic simulators | Codex | In review | WS-05 | 2026-03-30 |
-| WS-07 | Reporting, watch mode, GitHub Action | Unassigned | Queued | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-29 |
+| WS-06 | Semantic simulators | Codex | Done | WS-05 | 2026-03-30 |
+| WS-07 | Reporting, watch mode, GitHub Action | Codex | In review | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-30 |
 | WS-08 | Demo app, docs, packaging, release path | Unassigned | Queued | WS-01 through WS-07 | 2026-03-29 |
 
 ---
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-06 Redis async simulator checkpoint.
-2. Reconcile the final WS-06 handoff and decide whether the remaining pub/sub and adapter gaps stay as documented launch limits.
+1. Review the first WS-07 checkpoint for `litmus verify` and shared reporting.
+2. Add replay trace serialization and `litmus replay` once verify results are stable.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
