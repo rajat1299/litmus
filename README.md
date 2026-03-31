@@ -25,7 +25,7 @@
 
 <p align="center">
   <a href="https://pypi.org/project/litmus-cli"><img src="https://img.shields.io/pypi/v/litmus-cli?style=flat-square&color=16a34a&labelColor=0a0a0a" alt="pypi" /></a>
-  <a href="https://github.com/litmus-dev/litmus/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square&labelColor=0a0a0a" alt="license" /></a>
+  <a href="https://github.com/rajat1299/litmus/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square&labelColor=0a0a0a" alt="license" /></a>
   <a href="https://discord.gg/litmus"><img src="https://img.shields.io/badge/discord-join-16a34a?style=flat-square&labelColor=0a0a0a" alt="discord" /></a>
 </p>
 
@@ -184,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: litmus-dev/action@v1
+      - uses: rajat1299/litmus@v1
         with:
           token: ${{ secrets.LITMUS_TOKEN }}
           mode: ci           # 500 seeds instead of 100
@@ -321,7 +321,7 @@ mit — see [LICENSE](LICENSE)
 ---
 
 <p align="center">
-  <sub>litmus is built by <a href="https://github.com/litmus-dev">litmus-dev</a></sub>
+  <sub>development home: <a href="https://github.com/rajat1299/litmus"><strong>github.com/rajat1299/litmus</strong></a> (CLI, verification engine, simulators, GitHub Action).</sub>
   <br />
   <sub>the verification layer for agent-written code.</sub>
 </p>
