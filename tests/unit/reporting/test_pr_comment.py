@@ -262,3 +262,64 @@ def test_render_pr_comment_matches_replay_seed_by_scenario_identity_not_trace_or
 
     assert "- `seed:1` on `POST /payments/charge` -> `litmus replay seed:1`" in comment
     assert "- `seed:2` on `POST /payments/refund` -> `litmus replay seed:2`" in comment
+
+
+def test_render_pr_comment_preserves_distinct_seeds_for_same_scenario() -> None:
+    charge_scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+    result = VerificationResult(
+        app_reference="service.app:app",
+        routes=[],
+        invariants=[],
+        scenarios=[charge_scenario],
+        replay_results=[
+            DifferentialReplayResult(
+                scenario=charge_scenario,
+                baseline_response=ResponseExample(status_code=200, json={"status": "charged"}),
+                changed_response=ResponseExample(status_code=500, json={"status": "broken"}),
+                classification=ReplayClassification.BREAKING_CHANGE,
+                diff={"status_code": (200, 500)},
+            ),
+            DifferentialReplayResult(
+                scenario=charge_scenario,
+                baseline_response=ResponseExample(status_code=200, json={"status": "charged"}),
+                changed_response=ResponseExample(status_code=500, json={"status": "still broken"}),
+                classification=ReplayClassification.BREAKING_CHANGE,
+                diff={"status_code": (200, 500)},
+            ),
+        ],
+        replay_traces=[
+            ReplayTraceRecord(
+                seed="seed:7",
+                seed_value=7,
+                app_reference="service.app:app",
+                method="POST",
+                path="/payments/charge",
+                request_payload={"amount": 100},
+                baseline_status_code=200,
+                baseline_body={"status": "charged"},
+                trace=[TraceEvent(kind="request_started")],
+            ),
+            ReplayTraceRecord(
+                seed="seed:9",
+                seed_value=9,
+                app_reference="service.app:app",
+                method="POST",
+                path="/payments/charge",
+                request_payload={"amount": 100},
+                baseline_status_code=200,
+                baseline_body={"status": "charged"},
+                trace=[TraceEvent(kind="request_started")],
+            ),
+        ],
+        property_results=[],
+    )
+
+    comment = render_pr_comment(result)
+
+    assert comment.count("`seed:7` on `POST /payments/charge` -> `litmus replay seed:7`") == 1
+    assert comment.count("`seed:9` on `POST /payments/charge` -> `litmus replay seed:9`") == 1

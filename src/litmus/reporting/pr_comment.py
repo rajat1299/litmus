@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 import json
 from typing import Any
 
@@ -76,33 +76,35 @@ def _affected_endpoints(result) -> list[str]:
 
 
 def _failing_seed_lines(result) -> list[str]:
-    trace_records_by_key = {
-        _replay_identity_key(
-            method=replay_trace.method,
-            path=replay_trace.path,
-            payload=replay_trace.request_payload,
-        ): replay_trace
-        for replay_trace in result.replay_traces
-    }
+    trace_records_by_key: dict[tuple[str, str, str], list[Any]] = defaultdict(list)
+    for replay_trace in result.replay_traces:
+        trace_records_by_key[
+            _replay_identity_key(
+                method=replay_trace.method,
+                path=replay_trace.path,
+                payload=replay_trace.request_payload,
+            )
+        ].append(replay_trace)
     lines: list[str] = []
     for replay_result in result.replay_results:
         if replay_result.classification is not ReplayClassification.BREAKING_CHANGE:
             continue
 
-        replay_trace = trace_records_by_key.get(
+        replay_traces = trace_records_by_key.get(
             _replay_identity_key(
                 method=replay_result.scenario.method,
                 path=replay_result.scenario.path,
                 payload=replay_result.scenario.request.payload,
             )
         )
-        if replay_trace is None:
+        if not replay_traces:
             lines.append(
                 "- "
                 f"Replay trace missing for `{replay_result.scenario.method} {replay_result.scenario.path}`; "
                 "rerun `litmus verify` before replaying."
             )
             continue
+        replay_trace = replay_traces.pop(0)
 
         lines.append(
             "- "
