@@ -21,8 +21,8 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-08 demo app and end-to-end launch slice in review |
-| Release readiness | In progress | Demo app and example docs now exist; packaging/release notes still pending |
+| Implementation | In progress | WS-08 packaging and release-path checkpoint in review |
+| Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
 
@@ -46,7 +46,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | M2 | Verification core | Complete | Invariants, property tests, diff tracing, and differential replay run locally |
 | M3 | DST engine | Complete | Deterministic runtime and semantic simulators catch seeded failures |
 | M4 | Team workflow | Complete | GitHub Action and PR comment are usable end-to-end |
-| M5 | Demo-ready launch candidate | In progress | Demo app and launch workflow prove the hero loop |
+| M5 | Demo-ready launch candidate | In review | Demo app, packaged CLI install path, and launch workflow prove the current alpha loop |
 
 ---
 
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-08 demo app and end-to-end launch slice.
-2. Decide whether to take a second WS-08 pass for packaging and release-note polish.
+1. Review the WS-08 packaging and release-path checkpoint.
+2. Decide whether to stop at the current alpha release state or add publish automation in a later pass.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

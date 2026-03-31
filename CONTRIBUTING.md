@@ -29,21 +29,17 @@ this doc covers how to get set up, what to work on, and how we review.
 git clone https://github.com/rajat1299/litmus.git
 cd litmus
 
-# create a virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# install in development mode with all extras
-pip install -e ".[dev]"
+# sync the project environment
+uv sync --group dev
 
 # run tests
-pytest
+uv run pytest
 
 # run litmus against itself (yes, we eat our own dogfood)
-litmus verify
+uv run litmus verify
 ```
 
-requirements: **python 3.11+** and git (matches `requires-python` in `pyproject.toml`).
+requirements: **python 3.11+**, `uv`, and git (matches `requires-python` in `pyproject.toml`).
 
 ---
 
