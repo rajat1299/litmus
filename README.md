@@ -1,35 +1,14 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Litmus" width="100%">
+  <img src="assets/banner.png" alt="Litmus" height="160">
 </p>
 
-# Litmus 🧪
+# Litmus
 
 <p align="center">
   <a href="https://github.com/rajat1299/litmus/blob/main/product/litmus-product-spec.md"><img src="https://img.shields.io/badge/Docs-product%20spec-16a34a?style=for-the-badge&logo=github&logoColor=white" alt="Documentation"></a>
-  <a href="https://pypi.org/project/litmus-cli/"><img src="https://img.shields.io/badge/PyPI-litmus--cli-0a0a0a?style=for-the-badge&logo=pypi&logoColor=white" alt="PyPI"></a>
   <a href="https://discord.gg/litmus"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://github.com/rajat1299/litmus/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-16a34a?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://github.com/rajat1299/litmus"><img src="https://img.shields.io/badge/Source-github.com%2Frajat1299%2Flitmus-8b5cf6?style=for-the-badge&logo=github&logoColor=white" alt="Source repository"></a>
 </p>
-
-<p align="center">
-  deterministic fault-injection verification<br/>for agent-written code.
-</p>
-
-<p align="center">
-  your ai agent writes code. litmus proves it survives.
-</p>
-
-<p align="center">
-  <a href="#install">install</a> ·
-  <a href="#how-it-works">how it works</a> ·
-  <a href="#the-demo">the demo</a> ·
-  <a href="#commands">commands</a> ·
-  <a href="#ci">ci</a> ·
-  <a href="#faq">faq</a>
-</p>
-
-<br />
 
 ---
 
