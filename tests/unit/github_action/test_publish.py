@@ -20,6 +20,17 @@ class _FakeResponse:
         return None
 
 
+class _FakeEmptyResponse:
+    def read(self) -> bytes:
+        return b""
+
+    def __enter__(self) -> _FakeEmptyResponse:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+
 def test_publish_pr_comment_creates_comment_when_no_existing_litmus_comment(tmp_path) -> None:
     event_path = tmp_path / "event.json"
     event_path.write_text(json.dumps({"pull_request": {"number": 42}}), encoding="utf-8")
@@ -175,7 +186,7 @@ def test_publish_pr_comment_removes_duplicate_marker_comments_after_update(tmp_p
         if request.get_method() == "PATCH":
             return _FakeResponse({"id": 77, "html_url": "https://github.example/comment/77"})
         if request.get_method() == "DELETE":
-            return _FakeResponse({})
+            return _FakeEmptyResponse()
         raise AssertionError(f"Unexpected request: {request.get_method()} {request.full_url}")
 
     comment_url = publish_pr_comment(

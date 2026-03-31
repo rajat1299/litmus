@@ -127,4 +127,7 @@ def _request_json(
         method=method,
     )
     with urlopen_fn(request) as response:
-        return json.loads(response.read().decode("utf-8"))
+        body = response.read()
+        if not body or not body.strip():
+            return None
+        return json.loads(body.decode("utf-8"))
