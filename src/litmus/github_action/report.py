@@ -102,10 +102,39 @@ def main() -> None:
     comment_path = Path(
         os.getenv("LITMUS_COMMENT_PATH", str(workspace / ".litmus" / "pr-comment.md"))
     )
+    mode = os.getenv("LITMUS_MODE", "local")
     include_comment = os.getenv("LITMUS_COMMENT", "true").strip().lower() != "false"
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
 
-    result = run_verification(workspace)
+    report = run_github_action(
+        workspace=workspace,
+        mode=mode,
+        min_score=min_score,
+        include_comment=include_comment,
+        output_path=output_path,
+        summary_path=summary_path,
+        comment_path=comment_path,
+    )
+    raise SystemExit(1 if report.should_fail else 0)
+
+
+def _optional_path(raw_value: str | None) -> Path | None:
+    if raw_value is None or not raw_value.strip():
+        return None
+    return Path(raw_value)
+
+
+def run_github_action(
+    *,
+    workspace: Path,
+    mode: str,
+    min_score: float,
+    include_comment: bool,
+    output_path: Path | None,
+    summary_path: Path | None,
+    comment_path: Path | None,
+) -> ActionReport:
+    result = run_verification(workspace, mode=mode)
     save_replay_trace_records(workspace, result.replay_traces)
 
     report = build_action_report(
@@ -119,13 +148,7 @@ def main() -> None:
         summary_path=summary_path,
         comment_path=comment_path,
     )
-    raise SystemExit(1 if report.should_fail else 0)
-
-
-def _optional_path(raw_value: str | None) -> Path | None:
-    if raw_value is None or not raw_value.strip():
-        return None
-    return Path(raw_value)
+    return report
 
 
 if __name__ == "__main__":

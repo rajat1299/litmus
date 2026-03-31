@@ -15,6 +15,9 @@ from litmus.replay.differential import DifferentialReplayResult, run_differentia
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.scenarios.builder import Scenario, build_scenarios
 
+LOCAL_PROPERTY_MAX_EXAMPLES = 100
+CI_PROPERTY_MAX_EXAMPLES = 500
+
 
 @dataclass(slots=True)
 class VerificationResult:
@@ -27,7 +30,7 @@ class VerificationResult:
     property_results: list[PropertyCheckResult]
 
 
-def run_verification(root: Path | str) -> VerificationResult:
+def run_verification(root: Path | str, mode: str = "local") -> VerificationResult:
     repo_root = Path(root)
     app_reference = discover_app_reference(repo_root)
     app = load_asgi_app(app_reference, repo_root)
@@ -35,7 +38,11 @@ def run_verification(root: Path | str) -> VerificationResult:
     invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
     scenarios = build_scenarios(routes, invariants)
     replay_results, replay_traces = asyncio.run(_run_replay(app, app_reference, scenarios))
-    property_results = _run_property_checks(app, invariants)
+    property_results = _run_property_checks(
+        app,
+        invariants,
+        max_examples=_property_max_examples_for_mode(mode),
+    )
     return VerificationResult(
         app_reference=app_reference,
         routes=routes,
@@ -107,7 +114,12 @@ async def _run_replay(
     return replay_results, replay_traces
 
 
-def _run_property_checks(app, invariants: list[Invariant]) -> list[PropertyCheckResult]:
+def _run_property_checks(
+    app,
+    invariants: list[Invariant],
+    *,
+    max_examples: int = LOCAL_PROPERTY_MAX_EXAMPLES,
+) -> list[PropertyCheckResult]:
     property_invariants = [invariant for invariant in invariants if invariant.type is InvariantType.PROPERTY]
 
     def checker(invariant: Invariant, request: RequestExample) -> bool:
@@ -131,4 +143,13 @@ def _run_property_checks(app, invariants: list[Invariant]) -> list[PropertyCheck
 
         return True
 
-    return run_property_checks(property_invariants, checker=checker)
+    return run_property_checks(property_invariants, checker=checker, max_examples=max_examples)
+
+
+def _property_max_examples_for_mode(mode: str) -> int:
+    normalized_mode = mode.strip().lower()
+    if normalized_mode == "local":
+        return LOCAL_PROPERTY_MAX_EXAMPLES
+    if normalized_mode == "ci":
+        return CI_PROPERTY_MAX_EXAMPLES
+    raise ValueError(f"unsupported verification mode: {mode}")
