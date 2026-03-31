@@ -26,6 +26,6 @@ def calculate_confidence_score(
 
     total_signals = len(replay_results) + len(scored_properties)
     if total_signals == 0:
-        return 1.0
+        return 0.0
 
     return (successful_replays + successful_properties) / total_signals

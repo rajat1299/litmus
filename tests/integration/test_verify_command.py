@@ -116,3 +116,52 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
     assert "Replay: unchanged=2 breaking=0 benign=0 improvement=0" in result.stdout
     assert "Properties: passed=0 failed=0 skipped=0" in result.stdout
     assert "Confidence: 1.00" in result.stdout
+
+
+def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    service_dir.mkdir()
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                return {"status": "ok"}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Invariants: 0" in result.stdout
+    assert "Scenarios: 0" in result.stdout
+    assert "Confidence: 0.00" in result.stdout
