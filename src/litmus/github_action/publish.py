@@ -6,6 +6,7 @@ from typing import Any, Callable
 from urllib.request import Request, urlopen
 
 COMMENT_MARKER = "<!-- litmus-pr-comment -->"
+COMMENTS_PAGE_SIZE = 30
 
 
 def publish_pr_comment(
@@ -71,22 +72,28 @@ def _find_existing_comment(
     token: str,
     urlopen_fn: Callable[[Request], Any],
 ) -> dict[str, Any] | None:
-    comments = _request_json(
-        method="GET",
-        url=issue_comments_url,
-        token=token,
-        payload=None,
-        urlopen_fn=urlopen_fn,
-    )
-    if not isinstance(comments, list):
-        return None
+    page = 1
+    while True:
+        comments = _request_json(
+            method="GET",
+            url=issue_comments_url if page == 1 else f"{issue_comments_url}?page={page}",
+            token=token,
+            payload=None,
+            urlopen_fn=urlopen_fn,
+        )
+        if not isinstance(comments, list):
+            return None
 
-    for comment in comments:
-        if not isinstance(comment, dict):
-            continue
-        body = comment.get("body")
-        if isinstance(body, str) and COMMENT_MARKER in body:
-            return comment
+        for comment in comments:
+            if not isinstance(comment, dict):
+                continue
+            body = comment.get("body")
+            if isinstance(body, str) and COMMENT_MARKER in body:
+                return comment
+
+        if len(comments) < COMMENTS_PAGE_SIZE:
+            return None
+        page += 1
     return None
 
 
