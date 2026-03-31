@@ -21,8 +21,8 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-07 GitHub Action publication checkpoint in review
-| Release readiness | Not started | Depends on implementation and demo app |
+| Implementation | In progress | WS-08 demo app and end-to-end launch slice in review |
+| Release readiness | In progress | Demo app and example docs now exist; packaging/release notes still pending |
 
 ---
 
@@ -43,10 +43,10 @@ Stand up the repo, execution model, and workstream structure required to build t
 | --- | --- | --- | --- |
 | M0 | Repo operating system | Complete | Spec, plan, status, and workstream docs exist |
 | M1 | CLI + config foundation | Complete | `litmus init/verify/watch/replay` command skeleton works |
-| M2 | Verification core | In progress | Invariants, property tests, diff tracing, and differential replay run locally |
-| M3 | DST engine | Queued | Deterministic runtime and semantic simulators catch seeded failures |
-| M4 | Team workflow | Queued | GitHub Action and PR comment are usable end-to-end |
-| M5 | Demo-ready launch candidate | Queued | Demo app and launch workflow prove the hero loop |
+| M2 | Verification core | Complete | Invariants, property tests, diff tracing, and differential replay run locally |
+| M3 | DST engine | Complete | Deterministic runtime and semantic simulators catch seeded failures |
+| M4 | Team workflow | Complete | GitHub Action and PR comment are usable end-to-end |
+| M5 | Demo-ready launch candidate | In progress | Demo app and launch workflow prove the hero loop |
 
 ---
 
@@ -62,8 +62,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-04 | Property checks and differential replay | Codex | Done | WS-01, WS-03 | 2026-03-30 |
 | WS-05 | Deterministic runtime and DST scheduler | Codex | Done | WS-01, WS-02 | 2026-03-30 |
 | WS-06 | Semantic simulators | Codex | Done | WS-05 | 2026-03-30 |
-| WS-07 | Reporting, watch mode, GitHub Action | Codex | In review | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-31 |
-| WS-08 | Demo app, docs, packaging, release path | Unassigned | Queued | WS-01 through WS-07 | 2026-03-29 |
+| WS-07 | Reporting, watch mode, GitHub Action | Codex | Done | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-31 |
+| WS-08 | Demo app, docs, packaging, release path | Codex | In review | WS-01 through WS-07 | 2026-03-31 |
 
 ---
 
@@ -91,8 +91,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-07 GitHub Action publication checkpoint.
-2. Move to the demo app, README, and release-path slice once the GitHub Action path is approved.
+1. Review the WS-08 demo app and end-to-end launch slice.
+2. Decide whether to take a second WS-08 pass for packaging and release-note polish.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
