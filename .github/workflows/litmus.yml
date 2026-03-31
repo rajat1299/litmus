@@ -1,0 +1,16 @@
+name: Litmus Verification
+
+on:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+        with:
+          mode: ci
+          min-score: '80'
+          comment: 'true'

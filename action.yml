@@ -1,0 +1,53 @@
+name: Litmus Verification
+description: Run Litmus verification and emit GitHub-friendly report outputs.
+
+inputs:
+  token:
+    description: GitHub token reserved for follow-on PR comment publication.
+    required: false
+  mode:
+    description: Verification mode.
+    required: false
+    default: ci
+  min-score:
+    description: Minimum confidence score required to pass the check.
+    required: false
+    default: "80"
+  comment:
+    description: Whether to write a PR comment artifact.
+    required: false
+    default: "true"
+
+outputs:
+  confidence:
+    description: Confidence score as a decimal between 0.00 and 1.00.
+    value: ${{ steps.litmus.outputs.confidence }}
+  verdict:
+    description: Litmus pass/fail verdict.
+    value: ${{ steps.litmus.outputs.verdict }}
+  comment-path:
+    description: Absolute path to the generated PR comment markdown.
+    value: ${{ steps.litmus.outputs.comment-path }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - uses: astral-sh/setup-uv@v5
+
+    - shell: bash
+      run: uv sync --directory "${{ github.action_path }}" --frozen --group dev
+
+    - id: litmus
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}/src
+        LITMUS_WORKSPACE: ${{ github.workspace }}
+        LITMUS_COMMENT_PATH: ${{ runner.temp }}/litmus-pr-comment.md
+        LITMUS_MIN_SCORE: ${{ inputs.min-score }}
+        LITMUS_MODE: ${{ inputs.mode }}
+        LITMUS_COMMENT: ${{ inputs.comment }}
+      run: uv run --directory "${{ github.action_path }}" python -m litmus.github_action.report
