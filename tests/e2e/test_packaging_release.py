@@ -11,18 +11,23 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     quickstart_path = repo_root / "docs" / "alpha-quickstart.md"
     release_notes_path = repo_root / "docs" / "releases" / "2026-03-31-alpha.md"
+    contributing_path = repo_root / "CONTRIBUTING.md"
 
     assert quickstart_path.exists()
     assert release_notes_path.exists()
+    assert contributing_path.exists()
 
     quickstart = quickstart_path.read_text(encoding="utf-8")
     release_notes = release_notes_path.read_text(encoding="utf-8")
+    contributing = contributing_path.read_text(encoding="utf-8")
 
     assert "uv build" in quickstart
     assert "examples/payment_service" in quickstart
     assert "litmus verify" in quickstart
     assert "Known limitations" in release_notes
     assert "examples/payment_service" in release_notes
+    assert "examples/payment_service" in contributing
+    assert "uv run litmus verify" not in contributing
 
     dist_dir = tmp_path / "dist"
     build_result = subprocess.run(

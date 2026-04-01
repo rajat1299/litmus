@@ -35,11 +35,17 @@ uv sync --group dev
 # run tests
 uv run pytest
 
-# run litmus against itself (yes, we eat our own dogfood)
-uv run litmus verify
+# smoke-test the installed CLI surface
+uv run litmus --help
+
+# run the grounded alpha demo
+cd examples/payment_service
+uv run --project ../.. litmus verify
 ```
 
 requirements: **python 3.11+**, `uv`, and git (matches `requires-python` in `pyproject.toml`).
+
+The demo app is intentionally broken on the happy path so the first `litmus verify` run should fail and write a replay artifact. Use that example when you want to exercise the current alpha loop end-to-end; do not expect a repo-root `litmus verify` run to be green by default.
 
 ---
 
