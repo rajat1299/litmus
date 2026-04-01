@@ -101,3 +101,34 @@ def test_bootstrap_repo_respects_existing_config_and_invariant_store(tmp_path) -
     assert result.invariants_status == "existing"
     assert result.litmus_directory_created is False
     assert result.support_summary[0] == "explicit app config detected"
+
+
+def test_bootstrap_repo_repairs_existing_config_without_app_reference(tmp_path) -> None:
+    service_dir = tmp_path / "service"
+    tests_dir = tmp_path / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (tmp_path / "litmus.yaml").write_text("{}\n", encoding="utf-8")
+    (service_dir / "main.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            class FastAPI:
+                pass
+
+
+            app = FastAPI()
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = bootstrap_repo(tmp_path)
+
+    assert result.app_reference == "service.main:app"
+    assert result.config_status == "updated"
+    assert result.config_path.read_text(encoding="utf-8") == "app: service.main:app\n"

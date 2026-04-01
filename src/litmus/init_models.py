@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 
-BootstrapStatus = Literal["created", "existing"]
+BootstrapStatus = Literal["created", "existing", "updated"]
 
 
 @dataclass(slots=True)

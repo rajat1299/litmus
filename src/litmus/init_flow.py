@@ -18,11 +18,14 @@ def bootstrap_repo(root: Path | str) -> InitBootstrapResult:
     config = load_repo_config(repo_root)
     app_reference = config.app or discover_app_reference(repo_root)
 
-    if config_path.exists():
+    if not config_path.exists():
+        write_repo_config(config_path, RepoConfig(app=app_reference))
+        config_status = "created"
+    elif config.app:
         config_status = "existing"
     else:
         write_repo_config(config_path, RepoConfig(app=app_reference))
-        config_status = "created"
+        config_status = "updated"
 
     litmus_directory_created = not litmus_dir.exists()
     litmus_dir.mkdir(parents=True, exist_ok=True)
