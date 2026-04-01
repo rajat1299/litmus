@@ -21,7 +21,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-11 and WS-12 are done; WS-13 suggested-invariant checkpoint is in review |
+| Implementation | In progress | WS-11 and WS-12 are done; WS-13 persisted-suggestion checkpoint is in review |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -98,8 +98,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the first WS-13 suggested-invariants checkpoint.
-2. Continue WS-13 by deciding whether persisted `.litmus` suggestions should join the same surfaced path.
+1. Review the WS-13 persisted-suggestion checkpoint.
+2. If WS-13 is clean after review, move to WS-14 MCP surface work.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

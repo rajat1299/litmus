@@ -11,8 +11,9 @@ from litmus.discovery.routes import RouteDefinition, extract_routes
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.faults import build_fault_plan
 from litmus.invariants.mined import mine_invariants_from_tests
-from litmus.invariants.models import Invariant, InvariantType, RequestExample, ResponseExample
+from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
 from litmus.invariants.suggested import HeuristicRouteGapSuggestionProvider, suggest_invariants
+from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
 from litmus.replay.trace import ReplayTraceRecord
@@ -58,12 +59,14 @@ def run_verification(
         discovered_invariants,
         active_scope,
     )
+    curated_suggested_invariants = _load_curated_suggested_invariants(repo_root, routes)
     suggested_invariants = _collect_suggested_invariants(
         routes=routes,
         confirmed_invariants=confirmed_invariants,
+        curated_suggested_invariants=curated_suggested_invariants,
         enabled=config.suggested_invariants,
     )
-    invariants = [*confirmed_invariants, *suggested_invariants]
+    invariants = [*confirmed_invariants, *curated_suggested_invariants, *suggested_invariants]
     scenarios = build_scenarios(routes, confirmed_invariants)
     replay_results, replay_traces = asyncio.run(
         _run_replay(
@@ -94,6 +97,7 @@ def _collect_suggested_invariants(
     *,
     routes: list[RouteDefinition],
     confirmed_invariants: list[Invariant],
+    curated_suggested_invariants: list[Invariant],
     enabled: bool,
 ) -> list[Invariant]:
     if not enabled:
@@ -103,8 +107,41 @@ def _collect_suggested_invariants(
         provider=HeuristicRouteGapSuggestionProvider(),
         changed_files=[],
         endpoints=routes,
-        existing_invariants=confirmed_invariants,
+        existing_invariants=[*confirmed_invariants, *curated_suggested_invariants],
     )
+
+
+def _load_curated_suggested_invariants(root: Path | str, routes: list[RouteDefinition]) -> list[Invariant]:
+    invariants_path = default_invariants_path(root)
+    if not invariants_path.exists():
+        return []
+
+    route_keys = {(route.method.upper(), route.path) for route in routes}
+    curated_suggestions: list[Invariant] = []
+    seen_keys: set[tuple[str, str, str]] = set()
+
+    for invariant in load_invariants(invariants_path):
+        if invariant.status is not InvariantStatus.SUGGESTED:
+            continue
+        request = invariant.request
+        if request is None or request.method is None or request.path is None:
+            continue
+
+        route_key = (request.method.upper(), request.path)
+        if route_key not in route_keys:
+            continue
+
+        identity = (
+            invariant.name,
+            route_key[0],
+            route_key[1],
+        )
+        if identity in seen_keys:
+            continue
+        seen_keys.add(identity)
+        curated_suggestions.append(invariant.model_copy(update={"request": request.model_copy(update={"method": route_key[0]})}))
+
+    return curated_suggestions
 
 
 def _collect_routes(root: Path) -> list[RouteDefinition]:

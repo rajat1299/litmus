@@ -8,8 +8,7 @@ from litmus.config import RepoConfig
 from litmus.dst.engine import _run_replay, run_verification
 from litmus.dst.runtime import TraceEvent
 from litmus.discovery.routes import RouteDefinition
-from litmus.invariants.models import InvariantStatus
-from litmus.invariants.models import RequestExample, ResponseExample
+from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
 from litmus.scenarios.builder import Scenario
 
 
@@ -162,3 +161,93 @@ def test_run_verification_keeps_suggested_route_gaps_out_of_replay_scenarios(mon
     assert len(result.invariants) == 1
     assert result.invariants[0].status is InvariantStatus.SUGGESTED
     assert result.scenarios == []
+
+
+def test_run_verification_loads_curated_suggested_invariants_without_reimporting_stored_confirmed_entries(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    mined_confirmed = Invariant(
+        name="charge_returns_200",
+        source="mined:tests/test_payments.py::test_charge_returns_200",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.DIFFERENTIAL,
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+    stored_confirmed = Invariant(
+        name="charge_returns_200_from_store",
+        source="manual:confirmed",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.DIFFERENTIAL,
+        request=RequestExample(method="POST", path="/payments/charge"),
+        response=ResponseExample(status_code=200),
+    )
+    stored_suggested = Invariant(
+        name="refund_needs_review",
+        source="manual:suggested",
+        status=InvariantStatus.SUGGESTED,
+        type=InvariantType.DIFFERENTIAL,
+        request=RequestExample(method="POST", path="/payments/refund"),
+        reasoning="Review refund behavior.",
+    )
+
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_repo_config",
+        lambda _root: RepoConfig(app="service.app:app", suggested_invariants=True),
+    )
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="POST",
+                path="/payments/charge",
+                handler_name="charge",
+                file_path="service/app.py",
+            ),
+            RouteDefinition(
+                method="POST",
+                path="/payments/refund",
+                handler_name="refund",
+                file_path="service/app.py",
+            ),
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [mined_confirmed])
+    monkeypatch.setattr(
+        "litmus.dst.engine.default_invariants_path",
+        lambda _root: tmp_path / ".litmus" / "invariants.yaml",
+    )
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_invariants",
+        lambda _path: [stored_confirmed, stored_suggested],
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_build_scenarios(_routes, invariants):
+        captured["scenario_invariants"] = list(invariants)
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", fake_build_scenarios)
+    monkeypatch.setattr("litmus.dst.engine._run_replay", lambda *_args, **_kwargs: asyncio.sleep(0, result=([], [])))
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", lambda *_args, **_kwargs: [])
+
+    invariants_path = tmp_path / ".litmus" / "invariants.yaml"
+    invariants_path.parent.mkdir(parents=True, exist_ok=True)
+    invariants_path.write_text("[]\n", encoding="utf-8")
+
+    result = run_verification(tmp_path)
+
+    assert [invariant.name for invariant in result.invariants] == [
+        "charge_returns_200",
+        "refund_needs_review",
+    ]
+    assert [invariant.status for invariant in result.invariants] == [
+        InvariantStatus.CONFIRMED,
+        InvariantStatus.SUGGESTED,
+    ]
+    assert [invariant.name for invariant in captured["scenario_invariants"]] == ["charge_returns_200"]
