@@ -83,7 +83,7 @@ def apply_verification_scope(
     seen_ids: set[int] = set()
 
     for invariant in invariants:
-        if not _is_mined_from_changed_test_file(invariant, scope.changed_files):
+        if not _is_mined_from_changed_test_file(root, invariant, scope.changed_files):
             continue
         _append_unique_invariant(scoped_invariants, seen_ids, invariant)
         route_key = _route_key_for_invariant(invariant)
@@ -136,13 +136,31 @@ def _append_unique_path(changed_files: list[str], candidate: str) -> None:
         changed_files.append(candidate)
 
 
-def _is_mined_from_changed_test_file(invariant: Invariant, changed_files: list[str]) -> bool:
+def _is_mined_from_changed_test_file(
+    root: Path | str,
+    invariant: Invariant,
+    changed_files: list[str],
+) -> bool:
     if not invariant.source.startswith("mined:"):
         return False
 
     source_reference = invariant.source.removeprefix("mined:")
     source_file = source_reference.split("::", maxsplit=1)[0]
-    return source_file in changed_files
+    normalized_source_file = _normalize_mined_source_path(Path(root), source_file)
+    if normalized_source_file is None:
+        return False
+    return normalized_source_file in changed_files
+
+
+def _normalize_mined_source_path(root: Path, source_file: str) -> str | None:
+    candidate = Path(source_file)
+    if not candidate.is_absolute():
+        return candidate.as_posix()
+
+    try:
+        return candidate.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return None
 
 
 def _route_key_for_invariant(invariant: Invariant) -> tuple[str, str] | None:

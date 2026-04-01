@@ -152,3 +152,39 @@ def test_apply_verification_scope_selects_changed_test_file_invariants(tmp_path:
 
     assert [(route.method, route.path) for route in scoped_routes] == [("POST", "/payments/refund")]
     assert [invariant.name for invariant in scoped_invariants] == ["refund"]
+
+
+def test_apply_verification_scope_matches_absolute_mined_test_sources(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    changed_test_file = tests_dir / "test_refunds.py"
+    changed_test_file.write_text("", encoding="utf-8")
+
+    routes = [
+        RouteDefinition(method="POST", path="/payments/charge", handler_name="charge", file_path="service/app.py"),
+        RouteDefinition(method="POST", path="/payments/refund", handler_name="refund", file_path="service/app.py"),
+    ]
+    invariants = [
+        Invariant(
+            name="charge",
+            source=f"mined:{(tests_dir / 'test_payments.py').as_posix()}::test_charge",
+            status=InvariantStatus.CONFIRMED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+            response=ResponseExample(status_code=200, json={"status": "charged"}),
+        ),
+        Invariant(
+            name="refund",
+            source=f"mined:{changed_test_file.as_posix()}::test_refund",
+            status=InvariantStatus.CONFIRMED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(method="POST", path="/payments/refund", json={"id": "r-1"}),
+            response=ResponseExample(status_code=200, json={"status": "refunded"}),
+        ),
+    ]
+    scope = resolve_verification_scope(tmp_path, explicit_paths=[changed_test_file])
+
+    scoped_routes, scoped_invariants = apply_verification_scope(tmp_path, routes, invariants, scope)
+
+    assert [(route.method, route.path) for route in scoped_routes] == [("POST", "/payments/refund")]
+    assert [invariant.name for invariant in scoped_invariants] == ["refund"]

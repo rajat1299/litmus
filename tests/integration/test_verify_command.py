@@ -188,6 +188,24 @@ def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:
     assert "Replay: unchanged=1 breaking=0 benign=0 improvement=0" in result.stdout
 
 
+def test_litmus_verify_scopes_to_explicit_changed_test_file(tmp_path: Path) -> None:
+    repo_root = _build_scoped_verify_repo(tmp_path)
+
+    result = subprocess.run(
+        ["litmus", "verify", "tests/test_payments.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Scope: paths: tests/test_payments.py" in result.stdout
+    assert "Routes: 2" in result.stdout
+    assert "Invariants: 2" in result.stdout
+    assert "Scenarios: 2" in result.stdout
+
+
 def test_litmus_verify_scopes_to_staged_changes(tmp_path: Path) -> None:
     repo_root = _build_scoped_verify_repo(tmp_path)
     _init_git_repo(repo_root)
@@ -212,6 +230,32 @@ def test_litmus_verify_scopes_to_staged_changes(tmp_path: Path) -> None:
     assert "Routes: 1" in result.stdout
     assert "Invariants: 1" in result.stdout
     assert "Scenarios: 1" in result.stdout
+
+
+def test_litmus_verify_scopes_to_staged_test_file_changes(tmp_path: Path) -> None:
+    repo_root = _build_scoped_verify_repo(tmp_path)
+    _init_git_repo(repo_root)
+
+    payments_test_file = repo_root / "tests" / "test_payments.py"
+    payments_test_file.write_text(
+        payments_test_file.read_text(encoding="utf-8").replace("charged", "charged-now"),
+        encoding="utf-8",
+    )
+    _git(repo_root, "add", "tests/test_payments.py")
+
+    result = subprocess.run(
+        ["litmus", "verify", "--staged"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Scope: staged diff" in result.stdout
+    assert "Routes: 2" in result.stdout
+    assert "Invariants: 2" in result.stdout
+    assert "Scenarios: 2" in result.stdout
 
 
 def test_litmus_verify_scopes_to_named_diff_range(tmp_path: Path) -> None:
