@@ -108,9 +108,12 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
         return result
 
     monkeypatch.setattr("litmus.github_action.report.run_verification", fake_run_verification)
+    captured_recording: dict[str, object] = {}
     monkeypatch.setattr(
-        "litmus.github_action.report.save_replay_trace_records",
-        lambda *_args, **_kwargs: None,
+        "litmus.github_action.report.record_verification_run",
+        lambda workspace, result, *, mode: captured_recording.update(
+            {"workspace": workspace, "mode": mode, "result": result}
+        ),
     )
     monkeypatch.setattr(
         "litmus.github_action.report.publish_pr_comment",
@@ -132,6 +135,8 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
 
     assert captured["root"] == str(tmp_path)
     assert captured["mode"] == "ci"
+    assert captured_recording["workspace"] == tmp_path
+    assert str(captured_recording["mode"]) == "RunMode.CI"
     assert report.verdict == "fail"
 
 
@@ -157,7 +162,7 @@ def test_run_github_action_publishes_comment_when_github_context_exists(monkeypa
 
     monkeypatch.setattr("litmus.github_action.report.run_verification", lambda *_args, **_kwargs: result)
     monkeypatch.setattr(
-        "litmus.github_action.report.save_replay_trace_records",
+        "litmus.github_action.report.record_verification_run",
         lambda *_args, **_kwargs: None,
     )
 

@@ -7,6 +7,8 @@ from litmus.replay.trace import (
     ReplayTraceRecord,
     load_replay_trace_records,
     replay_record_for_seed,
+    replay_trace_record_from_dict,
+    replay_trace_record_to_dict,
     replay_trace_path,
     save_replay_trace_records,
 )
@@ -17,6 +19,8 @@ __all__ = [
     "ReplayTraceRecord",
     "load_replay_trace_records",
     "replay_record_for_seed",
+    "replay_trace_record_from_dict",
+    "replay_trace_record_to_dict",
     "replay_trace_path",
     "run_differential_replay",
     "save_replay_trace_records",

@@ -21,7 +21,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-10 is done; WS-11 moat checkpoint is in review |
+| Implementation | In progress | WS-11 is done; WS-12 run/activity checkpoint is in review |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -67,8 +67,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-08 | Demo app, docs, packaging, release path | Codex | In review | WS-01 through WS-07 | 2026-03-31 |
 | WS-09 | Init bootstrap flow | Codex | Done | WS-01, WS-02, WS-03, WS-08 | 2026-04-01 |
 | WS-10 | Scoped verify and changed-endpoint selection | Codex | Done | WS-02, WS-04, WS-09 | 2026-04-01 |
-| WS-11 | Main-path DST and fault-injection moat work | Codex | In review | WS-05, WS-06, WS-10 | 2026-04-01 |
-| WS-12 | Run/activity records and replay artifacts | Codex | Queued | WS-04, WS-07, WS-11 | 2026-04-01 |
+| WS-11 | Main-path DST and fault-injection moat work | Codex | Done | WS-05, WS-06, WS-10 | 2026-04-01 |
+| WS-12 | Run/activity records and replay artifacts | Codex | In review | WS-04, WS-07, WS-11 | 2026-04-01 |
 | WS-13 | Suggested invariants in shipped flow | Codex | Queued | WS-03, WS-10, WS-12 | 2026-04-01 |
 | WS-14 | MCP surface and minimal shared handlers | Codex | Queued | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
 
@@ -98,8 +98,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the first WS-11 main-path DST and fault-injection moat checkpoint.
-2. Move next to WS-12 run/activity records and replay artifacts once WS-11 lands.
+1. Review the first WS-12 run/activity and replay-artifact checkpoint.
+2. Continue WS-12 with richer replay explanations once the run store lands.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

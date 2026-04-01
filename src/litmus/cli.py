@@ -12,8 +12,8 @@ from litmus.init_flow import bootstrap_repo
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification, run_differential_replay
-from litmus.replay.trace import replay_record_for_seed, save_replay_trace_records
 from litmus.reporting.console import render_replay_summary, render_verification_summary
+from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
 from litmus.scenarios.builder import Scenario
 from litmus.verify_scope import resolve_verification_scope
 from litmus.watch import run_watch
@@ -63,7 +63,7 @@ def verify(
         raise typer.Exit(code=1) from None
 
     result = run_verification(Path.cwd(), scope=scope)
-    save_replay_trace_records(Path.cwd(), result.replay_traces)
+    record_verification_run(Path.cwd(), result, mode=RunMode.LOCAL)
     typer.echo(render_verification_summary(result))
 
     has_breaking_replay = any(
@@ -92,7 +92,7 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
     """Replay a deterministic failing seed."""
     repo_root = Path.cwd()
     try:
-        record = replay_record_for_seed(repo_root, seed)
+        source_run, record = replay_record_for_seed(repo_root, seed)
     except FileNotFoundError:
         typer.echo("No replay traces found. Run `litmus verify` first.", err=True)
         raise typer.Exit(code=1) from None
@@ -129,6 +129,28 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
 
     replay_results = asyncio.run(run_differential_replay([scenario], runner))
     classification = replay_results[0].classification if replay_results else ReplayClassification.UNCHANGED
+    record_replay_run(
+        repo_root,
+        app_reference=record.app_reference,
+        source_run_id=None if source_run.run_id == "legacy-replay-traces" else source_run.run_id,
+        source_scope_label=source_run.scope_label,
+        seed=seed,
+        summary={
+            "classification": classification.value,
+            "route": {
+                "method": record.method,
+                "path": record.path,
+            },
+            "baseline": {
+                "status_code": record.baseline_status_code,
+                "body": record.baseline_body,
+            },
+            "current": {
+                "status_code": current_response.status_code,
+                "body": current_result.body,
+            },
+        },
+    )
     typer.echo(
         render_replay_summary(
             seed=record.seed,

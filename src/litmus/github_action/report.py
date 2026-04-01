@@ -8,10 +8,10 @@ from litmus.dst.engine import run_verification
 from litmus.github_action.publish import publish_pr_comment
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
-from litmus.replay.trace import save_replay_trace_records
 from litmus.reporting.confidence import calculate_confidence_score
 from litmus.reporting.console import render_verification_summary
 from litmus.reporting.pr_comment import render_pr_comment
+from litmus.runs import RunMode, record_verification_run
 
 
 @dataclass(slots=True)
@@ -154,7 +154,7 @@ def run_github_action(
     api_url: str = "https://api.github.com",
 ) -> ActionReport:
     result = run_verification(workspace, mode=mode)
-    save_replay_trace_records(workspace, result.replay_traces)
+    record_verification_run(workspace, result, mode=RunMode.CI)
 
     report = build_action_report(
         result,

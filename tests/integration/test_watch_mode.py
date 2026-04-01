@@ -101,6 +101,10 @@ def test_litmus_watch_reruns_verification_on_python_change(tmp_path, monkeypatch
     assert "Changed: service/app.py" in result.output
     assert "Litmus verify" in result.output
     assert "App: service.app:app" in result.output
+    latest_run_pointer = repo_root / ".litmus" / "runs" / "latest.json"
+    latest_replayable_pointer = repo_root / ".litmus" / "runs" / "latest-replayable.json"
+    assert latest_run_pointer.exists()
+    assert latest_replayable_pointer.exists()
 
 
 def test_litmus_watch_ignores_litmus_artifacts(tmp_path, monkeypatch) -> None:
@@ -128,6 +132,9 @@ def test_litmus_watch_clears_stale_replay_traces_after_verification_error(tmp_pa
     trace_dir.mkdir()
     trace_path = trace_dir / "replay-traces.json"
     trace_path.write_text('{"records": [{"seed": "seed:1"}]}\n', encoding="utf-8")
+    runs_dir = trace_dir / "runs"
+    runs_dir.mkdir()
+    (runs_dir / "latest-replayable.json").write_text('{"run_id": "run-123"}\n', encoding="utf-8")
 
     def fake_watch(*_args, **_kwargs):
         yield {("modified", str(repo_root / "service" / "app.py"))}
@@ -139,5 +146,6 @@ def test_litmus_watch_clears_stale_replay_traces_after_verification_error(tmp_pa
     run_watch(repo_root, watcher=fake_watch, emit=messages.append, verify_runner=fake_verify_runner)
 
     assert not trace_path.exists()
+    assert not (runs_dir / "latest-replayable.json").exists()
     assert "Changed: service/app.py" in messages
     assert "Verification error: broken verification" in messages
