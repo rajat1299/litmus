@@ -8,6 +8,7 @@ from litmus.discovery.app import discover_app_reference, load_asgi_app
 from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
 from litmus.dst.asgi import run_asgi_app
+from litmus.dst.faults import build_fault_plan
 from litmus.invariants.mined import mine_invariants_from_tests
 from litmus.invariants.models import Invariant, InvariantType, RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
@@ -18,8 +19,10 @@ from litmus.verify_scope import VerifyScope, apply_verification_scope, default_v
 
 LOCAL_PROPERTY_MAX_EXAMPLES = 100
 CI_PROPERTY_MAX_EXAMPLES = 500
-LOCAL_REPLAY_SEEDS_PER_SCENARIO = 1
+LOCAL_REPLAY_SEEDS_PER_SCENARIO = 3
 CI_REPLAY_SEEDS_PER_SCENARIO = 500
+VERIFY_FAULT_TARGETS = ["http"]
+VERIFY_FAULT_KINDS = ["timeout", "connection_refused", "http_error", "slow_response"]
 
 
 @dataclass(slots=True)
@@ -102,12 +105,19 @@ async def _run_replay(
 
     for scenario in scenarios:
         for _ in range(seeds_per_scenario):
+            fault_plan = build_fault_plan(
+                seed=next_seed_value,
+                steps=1,
+                targets=VERIFY_FAULT_TARGETS,
+                kinds=VERIFY_FAULT_KINDS,
+            )
             result = await run_asgi_app(
                 app,
                 method=scenario.method,
                 path=scenario.path,
                 json_body=scenario.request.payload,
                 seed=next_seed_value,
+                fault_plan=fault_plan,
             )
             changed_response = ResponseExample(
                 status_code=result.status_code,

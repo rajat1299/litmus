@@ -6,6 +6,9 @@ from typing import Any
 
 from litmus.dst.faults import FaultPlan
 from litmus.dst.runtime import RuntimeContext, TraceEvent
+from litmus.simulators.aiohttp_adapter import patch_aiohttp
+from litmus.simulators.http import HttpSimulator
+from litmus.simulators.httpx_adapter import patch_httpx
 
 
 @dataclass(slots=True)
@@ -24,6 +27,18 @@ async def run_asgi_app(
     fault_plan: FaultPlan | None = None,
 ) -> AsgiExecutionResult:
     runtime = RuntimeContext(seed=seed, fault_plan=fault_plan or FaultPlan(seed=seed))
+    runtime.record(
+        "fault_plan_selected",
+        schedule=[
+            {
+                "step": step,
+                "target": spec.target,
+                "kind": spec.kind,
+                "params": dict(spec.params),
+            }
+            for step, spec in sorted(runtime.fault_plan.schedule.items())
+        ],
+    )
     request_body = json.dumps(json_body).encode("utf-8") if json_body is not None else b""
 
     scope = {
@@ -72,7 +87,14 @@ async def run_asgi_app(
             response_chunks.append(chunk)
             runtime.record("response_body", bytes=len(chunk), more_body=message.get("more_body", False))
 
-    await app(scope, receive, send)
+    http_simulator = HttpSimulator(
+        fault_plan=runtime.fault_plan,
+        record_event=runtime.record,
+    )
+
+    with patch_httpx(http_simulator):
+        with patch_aiohttp(http_simulator):
+            await app(scope, receive, send)
 
     body = b"".join(response_chunks)
     runtime.record("request_completed", status_code=response_status)

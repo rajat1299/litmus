@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 
+import httpx
+
 from litmus.dst.asgi import run_asgi_app
-from litmus.dst.faults import FaultPlan
+from litmus.dst.faults import FaultPlan, FaultSpec
 
 
 def test_run_asgi_app_captures_status_body_and_trace() -> None:
@@ -43,12 +45,13 @@ def test_run_asgi_app_captures_status_body_and_trace() -> None:
     assert result.status_code == 200
     assert result.body == {"status": "charged", "amount": 100}
     assert [event.kind for event in result.trace] == [
+        "fault_plan_selected",
         "request_started",
         "response_started",
         "response_body",
         "request_completed",
     ]
-    assert result.trace[0].metadata["seed"] == 7
+    assert result.trace[1].metadata["seed"] == 7
 
 
 def test_run_asgi_app_does_not_invent_client_disconnect_after_request_body() -> None:
@@ -152,3 +155,62 @@ def test_run_asgi_app_preserves_malformed_json_response_body() -> None:
 
     assert result.status_code == 200
     assert result.body == "{bad json"
+
+
+def test_run_asgi_app_patches_httpx_and_records_fault_injection_trace() -> None:
+    async def app(scope, receive, send):
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.get("https://service.invalid/orders/123")
+            except httpx.HTTPError:
+                response = {"status_code": 503, "json": {"status": "upstream_unavailable"}}
+            else:
+                response = {"status_code": 200, "json": {"status": "ok"}}
+
+        await send(
+            {
+                "type": "http.response.start",
+                "status": response["status_code"],
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": json.dumps(response["json"]).encode("utf-8"),
+            }
+        )
+
+    result = asyncio.run(
+        run_asgi_app(
+            app=app,
+            method="GET",
+            path="/health",
+            seed=1,
+            fault_plan=FaultPlan(
+                seed=1,
+                schedule={
+                    1: FaultSpec(kind="timeout", target="http"),
+                },
+            ),
+        )
+    )
+
+    assert result.status_code == 503
+    assert result.body == {"status": "upstream_unavailable"}
+    assert [event.kind for event in result.trace] == [
+        "fault_plan_selected",
+        "request_started",
+        "http_request_started",
+        "fault_injected",
+        "response_started",
+        "response_body",
+        "request_completed",
+    ]
+    assert result.trace[3].metadata == {
+        "fault_kind": "timeout",
+        "params": {},
+        "step": 1,
+        "target": "http",
+        "url": "https://service.invalid/orders/123",
+    }

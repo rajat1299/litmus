@@ -78,7 +78,7 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert "Routes: 1" in verify_failure.stdout
     assert "Invariants: 2" in verify_failure.stdout
     assert "Scenarios: 2" in verify_failure.stdout
-    assert "Replay: unchanged=1 breaking=1 benign=0 improvement=0" in verify_failure.stdout
+    assert "Replay: unchanged=3 breaking=3 benign=0 improvement=0" in verify_failure.stdout
     assert "Properties: passed=0 failed=0 skipped=0" in verify_failure.stdout
     assert "Confidence: 0.50" in verify_failure.stdout
 
@@ -114,5 +114,5 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     )
 
     assert verify_fixed.returncode == 0, verify_fixed.stderr
-    assert "Replay: unchanged=2 breaking=0 benign=0 improvement=0" in verify_fixed.stdout
+    assert "Replay: unchanged=6 breaking=0 benign=0 improvement=0" in verify_fixed.stdout
     assert "Confidence: 1.00" in verify_fixed.stdout

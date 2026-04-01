@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from fnmatch import fnmatch
+from typing import Any
 
 from litmus.dst.faults import FaultPlan
 from litmus.simulators.base import (
@@ -19,10 +21,15 @@ class _HttpFixture:
 
 
 class HttpSimulator:
-    def __init__(self, fault_plan: FaultPlan | None = None) -> None:
+    def __init__(
+        self,
+        fault_plan: FaultPlan | None = None,
+        record_event: Callable[[str, Any], None] | None = None,
+    ) -> None:
         self._fixtures: list[_HttpFixture] = []
         self._fault_plan = fault_plan or FaultPlan(seed=0)
         self._request_step = 0
+        self._record_event = record_event
 
     def add_json_response(
         self,
@@ -49,10 +56,19 @@ class HttpSimulator:
 
     async def handle_request(self, method: str, url: str) -> SimulatedHttpResponse:
         self._request_step += 1
+        self._record("http_request_started", step=self._request_step, method=method.upper(), url=url)
         fault = self._fault_plan.fault_for_step(self._request_step)
         fixture = self._match_fixture(method, url)
 
         if fault is not None and fault.target in {"http", "httpx", "aiohttp"}:
+            self._record(
+                "fault_injected",
+                step=self._request_step,
+                target=fault.target,
+                fault_kind=fault.kind,
+                params=dict(fault.params),
+                url=url,
+            )
             if fault.kind == "timeout":
                 raise HttpTimeoutError(f"simulated timeout for {method.upper()} {url}")
             if fault.kind == "connection_refused":
@@ -62,19 +78,20 @@ class HttpSimulator:
                 return SimulatedHttpResponse(
                     status_code=status_code,
                     headers={"content-type": "application/json"},
-                    json_body={"error": "simulated http error"},
+                        json_body={"error": "simulated http error"},
                 )
-            if fault.kind == "slow_response" and fixture is not None:
+            if fault.kind == "slow_response":
+                response = fixture.response if fixture is not None else SimulatedHttpResponse(status_code=200)
                 return SimulatedHttpResponse(
-                    status_code=fixture.response.status_code,
-                    headers=dict(fixture.response.headers),
-                    json_body=fixture.response.json_body,
-                    text_body=fixture.response.text_body,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    json_body=response.json_body,
+                    text_body=response.text_body,
                     latency_ms=int(fault.params.get("delay_ms", 0)),
                 )
 
         if fixture is None:
-            raise LookupError(f"no simulated HTTP fixture for {method.upper()} {url}")
+            return SimulatedHttpResponse(status_code=200)
 
         return SimulatedHttpResponse(
             status_code=fixture.response.status_code,
@@ -83,6 +100,10 @@ class HttpSimulator:
             text_body=fixture.response.text_body,
             latency_ms=fixture.response.latency_ms,
         )
+
+    def _record(self, event_kind: str, **metadata: Any) -> None:
+        if self._record_event is not None:
+            self._record_event(event_kind, **metadata)
 
     def _match_fixture(self, method: str, url: str) -> _HttpFixture | None:
         normalized_method = method.upper()

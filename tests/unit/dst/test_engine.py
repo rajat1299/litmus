@@ -62,11 +62,11 @@ def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypa
 
     run_verification(tmp_path)
 
-    assert captured["seeds_per_scenario"] == 1
+    assert captured["seeds_per_scenario"] == 3
     assert captured["max_examples"] == 100
 
 
-def test_run_replay_generates_requested_seed_count_per_scenario(monkeypatch) -> None:
+def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(monkeypatch) -> None:
     scenario = Scenario(
         method="POST",
         path="/payments/charge",
@@ -80,16 +80,31 @@ def test_run_replay_generates_requested_seed_count_per_scenario(monkeypatch) -> 
         body: dict[str, str]
         trace: list[TraceEvent]
 
-    async def fake_run_asgi_app(_app, *, method, path, json_body, seed):
+    captured_fault_plan_seeds: list[int] = []
+
+    class FakeFaultPlan:
+        def __init__(self, seed: int) -> None:
+            self.seed = seed
+            self.schedule = {1: {"kind": "timeout"}}
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str]):
+        assert steps == 1
+        assert targets == ["http"]
+        assert "timeout" in kinds
+        return FakeFaultPlan(seed)
+
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan):
         assert method == "POST"
         assert path == "/payments/charge"
         assert json_body == {"amount": 100}
+        captured_fault_plan_seeds.append(fault_plan.seed)
         return FakeAsgiResult(
             status_code=200,
             body={"status": "charged"},
             trace=[TraceEvent(kind="request_started", metadata={"seed": seed})],
         )
 
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
     monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
 
     replay_results, replay_traces = asyncio.run(
@@ -104,3 +119,4 @@ def test_run_replay_generates_requested_seed_count_per_scenario(monkeypatch) -> 
     assert len(replay_results) == 3
     assert len(replay_traces) == 3
     assert [trace.seed for trace in replay_traces] == ["seed:1", "seed:2", "seed:3"]
+    assert captured_fault_plan_seeds == [1, 2, 3]

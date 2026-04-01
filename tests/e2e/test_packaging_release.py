@@ -78,7 +78,7 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
         check=False,
     )
     assert verify_result.returncode == 1, verify_result.stdout
-    assert "Replay: unchanged=1 breaking=1 benign=0 improvement=0" in verify_result.stdout
+    assert "Replay: unchanged=3 breaking=3 benign=0 improvement=0" in verify_result.stdout
 
     replay_result = subprocess.run(
         [str(litmus_bin), "replay", "seed:1"],

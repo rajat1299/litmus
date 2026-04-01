@@ -115,7 +115,7 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
     assert "Routes: 1" in result.stdout
     assert "Invariants: 2" in result.stdout
     assert "Scenarios: 2" in result.stdout
-    assert "Replay: unchanged=2 breaking=0 benign=0 improvement=0" in result.stdout
+    assert "Replay: unchanged=6 breaking=0 benign=0 improvement=0" in result.stdout
     assert "Properties: passed=0 failed=0 skipped=0" in result.stdout
     assert "Confidence: 1.00" in result.stdout
 
@@ -185,7 +185,7 @@ def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:
     assert "Routes: 1" in result.stdout
     assert "Invariants: 1" in result.stdout
     assert "Scenarios: 1" in result.stdout
-    assert "Replay: unchanged=1 breaking=0 benign=0 improvement=0" in result.stdout
+    assert "Replay: unchanged=3 breaking=0 benign=0 improvement=0" in result.stdout
 
 
 def test_litmus_verify_scopes_to_explicit_changed_test_file(tmp_path: Path) -> None:
@@ -283,6 +283,105 @@ def test_litmus_verify_scopes_to_named_diff_range(tmp_path: Path) -> None:
     assert "Routes: 1" in result.stdout
     assert "Invariants: 1" in result.stdout
     assert "Scenarios: 1" in result.stdout
+
+
+def test_litmus_verify_runs_faulted_http_dst_replay_in_main_path(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import httpx
+            import json
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler()
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                async with httpx.AsyncClient() as client:
+                    try:
+                        response = await client.get("https://service.invalid/orders/123")
+                    except httpx.HTTPError:
+                        return {"status_code": 503, "json": {"status": "upstream_unavailable"}}
+
+                if response.status_code >= 500:
+                    return {"status_code": 503, "json": {"status": "upstream_unavailable"}}
+
+                return {"status_code": 200, "json": {"status": "ok"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_health.py").write_text(
+        textwrap.dedent(
+            """
+            def test_health_returns_200_when_upstream_is_healthy():
+                request = {
+                    "method": "GET",
+                    "path": "/health",
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "ok"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "Scenarios: 1" in result.stdout
+    assert "Replay: unchanged=0 breaking=3 benign=0 improvement=0" in result.stdout
 
 
 def _build_scoped_verify_repo(repo_root: Path) -> Path:
