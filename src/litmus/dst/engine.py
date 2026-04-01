@@ -53,13 +53,19 @@ def run_verification(
     app = load_asgi_app(app_reference, repo_root)
     discovered_routes = _collect_routes(repo_root)
     discovered_invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
-    routes, confirmed_invariants = apply_verification_scope(
+    curated_suggested_invariants = _load_curated_suggested_invariants(repo_root, discovered_routes)
+    routes, scoped_invariants = apply_verification_scope(
         repo_root,
         discovered_routes,
-        discovered_invariants,
+        [*discovered_invariants, *curated_suggested_invariants],
         active_scope,
     )
-    curated_suggested_invariants = _load_curated_suggested_invariants(repo_root, routes)
+    confirmed_invariants = [
+        invariant for invariant in scoped_invariants if invariant.status is InvariantStatus.CONFIRMED
+    ]
+    curated_suggested_invariants = [
+        invariant for invariant in scoped_invariants if invariant.status is InvariantStatus.SUGGESTED
+    ]
     suggested_invariants = _collect_suggested_invariants(
         routes=routes,
         confirmed_invariants=confirmed_invariants,

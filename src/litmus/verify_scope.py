@@ -8,6 +8,7 @@ from litmus.discovery.git_scope import list_changed_files_for_diff, list_staged_
 from litmus.discovery.routes import RouteDefinition
 from litmus.discovery.tracing import map_changed_code_to_endpoints
 from litmus.invariants.models import Invariant
+from litmus.invariants.store import default_invariants_path
 
 
 VerifyScopeMode = Literal["full", "paths", "staged", "diff"]
@@ -83,7 +84,7 @@ def apply_verification_scope(
     seen_ids: set[int] = set()
 
     for invariant in invariants:
-        if not _is_mined_from_changed_test_file(root, invariant, scope.changed_files):
+        if not _is_selected_directly_by_changed_artifact(root, invariant, scope.changed_files):
             continue
         _append_unique_invariant(scoped_invariants, seen_ids, invariant)
         route_key = _route_key_for_invariant(invariant)
@@ -150,6 +151,25 @@ def _is_mined_from_changed_test_file(
     if normalized_source_file is None:
         return False
     return normalized_source_file in changed_files
+
+
+def _is_selected_directly_by_changed_artifact(
+    root: Path | str,
+    invariant: Invariant,
+    changed_files: list[str],
+) -> bool:
+    if _is_mined_from_changed_test_file(root, invariant, changed_files):
+        return True
+
+    if invariant.status.value != "suggested":
+        return False
+
+    curated_store_path = default_invariants_path(root)
+    try:
+        normalized_curated_path = curated_store_path.resolve().relative_to(Path(root).resolve()).as_posix()
+    except ValueError:
+        return False
+    return normalized_curated_path in changed_files
 
 
 def _normalize_mined_source_path(root: Path, source_file: str) -> str | None:

@@ -188,3 +188,41 @@ def test_apply_verification_scope_matches_absolute_mined_test_sources(tmp_path: 
 
     assert [(route.method, route.path) for route in scoped_routes] == [("POST", "/payments/refund")]
     assert [invariant.name for invariant in scoped_invariants] == ["refund"]
+
+
+def test_apply_verification_scope_selects_suggested_invariants_when_curated_store_file_changes(
+    tmp_path: Path,
+) -> None:
+    litmus_dir = tmp_path / ".litmus"
+    litmus_dir.mkdir()
+    curated_file = litmus_dir / "invariants.yaml"
+    curated_file.write_text("[]\n", encoding="utf-8")
+
+    routes = [
+        RouteDefinition(method="POST", path="/payments/charge", handler_name="charge", file_path="service/app.py"),
+        RouteDefinition(method="POST", path="/payments/refund", handler_name="refund", file_path="service/app.py"),
+    ]
+    invariants = [
+        Invariant(
+            name="charge",
+            source="mined:tests/test_payments.py::test_charge",
+            status=InvariantStatus.CONFIRMED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+            response=ResponseExample(status_code=200, json={"status": "charged"}),
+        ),
+        Invariant(
+            name="refund_needs_review",
+            source="manual:suggested",
+            status=InvariantStatus.SUGGESTED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(method="POST", path="/payments/refund"),
+            reasoning="Review refund behavior.",
+        ),
+    ]
+    scope = resolve_verification_scope(tmp_path, explicit_paths=[curated_file])
+
+    scoped_routes, scoped_invariants = apply_verification_scope(tmp_path, routes, invariants, scope)
+
+    assert [(route.method, route.path) for route in scoped_routes] == [("POST", "/payments/refund")]
+    assert [invariant.name for invariant in scoped_invariants] == ["refund_needs_review"]
