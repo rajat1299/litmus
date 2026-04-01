@@ -45,6 +45,20 @@ def _matches_imported_symbol(
     changed_symbols: Mapping[str, Set[str]] | None,
 ) -> bool:
     if changed_symbols is None:
+        for local_name, binding in route.imported_symbols.items():
+            if binding.module_path == changed_file and local_name in route.called_targets:
+                return True
+
+        for alias, module_path in route.imported_module_aliases.items():
+            if module_path == changed_file and any(
+                target.startswith(f"{alias}.")
+                for target in route.called_targets
+            ):
+                return True
+
+        return False
+
+    if changed_symbols is None:
         return False
 
     symbols = changed_symbols.get(changed_file)

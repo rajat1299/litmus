@@ -21,7 +21,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-09 through WS-14 claimed; WS-09 init bootstrap checkpoint is in review |
+| Implementation | In progress | WS-09 is done; WS-10 scoped verify checkpoint is in review |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -65,8 +65,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-06 | Semantic simulators | Codex | Done | WS-05 | 2026-03-30 |
 | WS-07 | Reporting, watch mode, GitHub Action | Codex | Done | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-31 |
 | WS-08 | Demo app, docs, packaging, release path | Codex | In review | WS-01 through WS-07 | 2026-03-31 |
-| WS-09 | Init bootstrap flow | Codex | In review | WS-01, WS-02, WS-03, WS-08 | 2026-04-01 |
-| WS-10 | Scoped verify and changed-endpoint selection | Codex | Queued | WS-02, WS-04, WS-09 | 2026-04-01 |
+| WS-09 | Init bootstrap flow | Codex | Done | WS-01, WS-02, WS-03, WS-08 | 2026-04-01 |
+| WS-10 | Scoped verify and changed-endpoint selection | Codex | In review | WS-02, WS-04, WS-09 | 2026-04-01 |
 | WS-11 | Main-path DST and fault-injection moat work | Codex | Queued | WS-05, WS-06, WS-10 | 2026-04-01 |
 | WS-12 | Run/activity records and replay artifacts | Codex | Queued | WS-04, WS-07, WS-11 | 2026-04-01 |
 | WS-13 | Suggested invariants in shipped flow | Codex | Queued | WS-03, WS-10, WS-12 | 2026-04-01 |
@@ -98,8 +98,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the first WS-09 `litmus init` bootstrap checkpoint.
-2. Move next to WS-10 scoped verify and changed-endpoint selection once WS-09 lands.
+1. Review the first WS-10 scoped verify and changed-endpoint selection checkpoint.
+2. Move next to WS-11 main-path DST and fault-injection moat work once WS-10 lands.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

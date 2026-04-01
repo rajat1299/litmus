@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 import subprocess
 import textwrap
 
@@ -165,3 +167,233 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
     assert "Invariants: 0" in result.stdout
     assert "Scenarios: 0" in result.stdout
     assert "Confidence: 0.00" in result.stdout
+
+
+def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:
+    repo_root = _build_scoped_verify_repo(tmp_path)
+
+    result = subprocess.run(
+        ["litmus", "verify", "service/refunds.py"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Scope: paths: service/refunds.py" in result.stdout
+    assert "Routes: 1" in result.stdout
+    assert "Invariants: 1" in result.stdout
+    assert "Scenarios: 1" in result.stdout
+    assert "Replay: unchanged=1 breaking=0 benign=0 improvement=0" in result.stdout
+
+
+def test_litmus_verify_scopes_to_staged_changes(tmp_path: Path) -> None:
+    repo_root = _build_scoped_verify_repo(tmp_path)
+    _init_git_repo(repo_root)
+
+    refunds_file = repo_root / "service" / "refunds.py"
+    refunds_file.write_text(
+        refunds_file.read_text(encoding="utf-8").replace('"status_code": 200', '"status_code": 500'),
+        encoding="utf-8",
+    )
+    _git(repo_root, "add", "service/refunds.py")
+
+    result = subprocess.run(
+        ["litmus", "verify", "--staged"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stderr
+    assert "Scope: staged diff" in result.stdout
+    assert "Routes: 1" in result.stdout
+    assert "Invariants: 1" in result.stdout
+    assert "Scenarios: 1" in result.stdout
+
+
+def test_litmus_verify_scopes_to_named_diff_range(tmp_path: Path) -> None:
+    repo_root = _build_scoped_verify_repo(tmp_path)
+    _init_git_repo(repo_root)
+
+    refunds_file = repo_root / "service" / "refunds.py"
+    refunds_file.write_text(
+        refunds_file.read_text(encoding="utf-8").replace('"status_code": 200', '"status_code": 500'),
+        encoding="utf-8",
+    )
+    _git(repo_root, "add", "service/refunds.py")
+    _git(repo_root, "commit", "-m", "change refund behavior")
+
+    result = subprocess.run(
+        ["litmus", "verify", "--diff", "HEAD~1...HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stderr
+    assert "Scope: diff HEAD~1...HEAD" in result.stdout
+    assert "Routes: 1" in result.stdout
+    assert "Invariants: 1" in result.stdout
+    assert "Scenarios: 1" in result.stdout
+
+
+def _build_scoped_verify_repo(repo_root: Path) -> Path:
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "payments.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            async def charge_payment(payload):
+                return {"status_code": 200, "json": {"status": "charged"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (service_dir / "refunds.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            async def refund_payment(payload):
+                return {"status_code": 200, "json": {"status": "refunded"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+            from service.payments import charge_payment
+            from service.refunds import refund_payment
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def post(self, path: str):
+                    def decorator(func):
+                        self.routes[("POST", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    request = await receive()
+                    payload = json.loads(request["body"].decode("utf-8")) if request["body"] else None
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler(payload)
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.post("/payments/charge")
+            async def charge(payload):
+                return await charge_payment(payload)
+
+
+            @app.post("/payments/refund")
+            async def refund(payload):
+                return await refund_payment(payload)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_payments.py").write_text(
+        textwrap.dedent(
+            """
+            def test_charge_returns_200():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/charge",
+                    "json": {"amount": 100},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "charged"},
+                }
+
+                assert response["status_code"] == 200
+
+
+            def test_refund_returns_200():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/refund",
+                    "json": {"payment_id": "pay_123"},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "refunded"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return repo_root
+
+
+def _init_git_repo(repo_root: Path) -> None:
+    _git(repo_root, "init")
+    _git(repo_root, "config", "user.email", "litmus@example.com")
+    _git(repo_root, "config", "user.name", "Litmus Tests")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "initial")
+
+
+def _git(repo_root: Path, *args: str) -> None:
+    env = dict(os.environ)
+    env.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+        }
+    )
+    result = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr

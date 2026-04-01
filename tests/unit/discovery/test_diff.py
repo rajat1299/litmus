@@ -24,3 +24,14 @@ index 0123456..789abcd 100644
     changed_files = parse_changed_files(diff_output)
 
     assert changed_files == ["app/api.py", "app/services/payment.py"]
+
+
+def test_parse_changed_files_from_name_only_output() -> None:
+    diff_output = """
+app/api.py
+app/services/payment.py
+""".strip()
+
+    changed_files = parse_changed_files(diff_output)
+
+    assert changed_files == ["app/api.py", "app/services/payment.py"]

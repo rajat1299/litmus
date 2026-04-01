@@ -15,6 +15,7 @@ from litmus.replay.differential import ReplayClassification, run_differential_re
 from litmus.replay.trace import replay_record_for_seed, save_replay_trace_records
 from litmus.reporting.console import render_replay_summary, render_verification_summary
 from litmus.scenarios.builder import Scenario
+from litmus.verify_scope import resolve_verification_scope
 from litmus.watch import run_watch
 
 app = typer.Typer(
@@ -44,9 +45,24 @@ def init() -> None:
 
 
 @app.command()
-def verify() -> None:
+def verify(
+    target: Path | None = typer.Argument(None, help="Optional file or directory path to scope verification."),
+    staged: bool = typer.Option(False, "--staged", help="Scope verification to staged git changes."),
+    diff: str | None = typer.Option(None, "--diff", help="Scope verification to a named git diff range."),
+) -> None:
     """Run the Litmus verification pipeline."""
-    result = run_verification(Path.cwd())
+    try:
+        scope = resolve_verification_scope(
+            Path.cwd(),
+            explicit_paths=[target] if target is not None else None,
+            staged=staged,
+            diff=diff,
+        )
+    except (LookupError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
+
+    result = run_verification(Path.cwd(), scope=scope)
     save_replay_trace_records(Path.cwd(), result.replay_traces)
     typer.echo(render_verification_summary(result))
 

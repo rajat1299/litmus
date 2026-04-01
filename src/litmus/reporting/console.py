@@ -16,6 +16,7 @@ def render_verification_summary(result) -> str:
         [
             "Litmus verify",
             f"App: {result.app_reference}",
+            f"Scope: {result.scope_label}",
             f"Routes: {len(result.routes)}",
             f"Invariants: {len(result.invariants)}",
             f"Scenarios: {len(result.scenarios)}",

@@ -31,6 +31,20 @@ def test_map_changed_code_to_endpoints_traces_imported_symbol_usage() -> None:
     ]
 
 
+def test_map_changed_code_to_endpoints_traces_changed_module_without_symbol_map() -> None:
+    fixture_root = Path(__file__).resolve().parents[2] / "fixtures" / "apps" / "payment_service"
+
+    endpoints = map_changed_code_to_endpoints(
+        fixture_root,
+        ["services/payments.py"],
+    )
+
+    assert [(endpoint.method, endpoint.path) for endpoint in endpoints] == [
+        ("POST", "/payments/charge"),
+        ("POST", "/payments/refund"),
+    ]
+
+
 def test_map_changed_code_to_endpoints_traces_relative_imports(tmp_path: Path) -> None:
     service_dir = tmp_path / "service"
     service_dir.mkdir()

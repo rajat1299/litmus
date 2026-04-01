@@ -14,6 +14,7 @@ from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.scenarios.builder import Scenario, build_scenarios
+from litmus.verify_scope import VerifyScope, apply_verification_scope, default_verification_scope
 
 LOCAL_PROPERTY_MAX_EXAMPLES = 100
 CI_PROPERTY_MAX_EXAMPLES = 500
@@ -30,14 +31,27 @@ class VerificationResult:
     replay_results: list[DifferentialReplayResult]
     replay_traces: list[ReplayTraceRecord]
     property_results: list[PropertyCheckResult]
+    scope_label: str = "full repo"
 
 
-def run_verification(root: Path | str, mode: str = "local") -> VerificationResult:
+def run_verification(
+    root: Path | str,
+    mode: str = "local",
+    *,
+    scope: VerifyScope | None = None,
+) -> VerificationResult:
     repo_root = Path(root)
+    active_scope = scope or default_verification_scope()
     app_reference = discover_app_reference(repo_root)
     app = load_asgi_app(app_reference, repo_root)
-    routes = _collect_routes(repo_root)
-    invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
+    discovered_routes = _collect_routes(repo_root)
+    discovered_invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
+    routes, invariants = apply_verification_scope(
+        repo_root,
+        discovered_routes,
+        discovered_invariants,
+        active_scope,
+    )
     scenarios = build_scenarios(routes, invariants)
     replay_results, replay_traces = asyncio.run(
         _run_replay(
@@ -53,6 +67,7 @@ def run_verification(root: Path | str, mode: str = "local") -> VerificationResul
         max_examples=_property_max_examples_for_mode(mode),
     )
     return VerificationResult(
+        scope_label=active_scope.label,
         app_reference=app_reference,
         routes=routes,
         invariants=invariants,
