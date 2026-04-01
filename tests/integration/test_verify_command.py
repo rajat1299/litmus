@@ -479,6 +479,104 @@ def test_litmus_verify_reports_breaking_seed_when_fault_exception_escapes_app(tm
     assert "Traceback" not in result.stderr
 
 
+def test_litmus_verify_keeps_unknown_followup_json_request_parseable_after_caught_fault(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import httpx
+            import json
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler()
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                async with httpx.AsyncClient() as client:
+                    try:
+                        await client.get("https://service.invalid/orders/primary")
+                    except httpx.HTTPError:
+                        pass
+
+                    metadata = (await client.get("https://service.invalid/orders/secondary")).json()
+
+                return {"status_code": 200, "json": {"status": "ok", "metadata": metadata}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_health.py").write_text(
+        textwrap.dedent(
+            """
+            def test_health_returns_200_when_upstream_health_can_be_checked():
+                request = {
+                    "method": "GET",
+                    "path": "/health",
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "ok", "metadata": {}},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Scenarios: 1" in result.stdout
+    assert "Replay: unchanged=3 breaking=0 benign=0 improvement=0" in result.stdout
+
+
 def _build_scoped_verify_repo(repo_root: Path) -> Path:
     service_dir = repo_root / "service"
     tests_dir = repo_root / "tests"

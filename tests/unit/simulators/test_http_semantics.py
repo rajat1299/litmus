@@ -67,3 +67,36 @@ def test_http_simulator_applies_timeout_connection_refusal_http_error_and_slow_r
     assert http_error.status_code == 500
     assert slow_response.status_code == 200
     assert slow_response.latency_ms == 250
+
+
+def test_http_simulator_unknown_request_defaults_to_parseable_json_response() -> None:
+    simulator = HttpSimulator()
+
+    response = asyncio.run(
+        simulator.handle_request("GET", "https://api.example.com/orders/123"),
+    )
+
+    assert response.status_code == 200
+    assert response.headers == {"content-type": "application/json"}
+    assert response.json_body == {}
+    assert response.content_bytes() == b"{}"
+
+
+def test_http_simulator_unknown_slow_response_defaults_to_parseable_json_response() -> None:
+    simulator = HttpSimulator(
+        fault_plan=FaultPlan(
+            seed=11,
+            schedule={
+                1: FaultSpec(kind="slow_response", target="http", params={"delay_ms": 250}),
+            },
+        )
+    )
+
+    response = asyncio.run(
+        simulator.handle_request("GET", "https://api.example.com/orders/slow"),
+    )
+
+    assert response.status_code == 200
+    assert response.headers == {"content-type": "application/json"}
+    assert response.json_body == {}
+    assert response.latency_ms == 250

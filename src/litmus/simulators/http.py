@@ -78,10 +78,10 @@ class HttpSimulator:
                 return SimulatedHttpResponse(
                     status_code=status_code,
                     headers={"content-type": "application/json"},
-                        json_body={"error": "simulated http error"},
+                    json_body={"error": "simulated http error"},
                 )
             if fault.kind == "slow_response":
-                response = fixture.response if fixture is not None else SimulatedHttpResponse(status_code=200)
+                response = fixture.response if fixture is not None else self._default_response(method, url)
                 return SimulatedHttpResponse(
                     status_code=response.status_code,
                     headers=dict(response.headers),
@@ -91,7 +91,7 @@ class HttpSimulator:
                 )
 
         if fixture is None:
-            return SimulatedHttpResponse(status_code=200)
+            return self._default_response(method, url)
 
         return SimulatedHttpResponse(
             status_code=fixture.response.status_code,
@@ -104,6 +104,19 @@ class HttpSimulator:
     def _record(self, event_kind: str, **metadata: Any) -> None:
         if self._record_event is not None:
             self._record_event(event_kind, **metadata)
+
+    def _default_response(self, method: str, url: str) -> SimulatedHttpResponse:
+        self._record(
+            "http_response_defaulted",
+            step=self._request_step,
+            method=method.upper(),
+            url=url,
+        )
+        return SimulatedHttpResponse(
+            status_code=200,
+            headers={"content-type": "application/json"},
+            json_body={},
+        )
 
     def _match_fixture(self, method: str, url: str) -> _HttpFixture | None:
         normalized_method = method.upper()
