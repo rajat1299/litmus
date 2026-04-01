@@ -163,6 +163,40 @@ def test_render_pr_comment_reports_clean_verification_runs() -> None:
     assert "- No breaking replay or property failures detected." in comment
 
 
+def test_render_pr_comment_surfaces_suggested_invariants_needing_review() -> None:
+    suggested_invariant = Invariant(
+        name="refund_post_payments_refund_needs_confirmed_anchor",
+        source="suggested:route_gap",
+        status=InvariantStatus.SUGGESTED,
+        type=InvariantType.DIFFERENTIAL,
+        request=RequestExample(method="POST", path="/payments/refund"),
+        reasoning=(
+            "POST /payments/refund is selected for verification without a confirmed mined invariant "
+            "anchor. Add or approve a baseline before trusting verification coverage."
+        ),
+    )
+    result = VerificationResult(
+        app_reference="service.app:app",
+        routes=[],
+        invariants=[suggested_invariant],
+        scenarios=[],
+        replay_results=[],
+        replay_traces=[],
+        property_results=[],
+    )
+
+    comment = render_pr_comment(result)
+
+    assert "- `POST /payments/refund`" in comment
+    assert (
+        "- Suggested invariant `refund_post_payments_refund_needs_confirmed_anchor` for "
+        "`POST /payments/refund`: POST /payments/refund is selected for verification without a "
+        "confirmed mined invariant anchor. Add or approve a baseline before trusting verification "
+        "coverage."
+    ) in comment
+    assert "- No breaking replay or property failures detected." not in comment
+
+
 def test_render_pr_comment_reports_missing_replay_trace_for_breaking_result() -> None:
     charge_scenario = Scenario(
         method="POST",

@@ -70,6 +70,11 @@ def _affected_endpoints(result) -> list[str]:
         f"{scenario.method} {scenario.path}"
         for scenario in result.scenarios
     }
+    for invariant in result.invariants:
+        request = invariant.request
+        if request is None or request.method is None or request.path is None:
+            continue
+        endpoints.add(f"{request.method.upper()} {request.path}")
     for property_result in result.property_results:
         request = property_result.invariant.request
         if request is None or request.method is None or request.path is None:
@@ -129,6 +134,11 @@ def _explanation_lines(result) -> list[str]:
             continue
         lines.append(_property_explanation(property_result))
 
+    for invariant in result.invariants:
+        if invariant.status.value != "suggested":
+            continue
+        lines.append(_suggested_invariant_explanation(invariant))
+
     return lines
 
 
@@ -165,6 +175,19 @@ def _property_explanation(property_result) -> str:
         f"- Property invariant `{property_result.invariant.name}` failed for "
         f"`{method} {path}` with request `{payload}`."
     )
+
+
+def _suggested_invariant_explanation(invariant) -> str:
+    request = invariant.request
+    if request is None or request.method is None or request.path is None:
+        if invariant.reasoning is None:
+            return f"- Suggested invariant `{invariant.name}` needs review."
+        return f"- Suggested invariant `{invariant.name}` needs review: {invariant.reasoning}"
+
+    endpoint = f"{request.method.upper()} {request.path}"
+    if invariant.reasoning is None:
+        return f"- Suggested invariant `{invariant.name}` for `{endpoint}` needs review."
+    return f"- Suggested invariant `{invariant.name}` for `{endpoint}`: {invariant.reasoning}"
 
 
 def _format_value(value) -> str:
