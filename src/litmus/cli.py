@@ -12,6 +12,7 @@ from litmus.init_flow import bootstrap_repo
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification, run_differential_replay
+from litmus.replay.explain import explain_replay
 from litmus.reporting.console import render_replay_summary, render_verification_summary
 from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
 from litmus.scenarios.builder import Scenario
@@ -129,27 +130,26 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
 
     replay_results = asyncio.run(run_differential_replay([scenario], runner))
     classification = replay_results[0].classification if replay_results else ReplayClassification.UNCHANGED
+    diff = replay_results[0].diff if replay_results else {}
+    explanation = explain_replay(
+        seed=seed,
+        method=record.method,
+        path=record.path,
+        baseline_status_code=record.baseline_status_code,
+        baseline_body=record.baseline_body,
+        current_status_code=current_response.status_code,
+        current_body=current_result.body,
+        classification=classification,
+        diff=diff,
+        trace=current_result.trace,
+    )
     record_replay_run(
         repo_root,
         app_reference=record.app_reference,
         source_run_id=None if source_run.run_id == "legacy-replay-traces" else source_run.run_id,
         source_scope_label=source_run.scope_label,
         seed=seed,
-        summary={
-            "classification": classification.value,
-            "route": {
-                "method": record.method,
-                "path": record.path,
-            },
-            "baseline": {
-                "status_code": record.baseline_status_code,
-                "body": record.baseline_body,
-            },
-            "current": {
-                "status_code": current_response.status_code,
-                "body": current_result.body,
-            },
-        },
+        summary=explanation.to_dict(),
     )
     typer.echo(
         render_replay_summary(
@@ -161,6 +161,7 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
             current_status_code=current_response.status_code,
             current_body=current_result.body,
             classification=classification,
+            diff=diff,
             trace=current_result.trace,
         )
     )

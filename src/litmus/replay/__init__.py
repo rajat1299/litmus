@@ -3,6 +3,8 @@ from litmus.replay.differential import (
     ReplayClassification,
     run_differential_replay,
 )
+from litmus.replay.explain import explain_replay
+from litmus.replay.models import ReplayExplanation, ReplayFaultContext, ReplayResponseDetails
 from litmus.replay.trace import (
     ReplayTraceRecord,
     load_replay_trace_records,
@@ -21,7 +23,11 @@ def replay_record_for_seed(root, seed):
 
 __all__ = [
     "DifferentialReplayResult",
+    "ReplayExplanation",
     "ReplayClassification",
+    "ReplayFaultContext",
+    "ReplayResponseDetails",
+    "explain_replay",
     "ReplayTraceRecord",
     "load_replay_trace_records",
     "replay_record_for_seed",

@@ -105,9 +105,17 @@ def test_litmus_replay_replays_a_recorded_breaking_scenario(tmp_path) -> None:
     assert "Litmus replay" in replay_result.stdout
     assert "Seed: seed:1" in replay_result.stdout
     assert "Route: POST /payments/charge" in replay_result.stdout
-    assert "Baseline: 200 {'status': 'charged'}" in replay_result.stdout
-    assert "Current: 500 {'status': 'broken'}" in replay_result.stdout
     assert "Classification: breaking_change" in replay_result.stdout
+    assert "Expected:" in replay_result.stdout
+    assert "- Status: 200" in replay_result.stdout
+    assert "- Body: {'status': 'charged'}" in replay_result.stdout
+    assert "Observed:" in replay_result.stdout
+    assert "- Status: 500" in replay_result.stdout
+    assert "- Body: {'status': 'broken'}" in replay_result.stdout
+    assert "Why Litmus flagged this:" in replay_result.stdout
+    assert "- Status code regressed from 200 to 500." in replay_result.stdout
+    assert "Next step:" in replay_result.stdout
+    assert "- Review the changed response and rerun `litmus replay seed:1` after fixing it or updating the baseline." in replay_result.stdout
     assert "Trace:" in replay_result.stdout
     assert "- request_started" in replay_result.stdout
 

@@ -4,7 +4,9 @@ from collections import Counter
 
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
+from litmus.replay.explain import explain_replay
 from litmus.reporting.confidence import calculate_confidence_score
+from litmus.reporting.explanations import render_replay_explanation
 
 
 def render_verification_summary(result) -> str:
@@ -44,16 +46,19 @@ def render_replay_summary(
     current_status_code: int | None,
     current_body,
     classification: ReplayClassification,
+    diff,
     trace,
 ) -> str:
-    lines = [
-        "Litmus replay",
-        f"Seed: {seed}",
-        f"Route: {method} {path}",
-        f"Baseline: {baseline_status_code} {baseline_body}",
-        f"Current: {current_status_code} {current_body}",
-        f"Classification: {classification.value}",
-        "Trace:",
-    ]
-    lines.extend(f"- {event.kind}" for event in trace)
-    return "\n".join(lines)
+    explanation = explain_replay(
+        seed=seed,
+        method=method,
+        path=path,
+        baseline_status_code=baseline_status_code,
+        baseline_body=baseline_body,
+        current_status_code=current_status_code,
+        current_body=current_body,
+        classification=classification,
+        diff=diff,
+        trace=trace,
+    )
+    return render_replay_explanation(explanation)

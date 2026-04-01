@@ -99,9 +99,13 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert "Litmus replay" in replay_result.stdout
     assert "Seed: seed:1" in replay_result.stdout
     assert "Route: POST /payments/charge" in replay_result.stdout
-    assert "Baseline: 200 {'status': 'charged'}" in replay_result.stdout
-    assert "Current: 500 {'status': 'duplicate_charge_risk'}" in replay_result.stdout
     assert "Classification: breaking_change" in replay_result.stdout
+    assert "Expected:" in replay_result.stdout
+    assert "- Status: 200" in replay_result.stdout
+    assert "- Body: {'status': 'charged'}" in replay_result.stdout
+    assert "Observed:" in replay_result.stdout
+    assert "- Status: 500" in replay_result.stdout
+    assert "- Body: {'status': 'duplicate_charge_risk'}" in replay_result.stdout
 
     (demo_repo / "app.py").write_text(_FIXED_APP_SOURCE, encoding="utf-8")
 
