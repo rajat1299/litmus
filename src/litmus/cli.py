@@ -13,6 +13,7 @@ from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification, run_differential_replay
 from litmus.replay.explain import explain_replay
+from litmus.replay.trace import replay_fault_plan
 from litmus.reporting.console import render_replay_summary, render_verification_summary
 from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
 from litmus.scenarios.builder import Scenario
@@ -108,6 +109,7 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
             path=record.path,
             json_body=record.request_payload,
             seed=record.seed_value,
+            fault_plan=replay_fault_plan(record),
         )
     )
     current_response = ResponseExample(

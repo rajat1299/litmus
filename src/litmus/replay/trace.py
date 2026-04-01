@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from litmus.dst.faults import FaultPlan, FaultSpec
 from litmus.dst.runtime import TraceEvent
 
 
@@ -88,3 +89,21 @@ def replay_record_for_seed(root: Path | str, seed: str) -> ReplayTraceRecord:
         if record.seed == seed:
             return record
     raise LookupError(f"could not find replay record for {seed}")
+
+
+def replay_fault_plan(record: ReplayTraceRecord) -> FaultPlan:
+    for event in record.trace:
+        if event.kind != "fault_plan_selected":
+            continue
+
+        schedule = {
+            int(item["step"]): FaultSpec(
+                kind=item["kind"],
+                target=item["target"],
+                params=dict(item.get("params", {})),
+            )
+            for item in event.metadata.get("schedule", [])
+        }
+        return FaultPlan(seed=record.seed_value, schedule=schedule)
+
+    return FaultPlan(seed=record.seed_value)
