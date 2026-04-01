@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import textwrap
 
+from litmus.replay import replay_record_for_seed
+
 
 def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
     repo_root = _build_verify_repo(tmp_path)
@@ -71,6 +73,26 @@ def test_litmus_replay_uses_run_store_even_without_legacy_trace_file_and_records
     assert replay_run_payload["activities"][0]["seed"] == "seed:1"
     assert replay_run_payload["activities"][0]["source_run_id"] == source_run_id
     assert json.loads(latest_replayable_pointer.read_text(encoding="utf-8"))["run_id"] == source_run_id
+
+
+def test_exported_replay_record_lookup_uses_run_store_after_legacy_trace_file_is_deleted(tmp_path: Path) -> None:
+    repo_root = _build_breaking_replay_repo(tmp_path)
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    (repo_root / ".litmus" / "replay-traces.json").unlink()
+
+    record = replay_record_for_seed(repo_root, "seed:1")
+
+    assert record.seed == "seed:1"
+    assert record.path == "/health"
 
 
 def _build_verify_repo(repo_root: Path) -> Path:
