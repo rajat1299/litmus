@@ -27,3 +27,11 @@ def load_repo_config(root: Path | str) -> RepoConfig:
         return RepoConfig(app=tool_config.get("app"))
 
     return RepoConfig()
+
+
+def write_repo_config(path: Path | str, config: RepoConfig) -> None:
+    output_path = Path(path)
+    output_path.write_text(
+        yaml.safe_dump({"app": config.app}, sort_keys=False),
+        encoding="utf-8",
+    )

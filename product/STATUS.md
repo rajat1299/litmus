@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-03-31
-**Phase:** Pre-development / execution setup
+**Status Date:** 2026-04-01
+**Phase:** Alpha gap closure / verification platform tranche 1
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -10,7 +10,7 @@
 
 ## Current Objective
 
-Stand up the repo, execution model, and workstream structure required to build the Python-first v0.1 product in parallel with multiple coding agents and continuous review.
+Close the highest-value alpha gaps in the shipped verification product, starting with `litmus init`, scoped verify, the main-path DST moat work, replay/activity artifacts, and the suggested-invariant and MCP surfaces needed for the real v0.1 verification story.
 
 ---
 
@@ -21,7 +21,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-08 packaging and release-path checkpoint in review |
+| Implementation | In progress | WS-09 through WS-14 claimed; WS-09 init bootstrap checkpoint is in review |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -47,6 +47,7 @@ Stand up the repo, execution model, and workstream structure required to build t
 | M3 | DST engine | Complete | Deterministic runtime and semantic simulators catch seeded failures |
 | M4 | Team workflow | Complete | GitHub Action and PR comment are usable end-to-end |
 | M5 | Demo-ready launch candidate | In review | Demo app, packaged CLI install path, and launch workflow prove the current alpha loop |
+| M6 | Alpha gap closure tranche 1 | In progress | `init`, scoped verify, shipped DST moat work, replay/activity records, suggested invariants, and MCP access land in bounded reviewed slices |
 
 ---
 
@@ -64,6 +65,12 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-06 | Semantic simulators | Codex | Done | WS-05 | 2026-03-30 |
 | WS-07 | Reporting, watch mode, GitHub Action | Codex | Done | WS-01, WS-03, WS-04, WS-05, WS-06 | 2026-03-31 |
 | WS-08 | Demo app, docs, packaging, release path | Codex | In review | WS-01 through WS-07 | 2026-03-31 |
+| WS-09 | Init bootstrap flow | Codex | In review | WS-01, WS-02, WS-03, WS-08 | 2026-04-01 |
+| WS-10 | Scoped verify and changed-endpoint selection | Codex | Queued | WS-02, WS-04, WS-09 | 2026-04-01 |
+| WS-11 | Main-path DST and fault-injection moat work | Codex | Queued | WS-05, WS-06, WS-10 | 2026-04-01 |
+| WS-12 | Run/activity records and replay artifacts | Codex | Queued | WS-04, WS-07, WS-11 | 2026-04-01 |
+| WS-13 | Suggested invariants in shipped flow | Codex | Queued | WS-03, WS-10, WS-12 | 2026-04-01 |
+| WS-14 | MCP surface and minimal shared handlers | Codex | Queued | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
 
 ---
 
@@ -91,8 +98,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-08 packaging and release-path checkpoint.
-2. Decide whether to stop at the current alpha release state or add publish automation in a later pass.
+1. Review the first WS-09 `litmus init` bootstrap checkpoint.
+2. Move next to WS-10 scoped verify and changed-endpoint selection once WS-09 lands.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

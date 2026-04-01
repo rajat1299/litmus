@@ -7,6 +7,10 @@ import yaml
 from litmus.invariants.models import Invariant
 
 
+def default_invariants_path(root: Path | str) -> Path:
+    return Path(root) / ".litmus" / "invariants.yaml"
+
+
 def save_invariants(path: Path | str, invariants: list[Invariant]) -> None:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

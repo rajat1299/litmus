@@ -8,6 +8,7 @@ import typer
 from litmus.discovery.app import load_asgi_app
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.engine import run_verification
+from litmus.init_flow import bootstrap_repo
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification, run_differential_replay
@@ -26,7 +27,20 @@ app = typer.Typer(
 @app.command()
 def init() -> None:
     """Bootstrap Litmus in the current repository."""
-    typer.echo("litmus init is not implemented yet.")
+    try:
+        result = bootstrap_repo(Path.cwd())
+    except LookupError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
+
+    typer.echo("Litmus init")
+    typer.echo(f"App: {result.app_reference}")
+    typer.echo(f"Config: {result.config_status} {result.config_path.name}")
+    typer.echo(
+        "Invariants: "
+        f"{result.invariants_status} .litmus/invariants.yaml ({result.invariant_count} mined)"
+    )
+    typer.echo(f"Support: {result.support_summary[0]}")
 
 
 @app.command()
