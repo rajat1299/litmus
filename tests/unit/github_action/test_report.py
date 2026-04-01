@@ -72,6 +72,7 @@ def test_build_action_report_writes_outputs_for_failing_verification(tmp_path) -
     assert report.confidence == 0.0
     assert "## Litmus Verification" in report.comment
     assert "Litmus verify" in report.summary
+    assert "Suggested invariants: 0" in report.summary
     assert f"comment-path={comment_path}" in output_path.read_text(encoding="utf-8")
     assert "confidence=0.00" in output_path.read_text(encoding="utf-8")
     assert "verdict=fail" in output_path.read_text(encoding="utf-8")

@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
+from litmus.config import load_repo_config
 from litmus.discovery.app import discover_app_reference, load_asgi_app
 from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
@@ -11,6 +12,7 @@ from litmus.dst.asgi import run_asgi_app
 from litmus.dst.faults import build_fault_plan
 from litmus.invariants.mined import mine_invariants_from_tests
 from litmus.invariants.models import Invariant, InvariantType, RequestExample, ResponseExample
+from litmus.invariants.suggested import HeuristicRouteGapSuggestionProvider, suggest_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
 from litmus.replay.trace import ReplayTraceRecord
@@ -45,17 +47,24 @@ def run_verification(
 ) -> VerificationResult:
     repo_root = Path(root)
     active_scope = scope or default_verification_scope()
+    config = load_repo_config(repo_root)
     app_reference = discover_app_reference(repo_root)
     app = load_asgi_app(app_reference, repo_root)
     discovered_routes = _collect_routes(repo_root)
     discovered_invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
-    routes, invariants = apply_verification_scope(
+    routes, confirmed_invariants = apply_verification_scope(
         repo_root,
         discovered_routes,
         discovered_invariants,
         active_scope,
     )
-    scenarios = build_scenarios(routes, invariants)
+    suggested_invariants = _collect_suggested_invariants(
+        routes=routes,
+        confirmed_invariants=confirmed_invariants,
+        enabled=config.suggested_invariants,
+    )
+    invariants = [*confirmed_invariants, *suggested_invariants]
+    scenarios = build_scenarios(routes, confirmed_invariants)
     replay_results, replay_traces = asyncio.run(
         _run_replay(
             app,
@@ -66,7 +75,7 @@ def run_verification(
     )
     property_results = _run_property_checks(
         app,
-        invariants,
+        confirmed_invariants,
         max_examples=_property_max_examples_for_mode(mode),
     )
     return VerificationResult(
@@ -78,6 +87,23 @@ def run_verification(
         replay_results=replay_results,
         replay_traces=replay_traces,
         property_results=property_results,
+    )
+
+
+def _collect_suggested_invariants(
+    *,
+    routes: list[RouteDefinition],
+    confirmed_invariants: list[Invariant],
+    enabled: bool,
+) -> list[Invariant]:
+    if not enabled:
+        return []
+
+    return suggest_invariants(
+        provider=HeuristicRouteGapSuggestionProvider(),
+        changed_files=[],
+        endpoints=routes,
+        existing_invariants=confirmed_invariants,
     )
 
 

@@ -13,6 +13,8 @@ def render_pr_comment(result) -> str:
     replay_counts = Counter(replay.classification for replay in result.replay_results)
     property_counts = Counter(property_result.status for property_result in result.property_results)
     confidence = calculate_confidence_score(result.replay_results, result.property_results)
+    confirmed_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "confirmed")
+    suggested_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "suggested")
 
     lines = [
         "## Litmus Verification",
@@ -27,6 +29,7 @@ def render_pr_comment(result) -> str:
         [
             "",
             "### Layer Results",
+            f"- Invariants: total={len(result.invariants)} confirmed={confirmed_invariants} suggested={suggested_invariants}",
             "- Replay: "
             f"unchanged={replay_counts[ReplayClassification.UNCHANGED]} "
             f"breaking={replay_counts[ReplayClassification.BREAKING_CHANGE]} "

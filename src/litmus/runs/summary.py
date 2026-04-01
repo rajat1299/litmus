@@ -11,9 +11,15 @@ from litmus.reporting.confidence import calculate_confidence_score
 def summarize_verification_result(result) -> dict[str, Any]:
     replay_counts = Counter(replay.classification.value for replay in result.replay_results)
     property_counts = Counter(property_result.status.value for property_result in result.property_results)
+    confirmed_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "confirmed")
+    suggested_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "suggested")
     return {
         "routes": len(result.routes),
-        "invariants": len(result.invariants),
+        "invariants": {
+            "total": len(result.invariants),
+            "confirmed": confirmed_invariants,
+            "suggested": suggested_invariants,
+        },
         "scenarios": len(result.scenarios),
         "replay": {
             ReplayClassification.UNCHANGED.value: replay_counts[ReplayClassification.UNCHANGED.value],

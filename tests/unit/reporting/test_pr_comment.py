@@ -103,6 +103,7 @@ def test_render_pr_comment_summarizes_failures_with_replay_commands() -> None:
     assert "Confidence score: `0.33`" in comment
     assert "- `POST /payments/charge`" in comment
     assert "- `GET /health`" in comment
+    assert "- Invariants: total=1 confirmed=1 suggested=0" in comment
     assert "- Replay: unchanged=1 breaking=1 benign=0 improvement=0" in comment
     assert "- Properties: passed=0 failed=1 skipped=0" in comment
     assert "- `seed:7` on `POST /payments/charge` -> `litmus replay seed:7`" in comment
@@ -155,6 +156,7 @@ def test_render_pr_comment_reports_clean_verification_runs() -> None:
     comment = render_pr_comment(result)
 
     assert "Confidence score: `1.00`" in comment
+    assert "- Invariants: total=0 confirmed=0 suggested=0" in comment
     assert "### Failing Seeds" in comment
     assert "- No failing seeds recorded." in comment
     assert "### What Went Wrong" in comment

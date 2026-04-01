@@ -4,8 +4,11 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
+from litmus.config import RepoConfig
 from litmus.dst.engine import _run_replay, run_verification
 from litmus.dst.runtime import TraceEvent
+from litmus.discovery.routes import RouteDefinition
+from litmus.invariants.models import InvariantStatus
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.scenarios.builder import Scenario
 
@@ -120,3 +123,42 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
     assert len(replay_traces) == 3
     assert [trace.seed for trace in replay_traces] == ["seed:1", "seed:2", "seed:3"]
     assert captured_fault_plan_seeds == [1, 2, 3]
+
+
+def test_run_verification_keeps_suggested_route_gaps_out_of_replay_scenarios(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_repo_config",
+        lambda _root: RepoConfig(app="service.app:app", suggested_invariants=True),
+    )
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="POST",
+                path="/payments/refund",
+                handler_name="refund",
+                file_path="service/app.py",
+            )
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+
+    captured: dict[str, object] = {}
+
+    def fake_build_scenarios(_routes, invariants):
+        captured["scenario_invariants"] = list(invariants)
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", fake_build_scenarios)
+    monkeypatch.setattr("litmus.dst.engine._run_replay", lambda *_args, **_kwargs: asyncio.sleep(0, result=([], [])))
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", lambda *_args, **_kwargs: [])
+
+    result = run_verification(tmp_path)
+
+    assert captured["scenario_invariants"] == []
+    assert len(result.invariants) == 1
+    assert result.invariants[0].status is InvariantStatus.SUGGESTED
+    assert result.scenarios == []

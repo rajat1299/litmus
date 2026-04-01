@@ -34,6 +34,11 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
     assert run_payload["scope_label"] == "full repo"
     assert run_payload["activities"][0]["type"] == "verify"
     assert run_payload["activities"][0]["summary"]["scenarios"] == 1
+    assert run_payload["activities"][0]["summary"]["invariants"] == {
+        "total": 1,
+        "confirmed": 1,
+        "suggested": 0,
+    }
     assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
 
 

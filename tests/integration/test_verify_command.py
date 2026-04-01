@@ -165,8 +165,143 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
 
     assert result.returncode == 0, result.stderr
     assert "Invariants: 0" in result.stdout
+    assert "Confirmed invariants: 0" in result.stdout
+    assert "Suggested invariants: 0" in result.stdout
     assert "Scenarios: 0" in result.stdout
     assert "Confidence: 0.00" in result.stdout
+
+
+def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_coverage(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (repo_root / "litmus.yaml").write_text(
+        textwrap.dedent(
+            """
+            app: service.app:app
+            suggested_invariants: true
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "payments.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            async def charge_payment(payload):
+                return {"status_code": 200, "json": {"status": "charged"}}
+
+
+            async def refund_payment(payload):
+                return {"status_code": 200, "json": {"status": "refunded"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+            from service.payments import charge_payment, refund_payment
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def post(self, path: str):
+                    def decorator(func):
+                        self.routes[("POST", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    request = await receive()
+                    payload = json.loads(request["body"].decode("utf-8")) if request["body"] else None
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler(payload)
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.post("/payments/charge")
+            async def charge(payload):
+                return await charge_payment(payload)
+
+
+            @app.post("/payments/refund")
+            async def refund(payload):
+                return await refund_payment(payload)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (tests_dir / "test_payments.py").write_text(
+        textwrap.dedent(
+            """
+            def test_charge_returns_200():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/charge",
+                    "json": {"amount": 100},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "charged"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Invariants: 2" in result.stdout
+    assert "Confirmed invariants: 1" in result.stdout
+    assert "Suggested invariants: 1" in result.stdout
+    assert "Scenarios: 1" in result.stdout
+    assert (
+        "refund_post_payments_refund_needs_confirmed_anchor: "
+        "POST /payments/refund is selected for verification without a confirmed mined invariant anchor."
+    ) in result.stdout
 
 
 def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:
