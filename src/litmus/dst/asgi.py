@@ -92,9 +92,31 @@ async def run_asgi_app(
         record_event=runtime.record,
     )
 
+    app_exception: Exception | None = None
     with patch_httpx(http_simulator):
         with patch_aiohttp(http_simulator):
-            await app(scope, receive, send)
+            try:
+                await app(scope, receive, send)
+            except Exception as exc:  # pragma: no cover - exercised by integration behavior
+                app_exception = exc
+                runtime.record(
+                    "app_exception",
+                    type=exc.__class__.__name__,
+                    message=str(exc),
+                )
+
+    if app_exception is not None and not response_headers and not response_chunks:
+        response_status = 500
+        response_headers = [(b"content-type", b"application/json")]
+        response_chunks.append(
+            json.dumps(
+                {
+                    "error": "uncaught_exception",
+                    "type": app_exception.__class__.__name__,
+                    "message": str(app_exception),
+                }
+            ).encode("utf-8")
+        )
 
     body = b"".join(response_chunks)
     runtime.record("request_completed", status_code=response_status)

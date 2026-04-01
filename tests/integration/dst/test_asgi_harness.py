@@ -214,3 +214,53 @@ def test_run_asgi_app_patches_httpx_and_records_fault_injection_trace() -> None:
         "target": "http",
         "url": "https://service.invalid/orders/123",
     }
+
+
+def test_run_asgi_app_converts_uncaught_fault_exceptions_into_500_result() -> None:
+    async def app(scope, receive, send):
+        async with httpx.AsyncClient() as client:
+            await client.get("https://service.invalid/orders/123")
+
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": json.dumps({"status": "ok"}).encode("utf-8"),
+            }
+        )
+
+    result = asyncio.run(
+        run_asgi_app(
+            app=app,
+            method="GET",
+            path="/health",
+            seed=1,
+            fault_plan=FaultPlan(
+                seed=1,
+                schedule={
+                    1: FaultSpec(kind="timeout", target="http"),
+                },
+            ),
+        )
+    )
+
+    assert result.status_code == 500
+    assert result.body == {
+        "error": "uncaught_exception",
+        "message": "simulated timeout for GET https://service.invalid/orders/123",
+        "type": "ReadTimeout",
+    }
+    assert [event.kind for event in result.trace] == [
+        "fault_plan_selected",
+        "request_started",
+        "http_request_started",
+        "fault_injected",
+        "app_exception",
+        "request_completed",
+    ]
