@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -82,7 +83,15 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
         check=False,
     )
     assert verify_result.returncode == 1, verify_result.stdout
-    assert "Replay: unchanged=3 breaking=3 benign=0 improvement=0" in verify_result.stdout
+    assert "Litmus verify" in verify_result.stdout
+    latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((demo_repo / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    assert run_payload["activities"][0]["summary"]["replay"] == {
+        "unchanged": 3,
+        "breaking_change": 3,
+        "benign_change": 0,
+        "improvement": 0,
+    }
 
     replay_result = subprocess.run(
         [str(litmus_bin), "replay", "seed:1"],

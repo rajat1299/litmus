@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -111,13 +112,29 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
     )
 
     assert result.returncode == 0, result.stderr
+    assert "Litmus verify" in result.stdout
     assert "App: service.app:app" in result.stdout
-    assert "Routes: 1" in result.stdout
-    assert "Invariants: 2" in result.stdout
-    assert "Scenarios: 2" in result.stdout
-    assert "Replay: unchanged=6 breaking=0 benign=0 improvement=0" in result.stdout
-    assert "Properties: passed=0 failed=0 skipped=0" in result.stdout
-    assert "Confidence: 1.00" in result.stdout
+    assert _latest_verify_summary(repo_root) == {
+        "routes": 1,
+        "invariants": {
+            "total": 2,
+            "confirmed": 2,
+            "suggested": 0,
+        },
+        "scenarios": 2,
+        "replay": {
+            "unchanged": 6,
+            "breaking_change": 0,
+            "benign_change": 0,
+            "improvement": 0,
+        },
+        "properties": {
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+        },
+        "confidence": 1.0,
+    }
 
 
 def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) -> None:
@@ -164,11 +181,28 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Invariants: 0" in result.stdout
-    assert "Confirmed invariants: 0" in result.stdout
-    assert "Suggested invariants: 0" in result.stdout
-    assert "Scenarios: 0" in result.stdout
-    assert "Confidence: 0.00" in result.stdout
+    assert "Litmus verify" in result.stdout
+    assert _latest_verify_summary(repo_root) == {
+        "routes": 1,
+        "invariants": {
+            "total": 0,
+            "confirmed": 0,
+            "suggested": 0,
+        },
+        "scenarios": 0,
+        "replay": {
+            "unchanged": 0,
+            "breaking_change": 0,
+            "benign_change": 0,
+            "improvement": 0,
+        },
+        "properties": {
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+        },
+        "confidence": 0.0,
+    }
 
 
 def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_coverage(tmp_path: Path) -> None:
@@ -294,10 +328,9 @@ def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_co
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Invariants: 2" in result.stdout
-    assert "Confirmed invariants: 1" in result.stdout
-    assert "Suggested invariants: 1" in result.stdout
-    assert "Scenarios: 1" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["invariants"] == {"total": 2, "confirmed": 1, "suggested": 1}
+    assert summary["scenarios"] == 1
     assert (
         "refund_post_payments_refund_needs_confirmed_anchor: "
         "POST /payments/refund is selected for verification without a confirmed mined invariant anchor."
@@ -318,10 +351,9 @@ def test_litmus_verify_surfaces_curated_suggested_invariants_without_duplicate_g
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Invariants: 2" in result.stdout
-    assert "Confirmed invariants: 1" in result.stdout
-    assert "Suggested invariants: 1" in result.stdout
-    assert "Scenarios: 1" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["invariants"] == {"total": 2, "confirmed": 1, "suggested": 1}
+    assert summary["scenarios"] == 1
     assert "refund_needs_review: Review refund behavior before trusting this endpoint." in result.stdout
     assert "charge_returns_200_from_store" not in result.stdout
     assert "refund_post_payments_refund_needs_confirmed_anchor" not in result.stdout
@@ -340,11 +372,10 @@ def test_litmus_verify_scopes_to_curated_suggestions_file(tmp_path: Path) -> Non
 
     assert result.returncode == 0, result.stderr
     assert "Scope: paths: .litmus/invariants.yaml" in result.stdout
-    assert "Routes: 1" in result.stdout
-    assert "Invariants: 1" in result.stdout
-    assert "Confirmed invariants: 0" in result.stdout
-    assert "Suggested invariants: 1" in result.stdout
-    assert "Scenarios: 0" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 1
+    assert summary["invariants"] == {"total": 1, "confirmed": 0, "suggested": 1}
+    assert summary["scenarios"] == 0
     assert "refund_needs_review: Review refund behavior before trusting this endpoint." in result.stdout
 
 
@@ -372,11 +403,10 @@ def test_litmus_verify_scopes_to_staged_curated_suggestions_file(tmp_path: Path)
 
     assert result.returncode == 0, result.stderr
     assert "Scope: staged diff" in result.stdout
-    assert "Routes: 1" in result.stdout
-    assert "Invariants: 1" in result.stdout
-    assert "Confirmed invariants: 0" in result.stdout
-    assert "Suggested invariants: 1" in result.stdout
-    assert "Scenarios: 0" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 1
+    assert summary["invariants"] == {"total": 1, "confirmed": 0, "suggested": 1}
+    assert summary["scenarios"] == 0
     assert "refund_needs_review: Review refund behavior before trusting this route." in result.stdout
 
 
@@ -393,10 +423,11 @@ def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert "Scope: paths: service/refunds.py" in result.stdout
-    assert "Routes: 1" in result.stdout
-    assert "Invariants: 1" in result.stdout
-    assert "Scenarios: 1" in result.stdout
-    assert "Replay: unchanged=3 breaking=0 benign=0 improvement=0" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 1
+    assert summary["invariants"]["total"] == 1
+    assert summary["scenarios"] == 1
+    assert summary["replay"]["unchanged"] == 3
 
 
 def test_litmus_verify_scopes_to_explicit_changed_test_file(tmp_path: Path) -> None:
@@ -412,9 +443,10 @@ def test_litmus_verify_scopes_to_explicit_changed_test_file(tmp_path: Path) -> N
 
     assert result.returncode == 0, result.stderr
     assert "Scope: paths: tests/test_payments.py" in result.stdout
-    assert "Routes: 2" in result.stdout
-    assert "Invariants: 2" in result.stdout
-    assert "Scenarios: 2" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 2
+    assert summary["invariants"]["total"] == 2
+    assert summary["scenarios"] == 2
 
 
 def test_litmus_verify_scopes_to_staged_changes(tmp_path: Path) -> None:
@@ -438,9 +470,10 @@ def test_litmus_verify_scopes_to_staged_changes(tmp_path: Path) -> None:
 
     assert result.returncode == 1, result.stderr
     assert "Scope: staged diff" in result.stdout
-    assert "Routes: 1" in result.stdout
-    assert "Invariants: 1" in result.stdout
-    assert "Scenarios: 1" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 1
+    assert summary["invariants"]["total"] == 1
+    assert summary["scenarios"] == 1
 
 
 def test_litmus_verify_scopes_to_staged_test_file_changes(tmp_path: Path) -> None:
@@ -464,9 +497,10 @@ def test_litmus_verify_scopes_to_staged_test_file_changes(tmp_path: Path) -> Non
 
     assert result.returncode == 0, result.stderr
     assert "Scope: staged diff" in result.stdout
-    assert "Routes: 2" in result.stdout
-    assert "Invariants: 2" in result.stdout
-    assert "Scenarios: 2" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 2
+    assert summary["invariants"]["total"] == 2
+    assert summary["scenarios"] == 2
 
 
 def test_litmus_verify_scopes_to_named_diff_range(tmp_path: Path) -> None:
@@ -491,9 +525,10 @@ def test_litmus_verify_scopes_to_named_diff_range(tmp_path: Path) -> None:
 
     assert result.returncode == 1, result.stderr
     assert "Scope: diff HEAD~1...HEAD" in result.stdout
-    assert "Routes: 1" in result.stdout
-    assert "Invariants: 1" in result.stdout
-    assert "Scenarios: 1" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["routes"] == 1
+    assert summary["invariants"]["total"] == 1
+    assert summary["scenarios"] == 1
 
 
 def test_litmus_verify_runs_faulted_http_dst_replay_in_main_path(tmp_path: Path) -> None:
@@ -591,8 +626,14 @@ def test_litmus_verify_runs_faulted_http_dst_replay_in_main_path(tmp_path: Path)
     )
 
     assert result.returncode == 1, result.stdout
-    assert "Scenarios: 1" in result.stdout
-    assert "Replay: unchanged=0 breaking=3 benign=0 improvement=0" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["scenarios"] == 1
+    assert summary["replay"] == {
+        "unchanged": 0,
+        "breaking_change": 3,
+        "benign_change": 0,
+        "improvement": 0,
+    }
 
 
 def test_litmus_verify_reports_breaking_seed_when_fault_exception_escapes_app(tmp_path: Path) -> None:
@@ -685,8 +726,9 @@ def test_litmus_verify_reports_breaking_seed_when_fault_exception_escapes_app(tm
 
     assert result.returncode == 1
     assert "Litmus verify" in result.stdout
-    assert "Scenarios: 1" in result.stdout
-    assert "Replay: unchanged=0 breaking=3 benign=0 improvement=0" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["scenarios"] == 1
+    assert summary["replay"]["breaking_change"] == 3
     assert "Traceback" not in result.stderr
 
 
@@ -784,8 +826,9 @@ def test_litmus_verify_keeps_unknown_followup_json_request_parseable_after_caugh
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Scenarios: 1" in result.stdout
-    assert "Replay: unchanged=3 breaking=0 benign=0 improvement=0" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["scenarios"] == 1
+    assert summary["replay"]["unchanged"] == 3
 
 
 def _build_scoped_verify_repo(repo_root: Path) -> Path:
@@ -1088,3 +1131,9 @@ def _git(repo_root: Path, *args: str) -> None:
         env=env,
     )
     assert result.returncode == 0, result.stderr
+
+
+def _latest_verify_summary(repo_root: Path) -> dict:
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    return run_payload["activities"][0]["summary"]

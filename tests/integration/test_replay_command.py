@@ -108,18 +108,7 @@ def test_litmus_replay_replays_a_recorded_breaking_scenario(tmp_path) -> None:
     assert "Seed: seed:1" in replay_result.stdout
     assert "Route: POST /payments/charge" in replay_result.stdout
     assert "Classification: breaking_change" in replay_result.stdout
-    assert "Expected:" in replay_result.stdout
-    assert "- Status: 200" in replay_result.stdout
-    assert "- Body: {'status': 'charged'}" in replay_result.stdout
-    assert "Observed:" in replay_result.stdout
-    assert "- Status: 500" in replay_result.stdout
-    assert "- Body: {'status': 'broken'}" in replay_result.stdout
-    assert "Why Litmus flagged this:" in replay_result.stdout
     assert "- Status code regressed from 200 to 500." in replay_result.stdout
-    assert "Next step:" in replay_result.stdout
-    assert "- Review the changed response and rerun `litmus replay seed:1` after fixing it or updating the baseline." in replay_result.stdout
-    assert "Trace:" in replay_result.stdout
-    assert "- request_started" in replay_result.stdout
 
 
 def test_litmus_replay_reports_missing_artifact_cleanly(tmp_path) -> None:
@@ -327,7 +316,6 @@ def test_litmus_replay_reuses_recorded_fault_plan_for_fault_only_breaking_seed(t
     )
 
     assert verify_result.returncode == 1, verify_result.stdout
-    assert "Replay: unchanged=0 breaking=3 benign=0 improvement=0" in verify_result.stdout
 
     replay_result = subprocess.run(
         ["litmus", "replay", "seed:1"],

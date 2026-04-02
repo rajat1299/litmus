@@ -78,18 +78,34 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     )
 
     assert verify_failure.returncode == 1, verify_failure.stdout
+    assert "Litmus verify" in verify_failure.stdout
     assert "App: app:app" in verify_failure.stdout
-    assert "Routes: 1" in verify_failure.stdout
-    assert "Invariants: 2" in verify_failure.stdout
-    assert "Scenarios: 2" in verify_failure.stdout
-    assert "Replay: unchanged=3 breaking=3 benign=0 improvement=0" in verify_failure.stdout
-    assert "Properties: passed=0 failed=0 skipped=0" in verify_failure.stdout
-    assert "Confidence: 0.50" in verify_failure.stdout
 
     latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
     run_payload = json.loads(
         (demo_repo / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8")
     )
+    assert run_payload["activities"][0]["summary"] == {
+        "routes": 1,
+        "invariants": {
+            "total": 2,
+            "confirmed": 2,
+            "suggested": 0,
+        },
+        "scenarios": 2,
+        "replay": {
+            "unchanged": 3,
+            "breaking_change": 3,
+            "benign_change": 0,
+            "improvement": 0,
+        },
+        "properties": {
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+        },
+        "confidence": 0.5,
+    }
     assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
     assert not (demo_repo / ".litmus" / "replay-traces.json").exists()
 
@@ -106,12 +122,7 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert "Seed: seed:1" in replay_result.stdout
     assert "Route: POST /payments/charge" in replay_result.stdout
     assert "Classification: breaking_change" in replay_result.stdout
-    assert "Expected:" in replay_result.stdout
-    assert "- Status: 200" in replay_result.stdout
-    assert "- Body: {'status': 'charged'}" in replay_result.stdout
-    assert "Observed:" in replay_result.stdout
-    assert "- Status: 500" in replay_result.stdout
-    assert "- Body: {'status': 'duplicate_charge_risk'}" in replay_result.stdout
+    assert "- Status code regressed from 200 to 500." in replay_result.stdout
 
     (demo_repo / "app.py").write_text(_FIXED_APP_SOURCE, encoding="utf-8")
 
@@ -124,5 +135,17 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     )
 
     assert verify_fixed.returncode == 0, verify_fixed.stderr
-    assert "Replay: unchanged=6 breaking=0 benign=0 improvement=0" in verify_fixed.stdout
-    assert "Confidence: 1.00" in verify_fixed.stdout
+    assert "Litmus verify" in verify_fixed.stdout
+    latest_fixed_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))[
+        "run_id"
+    ]
+    fixed_run_payload = json.loads(
+        (demo_repo / ".litmus" / "runs" / latest_fixed_run_id / "run.json").read_text(encoding="utf-8")
+    )
+    assert fixed_run_payload["activities"][0]["summary"]["replay"] == {
+        "unchanged": 6,
+        "breaking_change": 0,
+        "benign_change": 0,
+        "improvement": 0,
+    }
+    assert fixed_run_payload["activities"][0]["summary"]["confidence"] == 1.0

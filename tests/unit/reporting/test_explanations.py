@@ -25,17 +25,35 @@ def test_render_replay_explanation_outputs_actionable_sections() -> None:
         trace_kinds=["fault_plan_selected", "fault_injected", "request_completed"],
     )
 
-    rendered = render_replay_explanation(explanation)
-
-    assert "Litmus replay" in rendered
-    assert "Seed: seed:3" in rendered
-    assert "Route: POST /payments/charge" in rendered
-    assert "Classification: breaking_change" in rendered
-    assert "Expected:" in rendered
-    assert "Observed:" in rendered
-    assert "Why Litmus flagged this:" in rendered
-    assert "Fault context:" in rendered
-    assert "Next step:" in rendered
-    assert "Trace:" in rendered
-    assert "- Status: 200" in rendered
-    assert "- Injected timeout on http for https://service.invalid/orders/123 at step 1." in rendered
+    assert render_replay_explanation(explanation) == "\n".join(
+        [
+            "Litmus replay",
+            "Seed: seed:3",
+            "Route: POST /payments/charge",
+            "Classification: breaking_change",
+            "",
+            "Expected:",
+            "- Status: 200",
+            "- Body: {'status': 'charged'}",
+            "",
+            "Observed:",
+            "- Status: 500",
+            "- Body: {'status': 'broken'}",
+            "",
+            "Why Litmus flagged this:",
+            "- Status code regressed from 200 to 500.",
+            "- Response body changed from {'status': 'charged'} to {'status': 'broken'}.",
+            "",
+            "Fault context:",
+            "- Step 1 scheduled timeout on http.",
+            "- Injected timeout on http for https://service.invalid/orders/123 at step 1.",
+            "",
+            "Next step:",
+            "- Inspect the timeout handling path and rerun `litmus replay seed:3`.",
+            "",
+            "Trace:",
+            "- fault_plan_selected",
+            "- fault_injected",
+            "- request_completed",
+        ]
+    )
