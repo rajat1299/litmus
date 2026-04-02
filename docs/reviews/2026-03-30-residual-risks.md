@@ -1,11 +1,11 @@
-# Residual Risks Through WS-07 Reviews
+# Residual Risks Through WS-14 Reviews
 
-**Status Date:** 2026-03-31
-**Scope:** Residual risks and open limitations that still remain after the reviewed WS-01 through WS-07 checkpoints. This list excludes findings that were already fixed during review.
+**Status Date:** 2026-04-01
+**Scope:** Residual risks and open limitations that still remain after the reviewed WS-01 through WS-14 checkpoints. This list excludes findings that were already fixed during review.
 
 ## Purpose
 
-This document captures the risks that still matter after the current review loop so later workstreams do not lose context when they move into DST runtime, reporting, watch mode, and release packaging.
+This document captures the risks that still matter after the current review loop so later work does not lose context when it moves into release hardening, post-tranche planning, and any deeper verification-platform follow-on work.
 
 ## WS-01 Repo And CLI Foundation
 
@@ -19,9 +19,9 @@ Package version metadata is duplicated across packaging and module code. That is
 
 ## WS-02 App Discovery, Diff Tracing, And Endpoint Mapping
 
-### R-WS02-1 Module cache bleed across repo roots
+### R-WS02-1 App loading now relies on module-eviction heuristics in long-lived processes
 
-ASGI app loading is now repo-root aware, but Python module caching still means same-named modules can be reused across different repo roots inside one long-lived process. The current CLI contract is effectively one repo per process, so this is acceptable for now. It becomes a real risk if Litmus grows into a daemon, server, or multi-repo worker.
+ASGI app loading now evicts repo-owned modules before import, which fixes the stale-module bug for repeated verify and MCP calls. However, this is still a heuristic tied to module origin paths and top-level namespaces, not a stronger per-repo interpreter boundary. It is good enough for the current local process model, but it remains a place to revisit if Litmus grows into a heavier long-lived worker or service.
 
 ### R-WS02-2 Tracing remains intentionally conservative
 
@@ -91,21 +91,87 @@ The Redis simulator now handles strings, hashes, lists, expiry, blocking single-
 
 ### R-WS07-1 Replay artifacts are local scenario records, not full DST seed replays
 
-`litmus replay` now works over persisted local replay records, which is a useful workflow step forward. However, the current `seed:N` identifiers are deterministic artifact IDs over replayable scenarios, not a full DST seed plus fault-schedule reproduction contract. That means replay is understandable and useful, but it is not yet the deeper deterministic execution story described in the product vision.
+`litmus replay` now works over persisted local replay records, which is a useful workflow step forward. However, the current `seed:N` identifiers are deterministic artifact IDs over replayable scenarios, not a full DST seed plus fault-schedule reproduction contract. Even after WS-11 started persisting fault-plan selection into traces, replay still does not re-execute the stored schedule. That means replay is understandable and useful, but it is not yet the deeper deterministic execution story described in the product vision.
 
-### R-WS07-2 Verify still reports over all discovered scenarios
+### R-WS07-2 Workflow surfaces exist, but diagnostics and metadata are still thin
 
-The current `verify` path composes discovery, mined invariants, replay, and properties successfully, but it still runs over all replayable scenarios in the repo rather than a real changed-files diff input. That keeps the pipeline simple for now, but it does not yet match the intended “affected endpoints only” operating mode.
+The core console reporting, `litmus verify`, `litmus replay`, `litmus watch`, GitHub Action, and PR comment surfaces now exist. However, watch and action failures still surface mostly as plain console or step-summary output rather than richer diagnostics, remediation guidance, or structured machine-readable metadata. The workflow loop is real now, but it remains intentionally thin.
 
-### R-WS07-3 Workflow surfaces remain incomplete
+## WS-08 Demo, Docs, And Alpha Release Path
 
-The core console reporting, `litmus verify`, `litmus replay`, and `litmus watch` now exist, but the workflow surface is still incomplete. Watch-mode failures now invalidate stale replay traces so broken reruns do not leave replayable old artifacts behind, yet error handling still surfaces only plain console failures instead of richer diagnostics or recovery guidance. Replay output is still intentionally minimal, and GitHub Action / PR comment rendering are still unimplemented. The developer-facing loop exists now, but the team-facing launch workflow is not yet complete.
+### R-WS08-1 Grounded alpha docs and demo still trail the aspirational README and spec
+
+The grounded quickstart, release notes, and payment-service demo are now honest to the product Litmus actually ships today. However, the top-level README and broader product spec still describe a wider future surface than the current alpha. That is manageable if grounded docs remain the source of truth, but the public-facing story still has drift risk until those surfaces are reconciled.
+
+### R-WS08-2 Release packaging is validated locally, not yet automated for publication
+
+Wheel and sdist builds now install and run correctly in a fresh environment, and the release-path smoke test proves that packaging story. However, index publication and fuller release orchestration remain manual, so release reliability still depends on operator discipline rather than automation.
+
+## WS-09 Repository Bootstrap
+
+### R-WS09-1 `litmus init` is a narrow bootstrap, not a full repository setup assistant
+
+`litmus init` now repairs or writes `litmus.yaml`, initializes `.litmus/invariants.yaml`, mines simple anchors under `tests/`, and reports a concise support summary. It still does not configure richer policies, suggestions, advanced discovery modes, or a full capability matrix. That is a useful bootstrap, but it is not yet a comprehensive setup flow.
+
+## WS-10 Scoped Verification
+
+### R-WS10-1 Scoped verify is only as precise as conservative endpoint tracing
+
+`litmus verify` now supports explicit paths, staged changes, named diffs, and changed-test invariant sources. However, route selection is still bounded by file and module level tracing plus direct imported-call matching. Layered indirection, wrappers, factories, dynamic imports, and broader data flow can still cause under-selection or conservative over-selection in real services.
+
+### R-WS10-2 Empty scopes remain honest but operationally easy to misread
+
+Empty `--staged` or `--diff` scopes now correctly produce an empty verification run instead of silently falling back to the full repo. That is the safer trust behavior, but the current UX still reports that state only through a zero-signal summary. There is not yet a clearer operator-facing explanation that no routes or invariants were selected.
+
+## WS-11 Shipped DST Moat
+
+### R-WS11-1 Main-path seeded fault injection currently covers outbound HTTP first
+
+The shipped verify path now injects deterministic seeded HTTP faults and records those schedules in replay traces, which is a real moat improvement over plain replay. However, SQLAlchemy and Redis are still not patched into the main verify loop, so the shipped fault model remains HTTP-first rather than cross-layer.
+
+### R-WS11-2 Seed depth and replay fidelity are still below the broader target
+
+Local verify now runs multiple seeded replays per scenario, but the default remains `3` seeds rather than the larger target discussed in the product vision. Replay artifacts also still restore scenario records rather than re-executing the exact stored fault schedule. The moat path is materially more real now, but it is still a bounded first slice.
+
+### R-WS11-3 Unknown outbound traffic still falls back to a generic synthesized upstream shape
+
+Unknown outbound HTTP now defaults to a neutral parseable JSON response and records `http_response_defaulted` in the trace, which avoids false crashes from empty-body decoding. However, Litmus is still synthesizing a generic upstream shape in those cases rather than replaying known service semantics. That is honest and trace-visible now, but it remains a fidelity limit in the shipped moat path.
+
+## WS-12 Run Records And Replay Artifacts
+
+### R-WS12-1 Run storage is local and file-backed, not yet a richer history surface
+
+Run and activity records now exist and power replay lookup, CI, and watch-mode behavior, which is the right tranche-one contract. However, the store is still a local JSON-artifact model centered on latest-run pointers. There is no richer history query surface, pruning policy, or team/session view yet.
+
+### R-WS12-2 Replay explanations are stronger, but still bounded to response and fault context
+
+Replay output now explains baseline, current behavior, fault context, and next steps from structured data. That is materially better than the earlier string surface, but explanations are still tied to response diffs plus trace events. They do not yet capture deeper causal lineage such as scenario provenance chains, domain-aware invariants, or richer remediation reasoning.
+
+## WS-13 Suggested Invariants
+
+### R-WS13-1 Suggested invariants are shipped, but they are still heuristic and curated rather than LLM-backed
+
+Suggested route gaps and curated stored suggestions now surface in verify, run summaries, and PR comments without distorting enforcement. However, the shipped suggestion path is still heuristic plus manual curation. It is not yet the broader LLM suggestion workflow described in the product vision.
+
+### R-WS13-2 Approval UX is still direct file editing
+
+Suggested invariants now persist and scope correctly, but there is still no dedicated accept, dismiss, or promote workflow beyond editing `.litmus/invariants.yaml` directly. That is acceptable for the current alpha, but it leaves the human-review loop thinner than the longer-term product story.
+
+## WS-14 MCP Surface
+
+### R-WS14-1 MCP is local stdio only
+
+Litmus now has an agent-native MCP surface with structured `verify`, `list_invariants`, `replay`, and `explain_failure` tools. However, it is intentionally local and stdio-only. There are no resources, prompts, remote transports, auth concerns, or broader server-management contracts in this slice.
+
+### R-WS14-2 MCP inherits the local engine’s cost and result shape
+
+The MCP server correctly exposes structured results over the existing run and replay artifacts, which is the right narrow contract. It still calls into the same local verification engine, though, so tool latency, simulator fidelity, and scoped-verify precision are the same as the CLI’s. MCP is now agent-native, not a deeper execution plane.
 
 ## Cross-Workstream Risks
 
-### R-X-1 One-repo-per-process is still an implicit system assumption
+### R-X-1 Long-lived process safety is improved, but still not a hard isolation model
 
-Multiple reviewed components currently rely on a short-lived CLI process model. Discovery, import loading, and replay behavior are safer under that assumption than they would be in a persistent multi-repo worker. If architecture moves toward a service process, this assumption needs to be made explicit and then removed deliberately.
+The reviewed slices now support repeated in-process verification and MCP calls more safely than before, especially around app module loading and replay artifact lookup. Even so, the system still assumes a simple local-process model rather than a hardened long-lived multi-tenant runtime. If Litmus moves toward a service or worker architecture, that assumption should be re-evaluated explicitly.
 
 ### R-X-2 Verification depth is still weighted toward narrow unit slices
 
@@ -113,7 +179,8 @@ The current review loop has strong targeted tests for individual behaviors, but 
 
 ## Recommended Follow-Through
 
-1. Add explicit ownership for each residual risk as workstreams WS-05 through WS-08 are claimed.
+1. Decide whether release hardening is now the primary next tranche, or whether deeper moat work should start immediately with a new bounded plan.
 2. Keep confirmed and suggested behavior separated in every new layer unless a review explicitly approves a merge point.
-3. Add integration tests that exercise full verification flow before watch mode and GitHub Action reporting are considered stable.
+3. Add more full-flow integration coverage across scoped verify, seeded HTTP fault injection, replay, MCP, and GitHub workflow reporting before those paths are considered fully stable.
 4. Revisit the property schema before expanding Hypothesis generation, so richer exploration does not outpace the trust model.
+5. If moat work continues next, choose the next depth increase explicitly: higher local seed budgets, richer replay fidelity, and whether SQLAlchemy or Redis patching should land in the shipped verify path.
