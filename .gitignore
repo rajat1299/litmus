@@ -1,4 +1,6 @@
 .cursor/
+# Unrelated / scratch Claude Code workspace (not litmus package source)
+claudecode/
 .venv/
 venv/
 __pycache__/
@@ -6,6 +8,10 @@ __pycache__/
 .pytest_cache/
 .hypothesis/
 .litmus/
+.desloppify/
 .env
 .env.*
 !.env.example
+
+# Local / draft — not part of published repo narrative
+docs/plans/2026-03-31-litmus-verification-platform-plan.md

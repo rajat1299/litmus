@@ -4,9 +4,7 @@ from collections import Counter
 
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
-from litmus.replay.explain import explain_replay
 from litmus.reporting.confidence import calculate_confidence_score
-from litmus.reporting.explanations import render_replay_explanation
 
 
 def render_verification_summary(result) -> str:
@@ -41,34 +39,6 @@ def render_verification_summary(result) -> str:
         lines.append("Suggested actions:")
         lines.extend(suggestion_lines)
     return "\n".join(lines)
-
-
-def render_replay_summary(
-    *,
-    seed: str,
-    method: str,
-    path: str,
-    baseline_status_code: int | None,
-    baseline_body,
-    current_status_code: int | None,
-    current_body,
-    classification: ReplayClassification,
-    diff,
-    trace,
-) -> str:
-    explanation = explain_replay(
-        seed=seed,
-        method=method,
-        path=path,
-        baseline_status_code=baseline_status_code,
-        baseline_body=baseline_body,
-        current_status_code=current_status_code,
-        current_body=current_body,
-        classification=classification,
-        diff=diff,
-        trace=trace,
-    )
-    return render_replay_explanation(explanation)
 
 
 def _suggestion_lines(result) -> list[str]:

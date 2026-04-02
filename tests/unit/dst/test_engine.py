@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 from litmus.config import RepoConfig
@@ -9,7 +10,35 @@ from litmus.dst.engine import _run_replay, run_verification
 from litmus.dst.runtime import TraceEvent
 from litmus.discovery.routes import RouteDefinition
 from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
+from litmus.properties.runner import PropertyCheckStatus
 from litmus.scenarios.builder import Scenario
+
+
+class _PaymentsApp:
+    async def __call__(self, scope, receive, send) -> None:
+        request = await receive()
+        payload = json.loads(request["body"].decode("utf-8")) if request["body"] else {}
+        amount = int(payload.get("amount", 0))
+        if amount > 500:
+            status_code = 402
+            body = {"status": "declined"}
+        else:
+            status_code = 200
+            body = {"status": "charged"}
+
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status_code,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": json.dumps(body).encode("utf-8"),
+            }
+        )
 
 
 def test_run_verification_uses_ci_replay_and_property_budgets(monkeypatch, tmp_path: Path) -> None:
@@ -251,3 +280,82 @@ def test_run_verification_loads_curated_suggested_invariants_without_reimporting
         InvariantStatus.SUGGESTED,
     ]
     assert [invariant.name for invariant in captured["scenario_invariants"]] == ["charge_returns_200"]
+
+
+def test_run_verification_exercises_real_property_path_for_passing_invariant(monkeypatch, tmp_path: Path) -> None:
+    property_invariant = Invariant(
+        name="charge_does_not_5xx",
+        source="manual:property",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.PROPERTY,
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 300}),
+    )
+
+    monkeypatch.setattr("litmus.dst.engine.load_repo_config", lambda _root: RepoConfig(app="service.app:app"))
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: _PaymentsApp())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="POST",
+                path="/payments/charge",
+                handler_name="charge",
+                file_path="service/app.py",
+            )
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [property_invariant])
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", lambda _routes, _invariants: [])
+
+    result = run_verification(tmp_path)
+
+    assert result.replay_results == []
+    assert len(result.property_results) == 1
+    property_result = result.property_results[0]
+    assert property_result.invariant.name == "charge_does_not_5xx"
+    assert property_result.status is PropertyCheckStatus.PASSED
+    assert property_result.failing_request is None
+
+
+def test_run_verification_exercises_real_property_path_for_failing_invariant(monkeypatch, tmp_path: Path) -> None:
+    property_invariant = Invariant(
+        name="charge_always_returns_200",
+        source="manual:property",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.PROPERTY,
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 300}),
+        response=ResponseExample(status_code=200),
+    )
+
+    monkeypatch.setattr("litmus.dst.engine.load_repo_config", lambda _root: RepoConfig(app="service.app:app"))
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: _PaymentsApp())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="POST",
+                path="/payments/charge",
+                handler_name="charge",
+                file_path="service/app.py",
+            )
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [property_invariant])
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", lambda _routes, _invariants: [])
+
+    result = run_verification(tmp_path)
+
+    assert result.replay_results == []
+    assert len(result.property_results) == 1
+    property_result = result.property_results[0]
+    assert property_result.invariant.name == "charge_always_returns_200"
+    assert property_result.status is PropertyCheckStatus.FAILED
+    assert property_result.failing_request is not None
+    assert property_result.failing_request.method == "POST"
+    assert property_result.failing_request.path == "/payments/charge"
+    assert property_result.failing_request.payload is not None
+    assert property_result.failing_request.payload["amount"] > 500

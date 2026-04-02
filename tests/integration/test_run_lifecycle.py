@@ -40,6 +40,7 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "suggested": 0,
     }
     assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
+    assert not (repo_root / ".litmus" / "replay-traces.json").exists()
 
 
 def test_litmus_replay_uses_run_store_even_without_legacy_trace_file_and_records_replay_run(tmp_path: Path) -> None:
@@ -56,7 +57,7 @@ def test_litmus_replay_uses_run_store_even_without_legacy_trace_file_and_records
 
     latest_replayable_pointer = repo_root / ".litmus" / "runs" / "latest-replayable.json"
     source_run_id = json.loads(latest_replayable_pointer.read_text(encoding="utf-8"))["run_id"]
-    (repo_root / ".litmus" / "replay-traces.json").unlink()
+    (repo_root / ".litmus" / "replay-traces.json").unlink(missing_ok=True)
 
     replay_result = subprocess.run(
         ["litmus", "replay", "seed:1"],
@@ -92,10 +93,11 @@ def test_exported_replay_record_lookup_uses_run_store_after_legacy_trace_file_is
     )
     assert verify_result.returncode == 1, verify_result.stdout
 
-    (repo_root / ".litmus" / "replay-traces.json").unlink()
+    (repo_root / ".litmus" / "replay-traces.json").unlink(missing_ok=True)
 
-    record = replay_record_for_seed(repo_root, "seed:1")
+    source_run, record = replay_record_for_seed(repo_root, "seed:1")
 
+    assert source_run.run_id.startswith("run-")
     assert record.seed == "seed:1"
     assert record.path == "/health"
 

@@ -24,6 +24,21 @@ class ActionReport:
     include_comment: bool
 
 
+@dataclass(slots=True)
+class ActionOutputPaths:
+    output_path: Path | None
+    summary_path: Path | None
+    comment_path: Path | None
+
+
+@dataclass(slots=True)
+class GitHubCommentContext:
+    token: str
+    repository: str
+    event_path: Path
+    api_url: str = "https://api.github.com"
+
+
 def parse_min_score(value: str | None) -> float:
     if value is None or not value.strip():
         return 0.0
@@ -98,32 +113,26 @@ def write_action_report(
 
 def main() -> None:
     workspace = Path(os.getenv("LITMUS_WORKSPACE", Path.cwd()))
-    output_path = _optional_path(os.getenv("GITHUB_OUTPUT"))
-    summary_path = _optional_path(os.getenv("GITHUB_STEP_SUMMARY"))
-    comment_path = Path(
-        os.getenv("LITMUS_COMMENT_PATH", str(workspace / ".litmus" / "pr-comment.md"))
+    outputs = ActionOutputPaths(
+        output_path=_optional_path(os.getenv("GITHUB_OUTPUT")),
+        summary_path=_optional_path(os.getenv("GITHUB_STEP_SUMMARY")),
+        comment_path=Path(
+            os.getenv("LITMUS_COMMENT_PATH", str(workspace / ".litmus" / "pr-comment.md"))
+        ),
     )
-    event_path = _optional_path(os.getenv("GITHUB_EVENT_PATH"))
     mode = os.getenv("LITMUS_MODE", "local")
     include_comment = os.getenv("LITMUS_COMMENT", "true").strip().lower() != "false"
-    github_token = _optional_string(os.getenv("LITMUS_GITHUB_TOKEN"))
-    repository = _optional_string(os.getenv("GITHUB_REPOSITORY"))
-    api_url = os.getenv("GITHUB_API_URL", "https://api.github.com")
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
+    github = _github_comment_context()
 
     report = run_github_action(
         workspace=workspace,
         mode=mode,
         min_score=min_score,
         include_comment=include_comment,
-        output_path=output_path,
-        summary_path=summary_path,
-        comment_path=comment_path,
-        github_token=github_token,
-        repository=repository,
-        event_path=event_path,
-        api_url=api_url,
+        outputs=outputs,
     )
+    publish_action_comment(report, include_comment=include_comment, github=github)
     raise SystemExit(1 if report.should_fail else 0)
 
 
@@ -139,19 +148,27 @@ def _optional_string(raw_value: str | None) -> str | None:
     return raw_value
 
 
+def _github_comment_context() -> GitHubCommentContext | None:
+    token = _optional_string(os.getenv("LITMUS_GITHUB_TOKEN"))
+    repository = _optional_string(os.getenv("GITHUB_REPOSITORY"))
+    event_path = _optional_path(os.getenv("GITHUB_EVENT_PATH"))
+    if token is None or repository is None or event_path is None:
+        return None
+    return GitHubCommentContext(
+        token=token,
+        repository=repository,
+        event_path=event_path,
+        api_url=os.getenv("GITHUB_API_URL", "https://api.github.com"),
+    )
+
+
 def run_github_action(
     *,
     workspace: Path,
     mode: str,
     min_score: float,
     include_comment: bool,
-    output_path: Path | None,
-    summary_path: Path | None,
-    comment_path: Path | None,
-    github_token: str | None = None,
-    repository: str | None = None,
-    event_path: Path | None = None,
-    api_url: str = "https://api.github.com",
+    outputs: ActionOutputPaths,
 ) -> ActionReport:
     result = run_verification(workspace, mode=mode)
     record_verification_run(workspace, result, mode=RunMode.CI)
@@ -163,24 +180,28 @@ def run_github_action(
     )
     write_action_report(
         report,
-        output_path=output_path,
-        summary_path=summary_path,
-        comment_path=comment_path,
+        output_path=outputs.output_path,
+        summary_path=outputs.summary_path,
+        comment_path=outputs.comment_path,
     )
-    if (
-        include_comment
-        and github_token is not None
-        and repository is not None
-        and event_path is not None
-    ):
-        publish_pr_comment(
-            api_url=api_url,
-            repository=repository,
-            event_path=event_path,
-            token=github_token,
-            comment=report.comment,
-        )
     return report
+
+
+def publish_action_comment(
+    report: ActionReport,
+    *,
+    include_comment: bool,
+    github: GitHubCommentContext | None,
+) -> None:
+    if not include_comment or github is None:
+        return
+    publish_pr_comment(
+        api_url=github.api_url,
+        repository=github.repository,
+        event_path=github.event_path,
+        token=github.token,
+        comment=report.comment,
+    )
 
 
 if __name__ == "__main__":

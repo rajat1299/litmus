@@ -7,8 +7,11 @@ from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.replay.differential import DifferentialReplayResult, ReplayClassification
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.github_action.report import (
+    ActionOutputPaths,
+    GitHubCommentContext,
     build_action_report,
     parse_min_score,
+    publish_action_comment,
     run_github_action,
     write_action_report,
 )
@@ -126,12 +129,11 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
         mode="ci",
         min_score=parse_min_score("80"),
         include_comment=False,
-        output_path=None,
-        summary_path=None,
-        comment_path=tmp_path / "litmus-pr-comment.md",
-        github_token=None,
-        repository=None,
-        event_path=None,
+        outputs=ActionOutputPaths(
+            output_path=None,
+            summary_path=None,
+            comment_path=tmp_path / "litmus-pr-comment.md",
+        ),
     )
 
     assert captured["root"] == str(tmp_path)
@@ -141,7 +143,7 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
     assert report.verdict == "fail"
 
 
-def test_run_github_action_publishes_comment_when_github_context_exists(monkeypatch, tmp_path) -> None:
+def test_publish_action_comment_publishes_comment_when_github_context_exists(monkeypatch, tmp_path) -> None:
     scenario = Scenario(
         method="GET",
         path="/health",
@@ -161,29 +163,25 @@ def test_run_github_action_publishes_comment_when_github_context_exists(monkeypa
     event_path = tmp_path / "event.json"
     event_path.write_text('{"pull_request": {"number": 5}}', encoding="utf-8")
 
-    monkeypatch.setattr("litmus.github_action.report.run_verification", lambda *_args, **_kwargs: result)
-    monkeypatch.setattr(
-        "litmus.github_action.report.record_verification_run",
-        lambda *_args, **_kwargs: None,
-    )
-
     def fake_publish_pr_comment(**kwargs):
         captured.update(kwargs)
         return "https://github.example/comment/5"
 
     monkeypatch.setattr("litmus.github_action.report.publish_pr_comment", fake_publish_pr_comment)
 
-    run_github_action(
-        workspace=tmp_path,
-        mode="ci",
+    report = build_action_report(
+        result,
         min_score=parse_min_score("80"),
         include_comment=True,
-        output_path=None,
-        summary_path=None,
-        comment_path=tmp_path / "litmus-pr-comment.md",
-        github_token="token-123",
-        repository="acme/litmus",
-        event_path=event_path,
+    )
+    publish_action_comment(
+        report,
+        include_comment=True,
+        github=GitHubCommentContext(
+            token="token-123",
+            repository="acme/litmus",
+            event_path=event_path,
+        ),
     )
 
     assert captured["repository"] == "acme/litmus"

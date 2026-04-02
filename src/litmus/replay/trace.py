@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from litmus.dst.faults import FaultPlan, FaultSpec
@@ -57,38 +55,6 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
             for event in payload.get("trace", [])
         ],
     )
-
-
-def replay_trace_path(root: Path | str) -> Path:
-    return Path(root) / ".litmus" / "replay-traces.json"
-
-
-def save_replay_trace_records(root: Path | str, records: list[ReplayTraceRecord]) -> None:
-    path = replay_trace_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "records": [
-            replay_trace_record_to_dict(record)
-            for record in records
-        ]
-    }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-
-
-def load_replay_trace_records(root: Path | str) -> list[ReplayTraceRecord]:
-    path = replay_trace_path(root)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return [
-        replay_trace_record_from_dict(item)
-        for item in data.get("records", [])
-    ]
-
-
-def replay_record_for_seed(root: Path | str, seed: str) -> ReplayTraceRecord:
-    for record in load_replay_trace_records(root):
-        if record.seed == seed:
-            return record
-    raise LookupError(f"could not find replay record for {seed}")
 
 
 def replay_fault_plan(record: ReplayTraceRecord) -> FaultPlan:

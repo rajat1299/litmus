@@ -167,7 +167,7 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         trace=current_result.trace,
     )
     return _ReplayExecutionResult(
-        source_run_id=None if source_run.run_id == "legacy-replay-traces" else source_run.run_id,
+        source_run_id=source_run.run_id,
         source_scope_label=source_run.scope_label,
         app_reference=record.app_reference,
         explanation=explanation,

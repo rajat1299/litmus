@@ -12,7 +12,7 @@ from litmus.dst.asgi import run_asgi_app
 from litmus.dst.faults import build_fault_plan
 from litmus.invariants.mined import mine_invariants_from_tests
 from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
-from litmus.invariants.suggested import HeuristicRouteGapSuggestionProvider, suggest_invariants
+from litmus.invariants.suggested import suggest_route_gap_invariants
 from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
@@ -135,9 +135,7 @@ def _collect_suggested_invariants(
     if not enabled:
         return []
 
-    return suggest_invariants(
-        provider=HeuristicRouteGapSuggestionProvider(),
-        changed_files=[],
+    return suggest_route_gap_invariants(
         endpoints=routes,
         existing_invariants=[*confirmed_invariants, *curated_suggested_invariants],
     )

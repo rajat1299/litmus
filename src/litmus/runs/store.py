@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
-from litmus.replay.trace import ReplayTraceRecord, replay_record_for_seed as legacy_replay_record_for_seed
-from litmus.replay.trace import save_replay_trace_records
+from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import (
     ActivityStatus,
     ActivityType,
@@ -68,7 +67,6 @@ def record_verification_run(
         replay_traces=list(result.replay_traces),
     )
     save_verification_run(root, run, replayable=True)
-    save_replay_trace_records(root, result.replay_traces)
     return run
 
 
@@ -140,16 +138,7 @@ def load_latest_replayable_run(root: Path | str) -> VerificationRun:
 
 
 def replay_record_for_seed(root: Path | str, seed: str) -> tuple[VerificationRun, ReplayTraceRecord]:
-    try:
-        run = load_latest_replayable_run(root)
-    except FileNotFoundError:
-        try:
-            return _legacy_replay_record(root, seed)
-        except FileNotFoundError:
-            raise
-        except LookupError:
-            raise
-
+    run = load_latest_replayable_run(root)
     for record in run.replay_traces:
         if record.seed == seed:
             return run, record
@@ -183,21 +172,3 @@ def _activity_id(activity_type: ActivityType) -> str:
 
 def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _legacy_replay_record(root: Path | str, seed: str) -> tuple[VerificationRun, ReplayTraceRecord]:
-    record = legacy_replay_record_for_seed(root, seed)
-    timestamp = _timestamp()
-    synthetic_run = VerificationRun(
-        run_id="legacy-replay-traces",
-        mode=RunMode.LOCAL,
-        status=RunStatus.COMPLETED,
-        repo_root=str(Path(root)),
-        app_reference=record.app_reference,
-        scope_label="legacy replay traces",
-        started_at=timestamp,
-        completed_at=timestamp,
-        activities=[],
-        replay_traces=[record],
-    )
-    return synthetic_run, record

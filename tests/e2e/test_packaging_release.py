@@ -68,7 +68,11 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     assert "Deterministic fault-injection verification for agent-written code." in help_result.stdout
 
     demo_repo = tmp_path / "payment_service"
-    shutil.copytree(repo_root / "examples" / "payment_service", demo_repo)
+    shutil.copytree(
+        repo_root / "examples" / "payment_service",
+        demo_repo,
+        ignore=shutil.ignore_patterns(".litmus", "__pycache__", "*.pyc"),
+    )
 
     verify_result = subprocess.run(
         [str(litmus_bin), "verify"],

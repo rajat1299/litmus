@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
+
 from litmus.dst.runtime import TraceEvent
-from litmus.replay.trace import ReplayTraceRecord, save_replay_trace_records
+from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import (
     ActivityStatus,
     ActivityType,
@@ -105,28 +107,37 @@ def test_replay_record_for_seed_prefers_latest_replayable_run_over_latest_run(tm
     assert record.seed == "seed:1"
 
 
-def test_replay_record_for_seed_falls_back_to_legacy_trace_file_when_no_runs_exist(tmp_path) -> None:
-    save_replay_trace_records(
-        tmp_path,
-        [
-            ReplayTraceRecord(
-                seed="seed:1",
-                seed_value=1,
-                app_reference="service.app:app",
-                method="GET",
-                path="/health",
-                request_payload=None,
-                baseline_status_code=200,
-                baseline_body={"status": "ok"},
-                trace=[TraceEvent(kind="request_started")],
-            )
-        ],
+def test_replay_record_for_seed_raises_when_only_legacy_trace_file_exists_without_runs(tmp_path) -> None:
+    trace_dir = tmp_path / ".litmus"
+    trace_dir.mkdir()
+    (trace_dir / "replay-traces.json").write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "seed": "seed:1",
+                        "seed_value": 1,
+                        "app_reference": "service.app:app",
+                        "method": "GET",
+                        "path": "/health",
+                        "request_payload": None,
+                        "baseline_status_code": 200,
+                        "baseline_body": {"status": "ok"},
+                        "trace": [{"kind": "request_started", "metadata": {}}],
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
     )
 
-    source_run, record = replay_record_for_seed(tmp_path, "seed:1")
-
-    assert source_run.run_id == "legacy-replay-traces"
-    assert record.seed == "seed:1"
+    try:
+        replay_record_for_seed(tmp_path, "seed:1")
+    except FileNotFoundError:
+        pass
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("expected replay lookup without a replayable run to fail")
 
 
 def test_clear_latest_replayable_run_removes_only_replayable_pointer(tmp_path) -> None:

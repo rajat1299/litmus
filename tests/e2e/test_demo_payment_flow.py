@@ -63,7 +63,11 @@ async def charge(payload: dict[str, Any] | None) -> dict[str, Any]:
 def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> None:
     source_repo = Path(__file__).resolve().parents[2] / "examples" / "payment_service"
     demo_repo = tmp_path / "payment_service"
-    shutil.copytree(source_repo, demo_repo)
+    shutil.copytree(
+        source_repo,
+        demo_repo,
+        ignore=shutil.ignore_patterns(".litmus", "__pycache__", "*.pyc"),
+    )
 
     verify_failure = subprocess.run(
         ["litmus", "verify"],
@@ -82,10 +86,12 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert "Properties: passed=0 failed=0 skipped=0" in verify_failure.stdout
     assert "Confidence: 0.50" in verify_failure.stdout
 
-    replay_path = demo_repo / ".litmus" / "replay-traces.json"
-    assert replay_path.exists()
-    replay_data = json.loads(replay_path.read_text(encoding="utf-8"))
-    assert replay_data["records"][0]["seed"] == "seed:1"
+    latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads(
+        (demo_repo / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8")
+    )
+    assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
+    assert not (demo_repo / ".litmus" / "replay-traces.json").exists()
 
     replay_result = subprocess.run(
         ["litmus", "replay", "seed:1"],
