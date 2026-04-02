@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 import importlib
 from pathlib import Path
 import sys
@@ -12,7 +13,47 @@ from litmus.discovery.project import iter_python_files, module_name_from_path
 
 _SUPPORTED_APP_FACTORIES = {"FastAPI", "Starlette"}
 _INTERNAL_MODULE_ROOT = Path(__file__).resolve().parents[2]
-_LOADED_APP_ROOTS: set[Path] = set()
+
+
+class AppLoadError(Exception):
+    def __init__(self, reference: str, detail: str) -> None:
+        self.reference = reference
+        self.detail = detail
+        super().__init__(f"Could not load ASGI app '{reference}': {detail}")
+
+
+@dataclass(slots=True)
+class AppLoader:
+    loaded_roots: set[Path] = field(default_factory=set)
+
+    def load(self, reference: str, root: Path | str | None = None):
+        module_name, attribute_name = _parse_reference(reference)
+        root_path = None if root is None else Path(root).resolve()
+        with _temporary_import_root(root_path):
+            _evict_repo_owned_modules(
+                loaded_roots=self.loaded_roots,
+                root=root_path,
+                module_name=module_name,
+            )
+            try:
+                module = importlib.import_module(module_name)
+            except Exception as exc:  # pragma: no cover - exercised via callers
+                raise AppLoadError(
+                    reference,
+                    f"Could not import module '{module_name}': {exc}",
+                ) from exc
+        if root_path is not None:
+            self.loaded_roots.add(root_path)
+        try:
+            return getattr(module, attribute_name)
+        except AttributeError as exc:
+            raise AppLoadError(
+                reference,
+                f"Missing attribute '{attribute_name}' on module '{module_name}'.",
+            ) from exc
+
+
+_DEFAULT_APP_LOADER = AppLoader()
 
 
 def discover_app_reference(root: Path | str) -> str:
@@ -29,15 +70,19 @@ def discover_app_reference(root: Path | str) -> str:
     raise LookupError(f"Could not discover an ASGI app in {repo_root}")
 
 
+def default_app_loader() -> AppLoader:
+    return _DEFAULT_APP_LOADER
+
+
 def load_asgi_app(reference: str, root: Path | str | None = None):
-    module_name, attribute_name = reference.split(":", maxsplit=1)
-    root_path = None if root is None else Path(root).resolve()
-    with _temporary_import_root(root):
-        _evict_repo_owned_modules(root_path, module_name)
-        module = importlib.import_module(module_name)
-    if root_path is not None:
-        _LOADED_APP_ROOTS.add(root_path)
-    return getattr(module, attribute_name)
+    return default_app_loader().load(reference, root)
+
+
+def _parse_reference(reference: str) -> tuple[str, str]:
+    module_name, separator, attribute_name = reference.partition(":")
+    if not module_name or separator != ":" or not attribute_name:
+        raise AppLoadError(reference, "Expected '<module>:<attribute>'.")
+    return module_name, attribute_name
 
 
 def _discover_reference_in_file(path: Path, root: Path) -> str | None:
@@ -91,7 +136,12 @@ def _temporary_import_root(root: Path | str | None):
         importlib.invalidate_caches()
 
 
-def _evict_repo_owned_modules(root: Path | None, module_name: str) -> None:
+def _evict_repo_owned_modules(
+    *,
+    loaded_roots: set[Path],
+    root: Path | None,
+    module_name: str,
+) -> None:
     top_level_module = module_name.split(".", maxsplit=1)[0]
     for name, module in list(sys.modules.items()):
         if _module_is_internal_to_litmus(module):
@@ -99,16 +149,21 @@ def _evict_repo_owned_modules(root: Path | None, module_name: str) -> None:
         if _module_name_conflicts(name, top_level_module):
             sys.modules.pop(name, None)
             continue
-        if not _module_is_owned_by_loaded_app_root(module, root):
+        if not _module_is_owned_by_loaded_app_root(module, loaded_roots=loaded_roots, current_root=root):
             continue
         sys.modules.pop(name, None)
 
 
-def _module_is_owned_by_loaded_app_root(module: ModuleType | None, current_root: Path | None) -> bool:
+def _module_is_owned_by_loaded_app_root(
+    module: ModuleType | None,
+    *,
+    loaded_roots: set[Path],
+    current_root: Path | None,
+) -> bool:
     if module is None:
         return False
 
-    candidate_roots = set(_LOADED_APP_ROOTS)
+    candidate_roots = set(loaded_roots)
     if current_root is not None:
         candidate_roots.add(current_root)
 

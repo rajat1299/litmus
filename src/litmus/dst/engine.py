@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from litmus.config import load_repo_config
-from litmus.discovery.app import discover_app_reference, load_asgi_app
+from litmus.discovery.app import default_app_loader, discover_app_reference
 from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
 from litmus.dst.asgi import run_asgi_app
@@ -26,6 +26,7 @@ LOCAL_REPLAY_SEEDS_PER_SCENARIO = 3
 CI_REPLAY_SEEDS_PER_SCENARIO = 500
 VERIFY_FAULT_TARGETS = ["http"]
 VERIFY_FAULT_KINDS = ["timeout", "connection_refused", "http_error", "slow_response"]
+load_asgi_app = default_app_loader().load
 
 
 @dataclass(slots=True)

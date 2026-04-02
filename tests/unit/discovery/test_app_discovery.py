@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from litmus.discovery.app import discover_app_reference, load_asgi_app
+import pytest
+
+from litmus.discovery.app import AppLoadError, AppLoader, discover_app_reference, load_asgi_app
 
 
 def test_discover_app_reference_prefers_explicit_config(tmp_path: Path) -> None:
@@ -96,3 +98,66 @@ app = FastAPI("broken")
 
     second_app = load_asgi_app("service.main:app", tmp_path)
     assert second_app.status == "broken"
+
+
+def test_app_loader_reloads_conflicting_helper_modules_across_repo_roots(tmp_path: Path) -> None:
+    repo_one = tmp_path / "repo-one"
+    repo_two = tmp_path / "repo-two"
+    _write_loader_repo(repo_one, status="one")
+    _write_loader_repo(repo_two, status="two")
+
+    loader = AppLoader()
+
+    first_app = loader.load("service.main:app", repo_one)
+    second_app = loader.load("service.main:app", repo_two)
+
+    assert first_app.status == "one"
+    assert second_app.status == "two"
+
+
+@pytest.mark.parametrize(
+    ("reference", "expected_message"),
+    [
+        ("service.main", "Expected '<module>:<attribute>'"),
+        ("missing.module:app", "Could not import module"),
+        ("service.main:missing_app", "Missing attribute"),
+    ],
+)
+def test_app_loader_wraps_reference_failures_in_app_load_error(
+    tmp_path: Path,
+    reference: str,
+    expected_message: str,
+) -> None:
+    service = tmp_path / "service"
+    service.mkdir()
+    (service / "main.py").write_text("app = object()\n", encoding="utf-8")
+
+    loader = AppLoader()
+
+    with pytest.raises(AppLoadError) as exc_info:
+        loader.load(reference, tmp_path)
+
+    message = str(exc_info.value)
+    assert reference in message
+    assert expected_message in message
+
+
+def _write_loader_repo(root: Path, *, status: str) -> None:
+    service = root / "service"
+    service.mkdir(parents=True)
+    (root / "shared.py").write_text(f'STATUS = "{status}"\n', encoding="utf-8")
+    (service / "main.py").write_text(
+        """
+from shared import STATUS
+
+
+class FastAPI:
+    def __init__(self, status: str) -> None:
+        self.status = status
+
+
+app = FastAPI(STATUS)
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )

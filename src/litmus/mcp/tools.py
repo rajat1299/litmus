@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from litmus.discovery.app import load_asgi_app
+from litmus.discovery.app import default_app_loader
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.engine import collect_verification_inputs, run_verification
 from litmus.invariants.models import RequestExample, ResponseExample
@@ -122,7 +122,7 @@ class _ReplayExecutionResult:
 
 def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
     source_run, record = replay_record_for_seed(root, seed)
-    app = load_asgi_app(record.app_reference, root)
+    app = default_app_loader().load(record.app_reference, root)
     current_result = asyncio.run(
         run_asgi_app(
             app,

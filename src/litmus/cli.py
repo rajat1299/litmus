@@ -3,6 +3,7 @@ from pathlib import Path
 
 import typer
 
+from litmus.discovery.app import AppLoadError
 from litmus.dst.engine import run_verification
 from litmus.init_flow import bootstrap_repo
 from litmus.mcp import serve_mcp
@@ -59,7 +60,11 @@ def verify(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from None
 
-    result = run_verification(Path.cwd(), scope=scope)
+    try:
+        result = run_verification(Path.cwd(), scope=scope)
+    except AppLoadError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
     record_verification_run(Path.cwd(), result, mode=RunMode.LOCAL)
     typer.echo(render_verification_summary(result))
 
@@ -102,5 +107,9 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
     except LookupError:
         typer.echo(f"No replay trace found for {seed}.", err=True)
         raise typer.Exit(code=1) from None
-    replay_result = run_replay_operation(repo_root, seed, mode=RunMode.LOCAL)
+    try:
+        replay_result = run_replay_operation(repo_root, seed, mode=RunMode.LOCAL)
+    except AppLoadError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
     typer.echo(render_replay_explanation(replay_result.explanation))

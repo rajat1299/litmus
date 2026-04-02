@@ -205,6 +205,27 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
     }
 
 
+def test_litmus_verify_reports_app_load_error_cleanly(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    service_dir.mkdir()
+
+    (repo_root / "litmus.yaml").write_text('app: "service.app:missing_app"\n', encoding="utf-8")
+    (service_dir / "app.py").write_text("app = object()\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "Could not load ASGI app 'service.app:missing_app'" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_coverage(tmp_path: Path) -> None:
     repo_root = tmp_path
     service_dir = repo_root / "service"
