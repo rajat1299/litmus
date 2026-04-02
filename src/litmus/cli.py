@@ -1,22 +1,17 @@
 from __future__ import annotations
-
-import asyncio
 from pathlib import Path
 
 import typer
 
-from litmus.discovery.app import load_asgi_app
-from litmus.dst.asgi import run_asgi_app
 from litmus.dst.engine import run_verification
 from litmus.init_flow import bootstrap_repo
-from litmus.invariants.models import RequestExample, ResponseExample
+from litmus.mcp import serve_mcp
+from litmus.mcp.tools import run_replay_operation
 from litmus.properties.runner import PropertyCheckStatus
-from litmus.replay.differential import ReplayClassification, run_differential_replay
-from litmus.replay.explain import explain_replay
-from litmus.replay.trace import replay_fault_plan
-from litmus.reporting.console import render_replay_summary, render_verification_summary
-from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
-from litmus.scenarios.builder import Scenario
+from litmus.replay.differential import ReplayClassification
+from litmus.reporting.console import render_verification_summary
+from litmus.reporting.explanations import render_replay_explanation
+from litmus.runs import RunMode, record_verification_run, replay_record_for_seed
 from litmus.verify_scope import resolve_verification_scope
 from litmus.watch import run_watch
 
@@ -90,80 +85,22 @@ def watch() -> None:
 
 
 @app.command()
+def mcp() -> None:
+    """Run the Litmus MCP server over stdio."""
+    serve_mcp(Path.cwd())
+
+
+@app.command()
 def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -> None:
     """Replay a deterministic failing seed."""
     repo_root = Path.cwd()
     try:
-        source_run, record = replay_record_for_seed(repo_root, seed)
+        replay_record_for_seed(repo_root, seed)
     except FileNotFoundError:
         typer.echo("No replay traces found. Run `litmus verify` first.", err=True)
         raise typer.Exit(code=1) from None
     except LookupError:
         typer.echo(f"No replay trace found for {seed}.", err=True)
         raise typer.Exit(code=1) from None
-    app = load_asgi_app(record.app_reference, repo_root)
-    current_result = asyncio.run(
-        run_asgi_app(
-            app,
-            method=record.method,
-            path=record.path,
-            json_body=record.request_payload,
-            seed=record.seed_value,
-            fault_plan=replay_fault_plan(record),
-        )
-    )
-    current_response = ResponseExample(
-        status_code=current_result.status_code,
-        json=current_result.body if isinstance(current_result.body, dict) else None,
-    )
-    baseline_response = ResponseExample(
-        status_code=record.baseline_status_code,
-        json=record.baseline_body,
-    )
-    scenario = Scenario(
-        method=record.method,
-        path=record.path,
-        request=RequestExample(method=record.method, path=record.path, json=record.request_payload),
-        expected_response=baseline_response,
-    )
-
-    async def runner(_: Scenario) -> ResponseExample:
-        return current_response
-
-    replay_results = asyncio.run(run_differential_replay([scenario], runner))
-    classification = replay_results[0].classification if replay_results else ReplayClassification.UNCHANGED
-    diff = replay_results[0].diff if replay_results else {}
-    explanation = explain_replay(
-        seed=seed,
-        method=record.method,
-        path=record.path,
-        baseline_status_code=record.baseline_status_code,
-        baseline_body=record.baseline_body,
-        current_status_code=current_response.status_code,
-        current_body=current_result.body,
-        classification=classification,
-        diff=diff,
-        trace=current_result.trace,
-    )
-    record_replay_run(
-        repo_root,
-        app_reference=record.app_reference,
-        source_run_id=None if source_run.run_id == "legacy-replay-traces" else source_run.run_id,
-        source_scope_label=source_run.scope_label,
-        seed=seed,
-        summary=explanation.to_dict(),
-    )
-    typer.echo(
-        render_replay_summary(
-            seed=record.seed,
-            method=record.method,
-            path=record.path,
-            baseline_status_code=record.baseline_status_code,
-            baseline_body=record.baseline_body,
-            current_status_code=current_response.status_code,
-            current_body=current_result.body,
-            classification=classification,
-            diff=diff,
-            trace=current_result.trace,
-        )
-    )
+    replay_result = run_replay_operation(repo_root, seed, mode=RunMode.LOCAL)
+    typer.echo(render_replay_explanation(replay_result.explanation))

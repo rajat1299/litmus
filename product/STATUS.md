@@ -21,7 +21,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | In progress | WS-11 and WS-12 are done; WS-13 persisted-suggestion checkpoint is in review |
+| Implementation | In progress | WS-13 is done; WS-14 MCP checkpoint is in review |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -69,8 +69,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-10 | Scoped verify and changed-endpoint selection | Codex | Done | WS-02, WS-04, WS-09 | 2026-04-01 |
 | WS-11 | Main-path DST and fault-injection moat work | Codex | Done | WS-05, WS-06, WS-10 | 2026-04-01 |
 | WS-12 | Run/activity records and replay artifacts | Codex | Done | WS-04, WS-07, WS-11 | 2026-04-01 |
-| WS-13 | Suggested invariants in shipped flow | Codex | In review | WS-03, WS-10, WS-12 | 2026-04-01 |
-| WS-14 | MCP surface and minimal shared handlers | Codex | Queued | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
+| WS-13 | Suggested invariants in shipped flow | Codex | Done | WS-03, WS-10, WS-12 | 2026-04-01 |
+| WS-14 | MCP surface and minimal shared handlers | Codex | In review | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
 
 ---
 
@@ -98,8 +98,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Review the WS-13 persisted-suggestion checkpoint.
-2. If WS-13 is clean after review, move to WS-14 MCP surface work.
+1. Review the WS-14 MCP checkpoint.
+2. If WS-14 is clean after review, decide whether tranche-one parity needs another bounded MCP follow-up or can move to release hardening.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

@@ -40,17 +40,58 @@ class VerificationResult:
     scope_label: str = "full repo"
 
 
+@dataclass(slots=True)
+class VerificationInputs:
+    app_reference: str
+    routes: list[RouteDefinition]
+    invariants: list[Invariant]
+    confirmed_invariants: list[Invariant]
+    scenarios: list[Scenario]
+    scope_label: str = "full repo"
+
+
 def run_verification(
     root: Path | str,
     mode: str = "local",
     *,
     scope: VerifyScope | None = None,
 ) -> VerificationResult:
+    inputs = collect_verification_inputs(root, scope=scope)
+    app = load_asgi_app(inputs.app_reference, Path(root))
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            app,
+            inputs.app_reference,
+            inputs.scenarios,
+            seeds_per_scenario=_replay_seed_count_for_mode(mode),
+        )
+    )
+    property_results = _run_property_checks(
+        app,
+        inputs.confirmed_invariants,
+        max_examples=_property_max_examples_for_mode(mode),
+    )
+    return VerificationResult(
+        scope_label=inputs.scope_label,
+        app_reference=inputs.app_reference,
+        routes=inputs.routes,
+        invariants=inputs.invariants,
+        scenarios=inputs.scenarios,
+        replay_results=replay_results,
+        replay_traces=replay_traces,
+        property_results=property_results,
+    )
+
+
+def collect_verification_inputs(
+    root: Path | str,
+    *,
+    scope: VerifyScope | None = None,
+) -> VerificationInputs:
     repo_root = Path(root)
     active_scope = scope or default_verification_scope()
     config = load_repo_config(repo_root)
     app_reference = discover_app_reference(repo_root)
-    app = load_asgi_app(app_reference, repo_root)
     discovered_routes = _collect_routes(repo_root)
     discovered_invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
     curated_suggested_invariants = _load_curated_suggested_invariants(repo_root, discovered_routes)
@@ -74,28 +115,13 @@ def run_verification(
     )
     invariants = [*confirmed_invariants, *curated_suggested_invariants, *suggested_invariants]
     scenarios = build_scenarios(routes, confirmed_invariants)
-    replay_results, replay_traces = asyncio.run(
-        _run_replay(
-            app,
-            app_reference,
-            scenarios,
-            seeds_per_scenario=_replay_seed_count_for_mode(mode),
-        )
-    )
-    property_results = _run_property_checks(
-        app,
-        confirmed_invariants,
-        max_examples=_property_max_examples_for_mode(mode),
-    )
-    return VerificationResult(
+    return VerificationInputs(
         scope_label=active_scope.label,
         app_reference=app_reference,
         routes=routes,
         invariants=invariants,
+        confirmed_invariants=confirmed_invariants,
         scenarios=scenarios,
-        replay_results=replay_results,
-        replay_traces=replay_traces,
-        property_results=property_results,
     )
 
 

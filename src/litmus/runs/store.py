@@ -80,11 +80,12 @@ def record_replay_run(
     source_scope_label: str,
     seed: str,
     summary: dict[str, object],
+    mode: RunMode = RunMode.LOCAL,
 ) -> VerificationRun:
     timestamp = _timestamp()
     run = VerificationRun(
         run_id=_run_id(),
-        mode=RunMode.LOCAL,
+        mode=mode,
         status=RunStatus.COMPLETED,
         repo_root=str(Path(root)),
         app_reference=app_reference,
