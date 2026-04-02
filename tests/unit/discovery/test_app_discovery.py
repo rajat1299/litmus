@@ -61,3 +61,38 @@ app = FastAPI()
     app = load_asgi_app(reference, tmp_path)
 
     assert app.__class__.__name__ == "FastAPI"
+
+
+def test_load_asgi_app_observes_on_disk_app_edits_across_repeated_loads(tmp_path: Path) -> None:
+    service = tmp_path / "service"
+    service.mkdir()
+    app_path = service / "main.py"
+    app_path.write_text(
+        """
+class FastAPI:
+    def __init__(self, status: str) -> None:
+        self.status = status
+
+app = FastAPI("ok")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    first_app = load_asgi_app("service.main:app", tmp_path)
+    assert first_app.status == "ok"
+
+    app_path.write_text(
+        """
+class FastAPI:
+    def __init__(self, status: str) -> None:
+        self.status = status
+
+app = FastAPI("broken")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    second_app = load_asgi_app("service.main:app", tmp_path)
+    assert second_app.status == "broken"

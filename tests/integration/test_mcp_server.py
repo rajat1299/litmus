@@ -47,7 +47,35 @@ def test_litmus_mcp_server_exposes_structured_verify_replay_explain_and_list_too
     asyncio.run(exercise_server())
 
 
-def _build_breaking_verify_repo(repo_root: Path) -> Path:
+def test_litmus_mcp_server_observes_repo_edits_across_repeated_verify_calls(tmp_path: Path) -> None:
+    repo_root = _build_verify_repo(tmp_path)
+
+    async def exercise_server() -> None:
+        server = StdioServerParameters(command="litmus", args=["mcp"], cwd=str(repo_root))
+        async with stdio_client(server) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+
+                first_result = await session.call_tool("verify", arguments={})
+                first_payload = first_result.structuredContent
+                assert first_payload["replay"]["unchanged"] == 3
+                assert first_payload["replay"]["breaking"] == 0
+
+                _rewrite_health_app(
+                    repo_root / "service" / "app.py",
+                    status_code=500,
+                    status_value="broken",
+                )
+
+                second_result = await session.call_tool("verify", arguments={})
+                second_payload = second_result.structuredContent
+                assert second_payload["replay"]["unchanged"] == 0
+                assert second_payload["replay"]["breaking"] == 3
+
+    asyncio.run(exercise_server())
+
+
+def _build_verify_repo(repo_root: Path) -> Path:
     service_dir = repo_root / "service"
     tests_dir = repo_root / "tests"
     service_dir.mkdir()
@@ -95,7 +123,7 @@ def _build_breaking_verify_repo(repo_root: Path) -> Path:
 
             @app.get("/health")
             async def health():
-                return {"status_code": 500, "json": {"status": "broken"}}
+                return {"status_code": 200, "json": {"status": "ok"}}
             """
         ).strip()
         + "\n",
@@ -121,3 +149,28 @@ def _build_breaking_verify_repo(repo_root: Path) -> Path:
         encoding="utf-8",
     )
     return repo_root
+
+
+def _build_breaking_verify_repo(repo_root: Path) -> Path:
+    repo_root = _build_verify_repo(repo_root)
+    _rewrite_health_app(
+        repo_root / "service" / "app.py",
+        status_code=500,
+        status_value="broken",
+    )
+    return repo_root
+
+
+def _rewrite_health_app(app_path: Path, *, status_code: int, status_value: str) -> None:
+    app_path.write_text(
+        app_path.read_text(encoding="utf-8")
+        .replace(
+            'return {"status_code": 200, "json": {"status": "ok"}}',
+            f'return {{"status_code": {status_code}, "json": {{"status": "{status_value}"}}}}',
+        )
+        .replace(
+            'return {"status_code": 500, "json": {"status": "broken"}}',
+            f'return {{"status_code": {status_code}, "json": {{"status": "{status_value}"}}}}',
+        ),
+        encoding="utf-8",
+    )

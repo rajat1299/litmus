@@ -67,6 +67,24 @@ def test_run_replay_and_explain_failure_operations_return_structured_breaking_ex
     assert explain_result.explanation.next_step == replay_result.explanation.next_step
 
 
+def test_run_verify_operation_observes_app_edits_across_repeated_calls(tmp_path: Path) -> None:
+    repo_root = _build_verify_repo(tmp_path)
+
+    first_result = run_verify_operation(repo_root)
+    assert first_result.replay.breaking == 0
+    assert first_result.replay.unchanged == 3
+
+    _rewrite_health_app(
+        repo_root / "service" / "app.py",
+        status_code=500,
+        status_value="broken",
+    )
+
+    second_result = run_verify_operation(repo_root)
+    assert second_result.replay.breaking == 3
+    assert second_result.replay.unchanged == 0
+
+
 def _build_verify_repo(repo_root: Path) -> Path:
     _clear_service_modules()
     service_dir = repo_root / "service"
@@ -146,10 +164,10 @@ def _build_verify_repo(repo_root: Path) -> Path:
 
 def _build_breaking_verify_repo(repo_root: Path) -> Path:
     repo_root = _build_verify_repo(repo_root)
-    app_path = repo_root / "service" / "app.py"
-    app_path.write_text(
-        app_path.read_text(encoding="utf-8").replace('"status_code": 200', '"status_code": 500').replace('"status": "ok"', '"status": "broken"'),
-        encoding="utf-8",
+    _rewrite_health_app(
+        repo_root / "service" / "app.py",
+        status_code=500,
+        status_value="broken",
     )
     return repo_root
 
@@ -157,3 +175,18 @@ def _build_breaking_verify_repo(repo_root: Path) -> Path:
 def _clear_service_modules() -> None:
     sys.modules.pop("service", None)
     sys.modules.pop("service.app", None)
+
+
+def _rewrite_health_app(app_path: Path, *, status_code: int, status_value: str) -> None:
+    app_path.write_text(
+        app_path.read_text(encoding="utf-8")
+        .replace(
+            'return {"status_code": 200, "json": {"status": "ok"}}',
+            f'return {{"status_code": {status_code}, "json": {{"status": "{status_value}"}}}}',
+        )
+        .replace(
+            'return {"status_code": 500, "json": {"status": "broken"}}',
+            f'return {{"status_code": {status_code}, "json": {{"status": "{status_value}"}}}}',
+        ),
+        encoding="utf-8",
+    )
