@@ -1,38 +1,30 @@
 from __future__ import annotations
 
-from collections import Counter
-
-from litmus.properties.runner import PropertyCheckStatus
-from litmus.replay.differential import ReplayClassification
-from litmus.reporting.confidence import calculate_confidence_score
+from litmus.runs.summary import VerificationProjection
 
 
 def render_verification_summary(result) -> str:
-    replay_counts = Counter(replay.classification for replay in result.replay_results)
-    property_counts = Counter(property_result.status for property_result in result.property_results)
-    confidence = calculate_confidence_score(result.replay_results, result.property_results)
-    confirmed_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "confirmed")
-    suggested_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "suggested")
+    projection = VerificationProjection.from_result(result)
 
     lines = [
         "Litmus verify",
-        f"App: {result.app_reference}",
-        f"Scope: {result.scope_label}",
-        f"Routes: {len(result.routes)}",
-        f"Invariants: {len(result.invariants)}",
-        f"Confirmed invariants: {confirmed_invariants}",
-        f"Suggested invariants: {suggested_invariants}",
-        f"Scenarios: {len(result.scenarios)}",
+        f"App: {projection.app_reference}",
+        f"Scope: {projection.scope_label}",
+        f"Routes: {projection.routes}",
+        f"Invariants: {projection.invariants['total']}",
+        f"Confirmed invariants: {projection.invariants['confirmed']}",
+        f"Suggested invariants: {projection.invariants['suggested']}",
+        f"Scenarios: {projection.scenarios}",
         "Replay: "
-        f"unchanged={replay_counts[ReplayClassification.UNCHANGED]} "
-        f"breaking={replay_counts[ReplayClassification.BREAKING_CHANGE]} "
-        f"benign={replay_counts[ReplayClassification.BENIGN_CHANGE]} "
-        f"improvement={replay_counts[ReplayClassification.IMPROVEMENT]}",
+        f"unchanged={projection.replay['unchanged']} "
+        f"breaking={projection.replay['breaking_change']} "
+        f"benign={projection.replay['benign_change']} "
+        f"improvement={projection.replay['improvement']}",
         "Properties: "
-        f"passed={property_counts[PropertyCheckStatus.PASSED]} "
-        f"failed={property_counts[PropertyCheckStatus.FAILED]} "
-        f"skipped={property_counts[PropertyCheckStatus.SKIPPED]}",
-        f"Confidence: {confidence:.2f}",
+        f"passed={projection.properties['passed']} "
+        f"failed={projection.properties['failed']} "
+        f"skipped={projection.properties['skipped']}",
+        f"Confidence: {projection.confidence:.2f}",
     ]
     suggestion_lines = _suggestion_lines(result)
     if suggestion_lines:

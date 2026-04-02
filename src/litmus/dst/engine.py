@@ -17,6 +17,7 @@ from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
 from litmus.replay.trace import ReplayTraceRecord
+from litmus.runs.models import RunMode
 from litmus.scenarios.builder import Scenario, build_scenarios
 from litmus.verify_scope import VerifyScope, apply_verification_scope, default_verification_scope
 
@@ -53,24 +54,25 @@ class VerificationInputs:
 
 def run_verification(
     root: Path | str,
-    mode: str = "local",
+    mode: RunMode | str = RunMode.LOCAL,
     *,
     scope: VerifyScope | None = None,
 ) -> VerificationResult:
     inputs = collect_verification_inputs(root, scope=scope)
+    verification_mode = _coerce_run_mode(mode)
     app = load_asgi_app(inputs.app_reference, Path(root))
     replay_results, replay_traces = asyncio.run(
         _run_replay(
             app,
             inputs.app_reference,
             inputs.scenarios,
-            seeds_per_scenario=_replay_seed_count_for_mode(mode),
+            seeds_per_scenario=_replay_seed_count_for_mode(verification_mode),
         )
     )
     property_results = _run_property_checks(
         app,
         inputs.confirmed_invariants,
-        max_examples=_property_max_examples_for_mode(mode),
+        max_examples=_property_max_examples_for_mode(verification_mode),
     )
     return VerificationResult(
         scope_label=inputs.scope_label,
@@ -275,26 +277,29 @@ def _run_property_checks(
     return run_property_checks(property_invariants, checker=checker, max_examples=max_examples)
 
 
-def _property_max_examples_for_mode(mode: str) -> int:
-    normalized_mode = _normalize_mode(mode)
-    if normalized_mode == "local":
-        return LOCAL_PROPERTY_MAX_EXAMPLES
-    if normalized_mode == "ci":
+def _property_max_examples_for_mode(mode: RunMode) -> int:
+    if mode is RunMode.CI:
         return CI_PROPERTY_MAX_EXAMPLES
-    raise AssertionError(f"unreachable verification mode: {normalized_mode}")
+    return LOCAL_PROPERTY_MAX_EXAMPLES
 
 
-def _replay_seed_count_for_mode(mode: str) -> int:
-    normalized_mode = _normalize_mode(mode)
-    if normalized_mode == "local":
-        return LOCAL_REPLAY_SEEDS_PER_SCENARIO
-    if normalized_mode == "ci":
+def _replay_seed_count_for_mode(mode: RunMode) -> int:
+    if mode is RunMode.CI:
         return CI_REPLAY_SEEDS_PER_SCENARIO
-    raise AssertionError(f"unreachable verification mode: {normalized_mode}")
+    return LOCAL_REPLAY_SEEDS_PER_SCENARIO
 
 
-def _normalize_mode(mode: str) -> str:
+def _coerce_run_mode(mode: RunMode | str) -> RunMode:
+    if isinstance(mode, RunMode):
+        return mode
+
     normalized_mode = mode.strip().lower()
-    if normalized_mode in {"local", "ci"}:
-        return normalized_mode
+    if normalized_mode == RunMode.LOCAL.value:
+        return RunMode.LOCAL
+    if normalized_mode == RunMode.CI.value:
+        return RunMode.CI
+    if normalized_mode == RunMode.MCP.value:
+        return RunMode.MCP
+    if normalized_mode == RunMode.WATCH.value:
+        return RunMode.WATCH
     raise ValueError(f"unsupported verification mode: {mode}")

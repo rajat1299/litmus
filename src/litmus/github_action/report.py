@@ -120,7 +120,7 @@ def main() -> None:
             os.getenv("LITMUS_COMMENT_PATH", str(workspace / ".litmus" / "pr-comment.md"))
         ),
     )
-    mode = os.getenv("LITMUS_MODE", "local")
+    mode = _parse_run_mode(os.getenv("LITMUS_MODE", RunMode.LOCAL.value))
     include_comment = os.getenv("LITMUS_COMMENT", "true").strip().lower() != "false"
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
     github = _github_comment_context()
@@ -165,7 +165,7 @@ def _github_comment_context() -> GitHubCommentContext | None:
 def run_github_action(
     *,
     workspace: Path,
-    mode: str,
+    mode: RunMode,
     min_score: float,
     include_comment: bool,
     outputs: ActionOutputPaths,
@@ -202,6 +202,19 @@ def publish_action_comment(
         token=github.token,
         comment=report.comment,
     )
+
+
+def _parse_run_mode(raw_value: str) -> RunMode:
+    normalized_value = raw_value.strip().lower()
+    if normalized_value == RunMode.CI.value:
+        return RunMode.CI
+    if normalized_value == RunMode.LOCAL.value:
+        return RunMode.LOCAL
+    if normalized_value == RunMode.MCP.value:
+        return RunMode.MCP
+    if normalized_value == RunMode.WATCH.value:
+        return RunMode.WATCH
+    raise ValueError(f"unsupported verification mode: {raw_value}")
 
 
 if __name__ == "__main__":

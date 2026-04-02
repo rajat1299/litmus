@@ -23,6 +23,7 @@ from litmus.replay.explain import explain_replay
 from litmus.replay.models import ReplayExplanation
 from litmus.replay.trace import replay_fault_plan
 from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
+from litmus.runs.summary import VerificationProjection
 from litmus.scenarios.builder import Scenario
 from litmus.verify_scope import VerifyScope, resolve_verification_scope
 
@@ -37,21 +38,23 @@ def run_verify_operation(
 ) -> VerifyOperationResult:
     repo_root = Path(root)
     scope = _resolve_scope(repo_root, target=target, staged=staged, diff=diff)
-    result = run_verification(repo_root, scope=scope)
+    result = run_verification(repo_root, mode=mode, scope=scope)
     run = record_verification_run(repo_root, result, mode=mode)
+    projection = VerificationProjection.from_result(result)
     return VerifyOperationResult(
         run_id=run.run_id,
-        app_reference=result.app_reference,
-        scope_label=result.scope_label,
-        routes=len(result.routes),
-        invariants=InvariantCounts(
-            total=len(result.invariants),
-            confirmed=sum(1 for invariant in result.invariants if invariant.status.value == "confirmed"),
-            suggested=sum(1 for invariant in result.invariants if invariant.status.value == "suggested"),
+        app_reference=projection.app_reference,
+        scope_label=projection.scope_label,
+        routes=projection.routes,
+        invariants=InvariantCounts(**projection.invariants),
+        scenarios=projection.scenarios,
+        replay=ReplayCounts(
+            unchanged=projection.replay["unchanged"],
+            breaking=projection.replay["breaking_change"],
+            benign=projection.replay["benign_change"],
+            improvement=projection.replay["improvement"],
         ),
-        scenarios=len(result.scenarios),
-        replay=ReplayCounts.from_results(result.replay_results),
-        properties=PropertyCounts.from_results(result.property_results),
+        properties=PropertyCounts(**projection.properties),
         replay_seeds=[record.seed for record in result.replay_traces],
     )
 

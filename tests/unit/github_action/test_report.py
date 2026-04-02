@@ -15,6 +15,7 @@ from litmus.github_action.report import (
     run_github_action,
     write_action_report,
 )
+from litmus.runs import RunMode
 from litmus.scenarios.builder import Scenario
 
 
@@ -106,7 +107,7 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
     )
     captured: dict[str, str] = {}
 
-    def fake_run_verification(root, mode="local"):
+    def fake_run_verification(root, mode=RunMode.LOCAL):
         captured["root"] = str(root)
         captured["mode"] = mode
         return result
@@ -126,7 +127,7 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
 
     report = run_github_action(
         workspace=tmp_path,
-        mode="ci",
+        mode=RunMode.CI,
         min_score=parse_min_score("80"),
         include_comment=False,
         outputs=ActionOutputPaths(
@@ -137,7 +138,7 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
     )
 
     assert captured["root"] == str(tmp_path)
-    assert captured["mode"] == "ci"
+    assert captured["mode"] is RunMode.CI
     assert captured_recording["workspace"] == tmp_path
     assert str(captured_recording["mode"]) == "RunMode.CI"
     assert report.verdict == "fail"

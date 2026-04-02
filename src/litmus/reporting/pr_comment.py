@@ -7,20 +7,18 @@ from typing import Any
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
 from litmus.reporting.confidence import calculate_confidence_score
+from litmus.runs.summary import VerificationProjection
 
 
 def render_pr_comment(result) -> str:
-    replay_counts = Counter(replay.classification for replay in result.replay_results)
-    property_counts = Counter(property_result.status for property_result in result.property_results)
+    projection = VerificationProjection.from_result(result)
     confidence = calculate_confidence_score(result.replay_results, result.property_results)
-    confirmed_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "confirmed")
-    suggested_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "suggested")
 
     lines = [
         "## Litmus Verification",
         "",
         f"Confidence score: `{confidence:.2f}`",
-        f"App: `{result.app_reference}`",
+        f"App: `{projection.app_reference}`",
         "",
         "### Affected Endpoints",
     ]
@@ -29,16 +27,19 @@ def render_pr_comment(result) -> str:
         [
             "",
             "### Layer Results",
-            f"- Invariants: total={len(result.invariants)} confirmed={confirmed_invariants} suggested={suggested_invariants}",
+            "- Invariants: "
+            f"total={projection.invariants['total']} "
+            f"confirmed={projection.invariants['confirmed']} "
+            f"suggested={projection.invariants['suggested']}",
             "- Replay: "
-            f"unchanged={replay_counts[ReplayClassification.UNCHANGED]} "
-            f"breaking={replay_counts[ReplayClassification.BREAKING_CHANGE]} "
-            f"benign={replay_counts[ReplayClassification.BENIGN_CHANGE]} "
-            f"improvement={replay_counts[ReplayClassification.IMPROVEMENT]}",
+            f"unchanged={projection.replay['unchanged']} "
+            f"breaking={projection.replay['breaking_change']} "
+            f"benign={projection.replay['benign_change']} "
+            f"improvement={projection.replay['improvement']}",
             "- Properties: "
-            f"passed={property_counts[PropertyCheckStatus.PASSED]} "
-            f"failed={property_counts[PropertyCheckStatus.FAILED]} "
-            f"skipped={property_counts[PropertyCheckStatus.SKIPPED]}",
+            f"passed={projection.properties['passed']} "
+            f"failed={projection.properties['failed']} "
+            f"skipped={projection.properties['skipped']}",
             "",
             "### Failing Seeds",
         ]

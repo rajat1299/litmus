@@ -11,7 +11,7 @@ from litmus.mcp.tools import (
     run_verify_operation,
 )
 from litmus.replay.differential import ReplayClassification
-from litmus.runs import load_latest_verification_run
+from litmus.runs import RunMode, load_latest_verification_run
 
 
 def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp_path: Path) -> None:
@@ -30,6 +30,54 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.scenarios == 1
     assert result.replay.breaking == 0
     assert result.replay_seeds == ["seed:1", "seed:2", "seed:3"]
+
+
+def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    class _DummyCounts:
+        total = 0
+        confirmed = 0
+        suggested = 0
+
+    class _DummyReplayCounts:
+        unchanged = 0
+        breaking = 0
+        benign = 0
+        improvement = 0
+
+    class _DummyPropertyCounts:
+        passed = 0
+        failed = 0
+        skipped = 0
+
+    class _DummyResult:
+        app_reference = "service.app:app"
+        scope_label = "full repo"
+        routes = []
+        invariants = []
+        scenarios = []
+        replay_results = []
+        replay_traces = []
+        property_results = []
+
+    monkeypatch.setattr(
+        "litmus.mcp.tools._resolve_scope",
+        lambda *_args, **_kwargs: captured.setdefault("scope", object()),
+    )
+    monkeypatch.setattr(
+        "litmus.mcp.tools.run_verification",
+        lambda root, *, mode, scope: captured.update({"root": root, "mode": mode, "scope": scope}) or _DummyResult(),
+    )
+    monkeypatch.setattr(
+        "litmus.mcp.tools.record_verification_run",
+        lambda *_args, **_kwargs: type("Run", (), {"run_id": "run-123"})(),
+    )
+
+    result = run_verify_operation(tmp_path, mode=RunMode.CI)
+
+    assert result.run_id == "run-123"
+    assert captured["mode"] is RunMode.CI
 
 
 def test_run_list_invariants_operation_returns_visible_invariants(tmp_path: Path) -> None:
