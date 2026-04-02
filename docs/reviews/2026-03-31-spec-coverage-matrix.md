@@ -1,7 +1,7 @@
 # Litmus Spec Coverage Matrix
 
-**Status Date:** 2026-04-01  
-**Repo State Reviewed:** `main` at `ecdc924`  
+**Status Date:** 2026-04-01
+**Repo State Reviewed:** `main` at `ecdc924`
 **References:** `product/litmus-product-spec.md`, top-level `README.md`, and the current shipped code/docs on `main`
 
 ## Purpose

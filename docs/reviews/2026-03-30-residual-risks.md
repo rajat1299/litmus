@@ -55,7 +55,7 @@ The property runner now preserves request shape better, especially for lists, bu
 
 ### R-WS05-1 DST runtime is still a contract shell, not a full execution engine
 
-The scheduler, fault plan, and ASGI harness surfaces now exist, but the runtime still does not inject faults into real execution or track actual async yield points. That means the current DST layer is useful for interface stabilization, not yet for proving deterministic concurrency behavior under faulted interleavings.
+The scheduler, fault plan, and ASGI harness surfaces now exist, and the shipped verify path now injects seeded outbound HTTP faults into real execution. However, Litmus still does not track actual async yield points or provide a fuller multi-layer deterministic concurrency engine. That means the current DST layer is materially more real than the earlier contract shell, but still not yet a full deterministic interleaving runtime.
 
 ### R-WS05-2 ASGI request streaming and disconnect behavior remain simplified
 
@@ -91,7 +91,7 @@ The Redis simulator now handles strings, hashes, lists, expiry, blocking single-
 
 ### R-WS07-1 Replay artifacts are local scenario records, not full DST seed replays
 
-`litmus replay` now works over persisted local replay records, which is a useful workflow step forward. However, the current `seed:N` identifiers are deterministic artifact IDs over replayable scenarios, not a full DST seed plus fault-schedule reproduction contract. Even after WS-11 started persisting fault-plan selection into traces, replay still does not re-execute the stored schedule. That means replay is understandable and useful, but it is not yet the deeper deterministic execution story described in the product vision.
+`litmus replay` now works over persisted local replay records and reuses the stored fault plan, which is a meaningful workflow step forward. However, the current `seed:N` identifiers are still deterministic artifact IDs over replayable scenarios, not a full DST seed plus execution-order reproduction contract. Replay now restores the stored fault schedule, but it is still scenario-level local re-execution rather than the deeper deterministic execution story described in the product vision.
 
 ### R-WS07-2 Workflow surfaces exist, but diagnostics and metadata are still thin
 
