@@ -6,8 +6,6 @@ import typer
 from litmus.dst.engine import run_verification
 from litmus.errors import LitmusUserError
 from litmus.init_flow import bootstrap_repo
-from litmus.mcp import serve_mcp
-from litmus.mcp.tools import run_replay_operation
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
 from litmus.reporting.console import render_verification_summary
@@ -87,12 +85,16 @@ def watch() -> None:
 @app.command()
 def mcp() -> None:
     """Run the Litmus MCP server over stdio."""
+    from litmus.mcp.server import serve_mcp
+
     serve_mcp(Path.cwd())
 
 
 @app.command()
 def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -> None:
     """Replay a deterministic failing seed."""
+    from litmus.mcp.tools import run_replay_operation
+
     repo_root = Path.cwd()
     try:
         replay_result = run_replay_operation(repo_root, seed, mode=RunMode.LOCAL)

@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import textwrap
 
-from litmus.replay import replay_record_for_seed
+from litmus.runs import replay_record_for_seed
 
 
 def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
