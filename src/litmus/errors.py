@@ -13,6 +13,9 @@ class VerificationScopeError(LitmusUserError, ValueError):
     """The requested verification scope could not be resolved."""
 
 
+class VerificationModeError(LitmusUserError, ValueError):
+    """The requested verification mode is not supported."""
+
+
 class ReplayLookupError(LitmusUserError, LookupError):
     """A requested replay trace could not be found in the run store."""
-

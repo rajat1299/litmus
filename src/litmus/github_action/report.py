@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from litmus.dst.engine import run_verification
-from litmus.errors import LitmusUserError
+from litmus.errors import LitmusUserError, VerificationModeError
 from litmus.github_action.publish import publish_pr_comment
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
@@ -132,12 +132,12 @@ def main() -> None:
             os.getenv("LITMUS_COMMENT_PATH", str(workspace / ".litmus" / "pr-comment.md"))
         ),
     )
-    mode = _parse_run_mode(os.getenv("LITMUS_MODE", RunMode.LOCAL.value))
     include_comment = os.getenv("LITMUS_COMMENT", "true").strip().lower() != "false"
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
     github = _github_comment_context()
 
     try:
+        mode = _parse_run_mode(os.getenv("LITMUS_MODE", RunMode.LOCAL.value))
         report = run_github_action(
             workspace=workspace,
             mode=mode,
@@ -193,7 +193,7 @@ def run_github_action(
     outputs: ActionOutputPaths,
 ) -> ActionReport:
     result = run_verification(workspace, mode=mode)
-    record_verification_run(workspace, result, mode=RunMode.CI)
+    record_verification_run(workspace, result, mode=mode)
 
     report = build_action_report(
         result,
@@ -236,7 +236,7 @@ def _parse_run_mode(raw_value: str) -> RunMode:
         return RunMode.MCP
     if normalized_value == RunMode.WATCH.value:
         return RunMode.WATCH
-    raise ValueError(f"unsupported verification mode: {raw_value}")
+    raise VerificationModeError(f"unsupported verification mode: {raw_value}")
 
 
 if __name__ == "__main__":

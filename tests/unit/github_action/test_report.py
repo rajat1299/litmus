@@ -148,6 +148,46 @@ def test_run_github_action_passes_requested_mode_to_verification(monkeypatch, tm
     assert report.verdict == "fail"
 
 
+def test_run_github_action_records_requested_non_ci_mode(monkeypatch, tmp_path) -> None:
+    result = VerificationResult(
+        app_reference="service.app:app",
+        routes=[],
+        invariants=[],
+        scenarios=[],
+        replay_results=[],
+        replay_traces=[],
+        property_results=[],
+    )
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "litmus.github_action.report.run_verification",
+        lambda *_args, **_kwargs: result,
+    )
+    monkeypatch.setattr(
+        "litmus.github_action.report.record_verification_run",
+        lambda workspace, recorded_result, *, mode: captured.update(
+            {"workspace": workspace, "result": recorded_result, "mode": mode}
+        ),
+    )
+
+    run_github_action(
+        workspace=tmp_path,
+        mode=RunMode.LOCAL,
+        min_score=parse_min_score("80"),
+        include_comment=False,
+        outputs=ActionOutputPaths(
+            output_path=None,
+            summary_path=None,
+            comment_path=tmp_path / "litmus-pr-comment.md",
+        ),
+    )
+
+    assert captured["workspace"] == tmp_path
+    assert captured["result"] is result
+    assert captured["mode"] is RunMode.LOCAL
+
+
 def test_publish_action_comment_publishes_comment_when_github_context_exists(monkeypatch, tmp_path) -> None:
     scenario = Scenario(
         method="GET",
@@ -231,4 +271,31 @@ def test_main_writes_failed_action_report_for_litmus_boundary_error(monkeypatch,
     assert "comment-path=" in output_path.read_text(encoding="utf-8")
     assert "Litmus verify" in summary_path.read_text(encoding="utf-8")
     assert "Could not load ASGI app 'service.app:missing_app'" in summary_path.read_text(encoding="utf-8")
+    assert not comment_path.exists()
+
+
+def test_main_writes_failed_action_report_for_invalid_litmus_mode(monkeypatch, tmp_path) -> None:
+    output_path = tmp_path / "github-output.txt"
+    summary_path = tmp_path / "step-summary.md"
+    comment_path = tmp_path / "litmus-pr-comment.md"
+
+    monkeypatch.setenv("LITMUS_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_path))
+    monkeypatch.setenv("LITMUS_COMMENT_PATH", str(comment_path))
+    monkeypatch.setenv("LITMUS_COMMENT", "true")
+    monkeypatch.setenv("LITMUS_MODE", "bogus")
+    monkeypatch.delenv("LITMUS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+    assert "confidence=0.00" in output_path.read_text(encoding="utf-8")
+    assert "verdict=fail" in output_path.read_text(encoding="utf-8")
+    assert "comment-path=" in output_path.read_text(encoding="utf-8")
+    assert "Litmus verify" in summary_path.read_text(encoding="utf-8")
+    assert "unsupported verification mode: bogus" in summary_path.read_text(encoding="utf-8")
     assert not comment_path.exists()
