@@ -7,6 +7,7 @@ from typing import Literal
 from litmus.discovery.git_scope import list_changed_files_for_diff, list_staged_files
 from litmus.discovery.routes import RouteDefinition
 from litmus.discovery.tracing import map_changed_code_to_endpoints
+from litmus.errors import VerificationScopeError
 from litmus.invariants.models import Invariant
 from litmus.invariants.store import default_invariants_path
 
@@ -37,7 +38,7 @@ def resolve_verification_scope(
 
     selected_modes = sum([bool(explicit_paths), staged, diff is not None])
     if selected_modes > 1:
-        raise ValueError("Choose exactly one verification scope mode")
+        raise VerificationScopeError("Choose exactly one verification scope mode")
 
     if explicit_paths:
         changed_files = _expand_explicit_paths(repo_root, explicit_paths)
@@ -48,18 +49,18 @@ def resolve_verification_scope(
         )
 
     if staged:
-        return VerifyScope(
-            mode="staged",
-            changed_files=list_staged_files(repo_root),
-            label="staged diff",
-        )
+        try:
+            changed_files = list_staged_files(repo_root)
+        except LookupError as exc:
+            raise VerificationScopeError(str(exc)) from exc
+        return VerifyScope(mode="staged", changed_files=changed_files, label="staged diff")
 
     if diff is not None:
-        return VerifyScope(
-            mode="diff",
-            changed_files=list_changed_files_for_diff(repo_root, diff),
-            label=f"diff {diff}",
-        )
+        try:
+            changed_files = list_changed_files_for_diff(repo_root, diff)
+        except LookupError as exc:
+            raise VerificationScopeError(str(exc)) from exc
+        return VerifyScope(mode="diff", changed_files=changed_files, label=f"diff {diff}")
 
     return default_verification_scope()
 
@@ -112,7 +113,7 @@ def _expand_explicit_paths(root: Path, explicit_paths: list[Path | str]) -> list
         candidate = Path(explicit_path)
         resolved = candidate if candidate.is_absolute() else root / candidate
         if not resolved.exists():
-            raise LookupError(f"Path does not exist: {explicit_path}")
+            raise VerificationScopeError(f"Path does not exist: {explicit_path}")
 
         if resolved.is_dir():
             nested_paths = sorted(path for path in resolved.rglob("*") if path.is_file())
@@ -129,7 +130,7 @@ def _normalize_relative_path(path: Path, root: Path) -> str:
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError as exc:
-        raise LookupError(f"Path is outside the repository: {path}") from exc
+        raise VerificationScopeError(f"Path is outside the repository: {path}") from exc
 
 
 def _append_unique_path(changed_files: list[str], candidate: str) -> None:

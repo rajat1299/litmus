@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from litmus.dst.engine import run_verification
+from litmus.errors import LitmusUserError
 from litmus.github_action.publish import publish_pr_comment
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
@@ -111,6 +112,17 @@ def write_action_report(
         )
 
 
+def build_error_action_report(error: LitmusUserError) -> ActionReport:
+    return ActionReport(
+        confidence=0.0,
+        verdict="fail",
+        should_fail=True,
+        summary=f"Litmus verify\nError: {error}",
+        comment="",
+        include_comment=False,
+    )
+
+
 def main() -> None:
     workspace = Path(os.getenv("LITMUS_WORKSPACE", Path.cwd()))
     outputs = ActionOutputPaths(
@@ -125,13 +137,23 @@ def main() -> None:
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
     github = _github_comment_context()
 
-    report = run_github_action(
-        workspace=workspace,
-        mode=mode,
-        min_score=min_score,
-        include_comment=include_comment,
-        outputs=outputs,
-    )
+    try:
+        report = run_github_action(
+            workspace=workspace,
+            mode=mode,
+            min_score=min_score,
+            include_comment=include_comment,
+            outputs=outputs,
+        )
+    except LitmusUserError as exc:
+        report = build_error_action_report(exc)
+        write_action_report(
+            report,
+            output_path=outputs.output_path,
+            summary_path=outputs.summary_path,
+            comment_path=outputs.comment_path,
+        )
+        raise SystemExit(1) from None
     publish_action_comment(report, include_comment=include_comment, github=github)
     raise SystemExit(1 if report.should_fail else 0)
 

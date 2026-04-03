@@ -7,6 +7,7 @@ from typing import TypeAlias
 from watchfiles import watch
 
 from litmus.dst.engine import VerificationResult, run_verification
+from litmus.errors import LitmusUserError
 from litmus.reporting.console import render_verification_summary
 from litmus.runs import ActivityType, RunMode, clear_latest_replayable_run, record_verification_run
 
@@ -47,7 +48,7 @@ def run_watch(
         emit(f"Changed: {', '.join(changed_paths)}")
         try:
             result = verify_runner(repo_root)
-        except Exception as exc:  # pragma: no cover - exercised via CLI path later
+        except LitmusUserError as exc:
             clear_latest_replayable_run(repo_root)
             emit(f"Verification error: {exc}")
             continue

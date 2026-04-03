@@ -3,8 +3,8 @@ from pathlib import Path
 
 import typer
 
-from litmus.discovery.app import AppLoadError
 from litmus.dst.engine import run_verification
+from litmus.errors import LitmusUserError
 from litmus.init_flow import bootstrap_repo
 from litmus.mcp import serve_mcp
 from litmus.mcp.tools import run_replay_operation
@@ -12,7 +12,7 @@ from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
 from litmus.reporting.console import render_verification_summary
 from litmus.reporting.explanations import render_replay_explanation
-from litmus.runs import RunMode, record_verification_run, replay_record_for_seed
+from litmus.runs import RunMode, record_verification_run
 from litmus.verify_scope import resolve_verification_scope
 from litmus.watch import run_watch
 
@@ -56,13 +56,8 @@ def verify(
             staged=staged,
             diff=diff,
         )
-    except (LookupError, ValueError) as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=1) from None
-
-    try:
         result = run_verification(Path.cwd(), scope=scope)
-    except AppLoadError as exc:
+    except LitmusUserError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from None
     record_verification_run(Path.cwd(), result, mode=RunMode.LOCAL)
@@ -100,16 +95,8 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
     """Replay a deterministic failing seed."""
     repo_root = Path.cwd()
     try:
-        replay_record_for_seed(repo_root, seed)
-    except FileNotFoundError:
-        typer.echo("No replay traces found. Run `litmus verify` first.", err=True)
-        raise typer.Exit(code=1) from None
-    except LookupError:
-        typer.echo(f"No replay trace found for {seed}.", err=True)
-        raise typer.Exit(code=1) from None
-    try:
         replay_result = run_replay_operation(repo_root, seed, mode=RunMode.LOCAL)
-    except AppLoadError as exc:
+    except LitmusUserError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from None
     typer.echo(render_replay_explanation(replay_result.explanation))

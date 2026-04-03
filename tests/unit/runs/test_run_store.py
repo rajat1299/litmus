@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from litmus.dst.runtime import TraceEvent
+from litmus.errors import ReplayLookupError
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import (
     ActivityStatus,
@@ -134,10 +135,34 @@ def test_replay_record_for_seed_raises_when_only_legacy_trace_file_exists_withou
 
     try:
         replay_record_for_seed(tmp_path, "seed:1")
-    except FileNotFoundError:
-        pass
+    except ReplayLookupError as exc:
+        assert str(exc) == "No replay traces found. Run `litmus verify` first."
     else:  # pragma: no cover - defensive assertion
         raise AssertionError("expected replay lookup without a replayable run to fail")
+
+
+def test_replay_record_for_seed_raises_shared_error_for_unknown_seed(tmp_path) -> None:
+    run = VerificationRun(
+        run_id="run-123",
+        mode=RunMode.LOCAL,
+        status=RunStatus.COMPLETED,
+        repo_root=str(tmp_path),
+        app_reference="service.app:app",
+        scope_label="full repo",
+        started_at="2026-04-01T12:00:00+00:00",
+        completed_at="2026-04-01T12:00:01+00:00",
+        activities=[],
+        replay_traces=[],
+    )
+
+    save_verification_run(tmp_path, run, replayable=True)
+
+    try:
+        replay_record_for_seed(tmp_path, "seed:99")
+    except ReplayLookupError as exc:
+        assert str(exc) == "No replay trace found for seed:99."
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("expected replay lookup for an unknown seed to fail")
 
 
 def test_clear_latest_replayable_run_removes_only_replayable_pointer(tmp_path) -> None:

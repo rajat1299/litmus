@@ -9,13 +9,14 @@ import sys
 from types import ModuleType
 
 from litmus.config import load_repo_config
+from litmus.errors import AppDiscoveryError, LitmusUserError
 from litmus.discovery.project import iter_python_files, module_name_from_path
 
 _SUPPORTED_APP_FACTORIES = {"FastAPI", "Starlette"}
 _INTERNAL_MODULE_ROOT = Path(__file__).resolve().parents[2]
 
 
-class AppLoadError(Exception):
+class AppLoadError(LitmusUserError):
     def __init__(self, reference: str, detail: str) -> None:
         self.reference = reference
         self.detail = detail
@@ -67,7 +68,7 @@ def discover_app_reference(root: Path | str) -> str:
         if reference is not None:
             return reference
 
-    raise LookupError(f"Could not discover an ASGI app in {repo_root}")
+    raise AppDiscoveryError(f"Could not discover an ASGI app in {repo_root}")
 
 
 def default_app_loader() -> AppLoader:

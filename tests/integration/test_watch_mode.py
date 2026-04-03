@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import textwrap
 
+import pytest
 from typer.testing import CliRunner
 
 from litmus.cli import app
+from litmus.errors import VerificationScopeError
 from litmus.watch import run_watch
 
 
@@ -140,7 +142,7 @@ def test_litmus_watch_clears_latest_replayable_pointer_without_managing_legacy_t
         yield {("modified", str(repo_root / "service" / "app.py"))}
 
     def fake_verify_runner(_root):
-        raise RuntimeError("broken verification")
+        raise VerificationScopeError("broken verification")
 
     messages: list[str] = []
     run_watch(repo_root, watcher=fake_watch, emit=messages.append, verify_runner=fake_verify_runner)
@@ -149,3 +151,16 @@ def test_litmus_watch_clears_latest_replayable_pointer_without_managing_legacy_t
     assert not (runs_dir / "latest-replayable.json").exists()
     assert "Changed: service/app.py" in messages
     assert "Verification error: broken verification" in messages
+
+
+def test_run_watch_propagates_unexpected_internal_errors(tmp_path) -> None:
+    repo_root = tmp_path
+
+    def fake_watch(*_args, **_kwargs):
+        yield {("modified", str(repo_root / "service" / "app.py"))}
+
+    def fake_verify_runner(_root):
+        raise RuntimeError("unexpected bug")
+
+    with pytest.raises(RuntimeError, match="unexpected bug"):
+        run_watch(repo_root, watcher=fake_watch, verify_runner=fake_verify_runner)

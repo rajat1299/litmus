@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
+from litmus.errors import ReplayLookupError
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import (
     ActivityStatus,
@@ -138,11 +139,14 @@ def load_latest_replayable_run(root: Path | str) -> VerificationRun:
 
 
 def replay_record_for_seed(root: Path | str, seed: str) -> tuple[VerificationRun, ReplayTraceRecord]:
-    run = load_latest_replayable_run(root)
+    try:
+        run = load_latest_replayable_run(root)
+    except FileNotFoundError as exc:
+        raise ReplayLookupError("No replay traces found. Run `litmus verify` first.") from exc
     for record in run.replay_traces:
         if record.seed == seed:
             return run, record
-    raise LookupError(f"could not find replay record for {seed}")
+    raise ReplayLookupError(f"No replay trace found for {seed}.")
 
 
 def clear_latest_replayable_run(root: Path | str) -> None:

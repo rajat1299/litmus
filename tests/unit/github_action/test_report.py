@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from litmus.dst.engine import VerificationResult
+from litmus.discovery.app import AppLoadError
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.replay.differential import DifferentialReplayResult, ReplayClassification
 from litmus.replay.trace import ReplayTraceRecord
@@ -10,6 +13,7 @@ from litmus.github_action.report import (
     ActionOutputPaths,
     GitHubCommentContext,
     build_action_report,
+    main,
     parse_min_score,
     publish_action_comment,
     run_github_action,
@@ -189,3 +193,42 @@ def test_publish_action_comment_publishes_comment_when_github_context_exists(mon
     assert captured["token"] == "token-123"
     assert captured["event_path"] == event_path
     assert "## Litmus Verification" in str(captured["comment"])
+
+
+def test_main_writes_failed_action_report_for_litmus_boundary_error(monkeypatch, tmp_path) -> None:
+    output_path = tmp_path / "github-output.txt"
+    summary_path = tmp_path / "step-summary.md"
+    comment_path = tmp_path / "litmus-pr-comment.md"
+
+    monkeypatch.setenv("LITMUS_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_path))
+    monkeypatch.setenv("LITMUS_COMMENT_PATH", str(comment_path))
+    monkeypatch.setenv("LITMUS_COMMENT", "true")
+    monkeypatch.setenv("LITMUS_MODE", "ci")
+    monkeypatch.delenv("LITMUS_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setattr(
+        "litmus.github_action.report.run_github_action",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AppLoadError("service.app:missing_app", "Missing attribute 'missing_app' on module 'service.app'.")
+        ),
+    )
+    published: list[object] = []
+    monkeypatch.setattr(
+        "litmus.github_action.report.publish_pr_comment",
+        lambda **_kwargs: published.append(object()),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+    assert published == []
+    assert "confidence=0.00" in output_path.read_text(encoding="utf-8")
+    assert "verdict=fail" in output_path.read_text(encoding="utf-8")
+    assert "comment-path=" in output_path.read_text(encoding="utf-8")
+    assert "Litmus verify" in summary_path.read_text(encoding="utf-8")
+    assert "Could not load ASGI app 'service.app:missing_app'" in summary_path.read_text(encoding="utf-8")
+    assert not comment_path.exists()

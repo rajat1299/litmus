@@ -6,6 +6,7 @@ import textwrap
 import pytest
 
 from litmus.discovery.routes import RouteDefinition
+from litmus.errors import VerificationScopeError
 from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
 from litmus.verify_scope import apply_verification_scope, resolve_verification_scope
 
@@ -32,8 +33,13 @@ def test_resolve_verification_scope_normalizes_explicit_paths_relative_to_repo(t
 
 
 def test_resolve_verification_scope_rejects_conflicting_modes(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="Choose exactly one verification scope mode"):
+    with pytest.raises(VerificationScopeError, match="Choose exactly one verification scope mode"):
         resolve_verification_scope(tmp_path, explicit_paths=[tmp_path], staged=True)
+
+
+def test_resolve_verification_scope_reports_missing_explicit_path_with_shared_error(tmp_path: Path) -> None:
+    with pytest.raises(VerificationScopeError, match="Path does not exist: missing.py"):
+        resolve_verification_scope(tmp_path, explicit_paths=["missing.py"])
 
 
 def test_apply_verification_scope_filters_routes_and_invariants_for_changed_code(tmp_path: Path) -> None:

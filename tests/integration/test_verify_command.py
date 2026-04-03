@@ -226,6 +226,20 @@ def test_litmus_verify_reports_app_load_error_cleanly(tmp_path: Path) -> None:
     assert "Traceback" not in result.stderr
 
 
+def test_litmus_verify_reports_scope_error_cleanly(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["litmus", "verify", "missing.py"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "Path does not exist: missing.py" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_coverage(tmp_path: Path) -> None:
     repo_root = tmp_path
     service_dir = repo_root / "service"
