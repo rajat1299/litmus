@@ -341,6 +341,37 @@ def test_litmus_verify_schedules_fault_only_reachable_redis_in_local_seed_budget
 
     assert planned_targets[:2] == ["http", "redis"]
     assert planned_targets.count("redis") >= 1
+    assert replay_traces[0]["target_selection"] == {
+        "clean_path_targets": ["http"],
+        "fault_path_targets": ["redis"],
+        "selected_targets": ["http", "redis"],
+        "probe_records": [
+            {
+                "phase": "clean_path",
+                "trigger_target": None,
+                "trigger_fault_kind": None,
+                "discovered_targets": ["http"],
+            },
+            {
+                "phase": "fault_path",
+                "trigger_target": "http",
+                "trigger_fault_kind": "timeout",
+                "discovered_targets": ["http", "redis"],
+            },
+        ],
+        "planned_fault_seed": {
+            "seed_value": 1,
+            "target": "http",
+            "fault_kind": "timeout",
+            "selection_source": "clean_path",
+        },
+    }
+    assert replay_traces[1]["target_selection"]["planned_fault_seed"] == {
+        "seed_value": 2,
+        "target": "redis",
+        "fault_kind": "timeout",
+        "selection_source": "fault_path",
+    }
 
 
 def test_litmus_verify_reports_partial_dst_coverage_for_unsupported_redis_constructor(tmp_path: Path) -> None:

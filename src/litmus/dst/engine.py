@@ -15,6 +15,7 @@ from litmus.dst.faults import build_fault_plan
 from litmus.dst.reachability import (
     ReachabilityProbeRecord,
     ScenarioReachability,
+    TargetSelectionArtifact,
     plan_local_fault_seeds,
     representative_fault_kind_for_target,
 )
@@ -282,6 +283,10 @@ async def _run_replay(
                         baseline_body=replay_result.baseline_response.body,
                         trace=trace,
                         execution_transcript=normalize_execution_transcript(trace),
+                        target_selection=TargetSelectionArtifact.from_reachability(
+                            reachability=reachability,
+                            planned_fault_seed=planned_seed,
+                        ),
                     )
                 )
         next_seed_value += len(planned_fault_seeds)

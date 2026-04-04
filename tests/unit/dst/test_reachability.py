@@ -4,6 +4,7 @@ from litmus.dst.reachability import (
     PlannedFaultSeed,
     ReachabilityProbeRecord,
     ScenarioReachability,
+    TargetSelectionArtifact,
     plan_local_fault_seeds,
 )
 
@@ -80,3 +81,47 @@ def test_plan_local_fault_seeds_uses_target_aware_representative_faults() -> Non
         ("sqlalchemy", "connection_dropped"),
         ("redis", "timeout"),
     ]
+
+
+def test_target_selection_artifact_captures_reachability_and_planned_seed() -> None:
+    reachability = ScenarioReachability(
+        clean_path_targets=("http",),
+        fault_path_targets=("redis",),
+        selected_targets=("http", "redis"),
+        probe_records=(
+            ReachabilityProbeRecord(
+                phase="clean_path",
+                discovered_targets=("http",),
+            ),
+        ),
+    )
+
+    artifact = TargetSelectionArtifact.from_reachability(
+        reachability=reachability,
+        planned_fault_seed=PlannedFaultSeed(
+            seed_value=2,
+            target="redis",
+            fault_kind="timeout",
+            selection_source="fault_path",
+        ),
+    )
+
+    assert artifact.to_dict() == {
+        "clean_path_targets": ["http"],
+        "fault_path_targets": ["redis"],
+        "selected_targets": ["http", "redis"],
+        "probe_records": [
+            {
+                "phase": "clean_path",
+                "trigger_target": None,
+                "trigger_fault_kind": None,
+                "discovered_targets": ["http"],
+            }
+        ],
+        "planned_fault_seed": {
+            "seed_value": 2,
+            "target": "redis",
+            "fault_kind": "timeout",
+            "selection_source": "fault_path",
+        },
+    }

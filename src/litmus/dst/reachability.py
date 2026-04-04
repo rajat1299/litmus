@@ -25,6 +25,17 @@ class ReachabilityProbeRecord:
             "discovered_targets": list(self.discovered_targets),
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> ReachabilityProbeRecord:
+        return cls(
+            phase=str(payload["phase"]),
+            trigger_target=None if payload.get("trigger_target") is None else str(payload["trigger_target"]),
+            trigger_fault_kind=None
+            if payload.get("trigger_fault_kind") is None
+            else str(payload["trigger_fault_kind"]),
+            discovered_targets=tuple(str(target) for target in payload.get("discovered_targets", [])),
+        )
+
 
 @dataclass(slots=True, frozen=True)
 class ScenarioReachability:
@@ -41,6 +52,18 @@ class ScenarioReachability:
             "probe_records": [record.to_dict() for record in self.probe_records],
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> ScenarioReachability:
+        return cls(
+            clean_path_targets=tuple(str(target) for target in payload.get("clean_path_targets", [])),
+            fault_path_targets=tuple(str(target) for target in payload.get("fault_path_targets", [])),
+            selected_targets=tuple(str(target) for target in payload.get("selected_targets", [])),
+            probe_records=tuple(
+                ReachabilityProbeRecord.from_dict(record)
+                for record in payload.get("probe_records", [])
+            ),
+        )
+
 
 @dataclass(slots=True, frozen=True)
 class PlannedFaultSeed:
@@ -56,6 +79,47 @@ class PlannedFaultSeed:
             "fault_kind": self.fault_kind,
             "selection_source": self.selection_source,
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> PlannedFaultSeed:
+        return cls(
+            seed_value=int(payload["seed_value"]),
+            target=str(payload["target"]),
+            fault_kind=str(payload["fault_kind"]),
+            selection_source=str(payload.get("selection_source", "clean_path")),
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class TargetSelectionArtifact:
+    reachability: ScenarioReachability
+    planned_fault_seed: PlannedFaultSeed
+
+    def to_dict(self) -> dict[str, object]:
+        payload = self.reachability.to_dict()
+        payload["planned_fault_seed"] = self.planned_fault_seed.to_dict()
+        return payload
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> TargetSelectionArtifact:
+        reachability_payload = dict(payload)
+        planned_fault_seed_payload = reachability_payload.pop("planned_fault_seed")
+        return cls(
+            reachability=ScenarioReachability.from_dict(reachability_payload),
+            planned_fault_seed=PlannedFaultSeed.from_dict(planned_fault_seed_payload),
+        )
+
+    @classmethod
+    def from_reachability(
+        cls,
+        *,
+        reachability: ScenarioReachability,
+        planned_fault_seed: PlannedFaultSeed,
+    ) -> TargetSelectionArtifact:
+        return cls(
+            reachability=reachability,
+            planned_fault_seed=planned_fault_seed,
+        )
 
 
 def plan_local_fault_seeds(

@@ -46,6 +46,31 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "kind": "response_completed",
         "status_code": 200,
     }
+    assert run_payload["artifacts"]["replay_traces"][0]["target_selection"] == {
+        "clean_path_targets": ["http"],
+        "fault_path_targets": [],
+        "selected_targets": ["http"],
+        "probe_records": [
+            {
+                "phase": "clean_path",
+                "trigger_target": None,
+                "trigger_fault_kind": None,
+                "discovered_targets": ["http"],
+            },
+            {
+                "phase": "fault_path",
+                "trigger_target": "http",
+                "trigger_fault_kind": "timeout",
+                "discovered_targets": ["http"],
+            },
+        ],
+        "planned_fault_seed": {
+            "seed_value": 1,
+            "target": "http",
+            "fault_kind": "timeout",
+            "selection_source": "clean_path",
+        },
+    }
     assert not (repo_root / ".litmus" / "replay-traces.json").exists()
 
 

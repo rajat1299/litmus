@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from litmus.dst.faults import FaultPlan, FaultSpec
+from litmus.dst.reachability import TargetSelectionArtifact
 from litmus.dst.runtime import BoundaryCoverage, TraceEvent
 from litmus.replay.models import ReplayCheckpoint
 
@@ -20,6 +21,7 @@ class ReplayTraceRecord:
     baseline_body: dict[str, Any] | None
     trace: list[TraceEvent]
     execution_transcript: list[ReplayCheckpoint] | None = None
+    target_selection: TargetSelectionArtifact | None = None
 
 
 def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
@@ -42,6 +44,9 @@ def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
         "execution_transcript": None
         if record.execution_transcript is None
         else [checkpoint.to_dict() for checkpoint in record.execution_transcript],
+        "target_selection": None
+        if record.target_selection is None
+        else record.target_selection.to_dict(),
     }
 
 
@@ -65,6 +70,9 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
             ReplayCheckpoint.from_dict(checkpoint_payload)
             for checkpoint_payload in payload.get("execution_transcript", [])
         ],
+        target_selection=None
+        if payload.get("target_selection") is None
+        else TargetSelectionArtifact.from_dict(payload["target_selection"]),
     )
 
 
