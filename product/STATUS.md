@@ -21,7 +21,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | Complete | WS-09 through WS-14 are done, tranche 1 is closed, and WS-16 replay fidelity landed as the first bounded post-tranche moat slice |
+| Implementation | Complete | WS-09 through WS-16 are done; tranche 1 is closed, WS-15 cross-layer DST landed, and WS-16 replay fidelity landed as the next bounded moat slice |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -47,7 +47,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | M3 | DST engine | Complete | Deterministic runtime and semantic simulators catch seeded failures |
 | M4 | Team workflow | Complete | GitHub Action and PR comment are usable end-to-end |
 | M5 | Demo-ready launch candidate | In review | Demo app, packaged CLI install path, and launch workflow prove the current alpha loop |
-| M6 | Alpha gap closure tranche 1 | Complete | `init`, scoped verify, shipped DST moat work, replay/activity records, suggested invariants, and MCP access landed in bounded reviewed slices |
+| M6 | Alpha gap closure tranche 1 | Complete | `init`, scoped verify, shipped DST moat work including cross-layer verify, replay/activity records, suggested invariants, and MCP access landed in bounded reviewed slices |
 
 ---
 
@@ -71,7 +71,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-12 | Run/activity records and replay artifacts | Codex | Done | WS-04, WS-07, WS-11 | 2026-04-01 |
 | WS-13 | Suggested invariants in shipped flow | Codex | Done | WS-03, WS-10, WS-12 | 2026-04-01 |
 | WS-14 | MCP surface and minimal shared handlers | Codex | Done | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
-| WS-16 | Exact deterministic replay fidelity | Codex | Done | WS-12, WS-14 | 2026-04-04 |
+| WS-15 | Cross-layer DST in shipped verify | Codex | Done | WS-11, WS-12, WS-14 | 2026-04-04 |
+| WS-16 | Exact deterministic replay fidelity | Codex | Done | WS-12, WS-15 | 2026-04-04 |
 
 ---
 

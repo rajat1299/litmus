@@ -1,7 +1,7 @@
 # Litmus Spec Coverage Matrix
 
-**Status Date:** 2026-04-01
-**Repo State Reviewed:** `main` at `ecdc924`
+**Status Date:** 2026-04-04
+**Repo State Reviewed:** `main` at `476ef21`
 **References:** `product/litmus-product-spec.md`, top-level `README.md`, and the current shipped code/docs on `main`
 
 ## Purpose
@@ -22,8 +22,9 @@ It is intentionally grounded in the current codebase, not in the broader product
 - Litmus now has a **real tranche-one verification platform**: `init`, scoped `verify`, seeded main-path fault injection, run/activity artifacts, replay explanations, suggested invariant surfacing, GitHub Action/PR comments, and a local stdio MCP server all exist on `main`.
 - Litmus still does **not** fully implement the complete v0.2 product spec or the broader top-level README surface.
 - The biggest remaining gaps are:
-  - the shipped DST hero path is still HTTP-first rather than a deeper multi-layer deterministic runtime
+  - the shipped DST hero path is now cross-layer on a narrow supported surface, but it is still not a deeper full deterministic runtime
   - local verification depth is still below the broader spec targets (`3` replay seeds, not `100`; CI property depth is `500`, not `1000`)
+  - exact deterministic replay is still scenario-level re-execution with stored fault plans rather than a fuller runtime/order replay contract
   - suggested invariants are heuristic/curated and visible, but still lack a richer approval workflow
   - several broader CLI/config/install surfaces described in the README still do not exist (`invariants`, `config set`, Homebrew, public publish path)
 
@@ -42,15 +43,15 @@ It is intentionally grounded in the current codebase, not in the broader product
 | Default verification unit | Changed request flows / affected endpoints | Scoped verify exists, but no-argument `verify` still defaults to full repo rather than changed-endpoint-only execution | Partial | `src/litmus/verify_scope.py`, `src/litmus/cli.py` |
 | Verify on staged changes | `litmus verify` should run against staged changes | `--staged` is implemented | Implemented | `src/litmus/cli.py`, `src/litmus/discovery/git_scope.py` |
 | Verify specific file/dir | `litmus verify src/services/payment.py` | Explicit path-scoped verify is implemented | Implemented | `src/litmus/cli.py`, `src/litmus/verify_scope.py` |
-| DST hero path | Patched deterministic runtime + fault injection across I/O boundaries is the hero layer | The shipped verify path now runs multi-seed seeded fault injection and records fault schedules, but the main path is still HTTP-first rather than a fuller multi-layer DST engine | Partial | `src/litmus/dst/engine.py`, `src/litmus/dst/asgi.py`, `src/litmus/simulators/http.py` |
+| DST hero path | Patched deterministic runtime + fault injection across I/O boundaries is the hero layer | The shipped verify path now runs cross-layer seeded fault injection across HTTP, SQLAlchemy, and Redis on a narrow zero-config supported surface, but it is still not a fuller deterministic runtime or broader client fidelity layer | Partial | `src/litmus/dst/engine.py`, `src/litmus/dst/asgi.py`, `src/litmus/simulators/http.py`, `src/litmus/simulators/sqlalchemy_async.py`, `src/litmus/simulators/redis_async.py` |
 | Exact deterministic replay | Replay exact seed/fault schedule/order of operations | Replay now reuses the stored fault plan, but it is still scenario-level local re-execution rather than a full runtime/order replay contract | Partial | `src/litmus/replay/trace.py`, `src/litmus/mcp/tools.py`, `src/litmus/cli.py` |
 | Local seed budget | 100 seeds per scenario by default | Local mode currently uses 3 replay seeds per scenario | Not Implemented | `src/litmus/dst/engine.py` |
 | CI seed budget | 500 seeds per scenario in CI mode | CI mode uses 500 replay seeds per scenario | Implemented | `src/litmus/dst/engine.py`, `src/litmus/github_action/report.py` |
 | Property max examples | 100 local / 1000 CI | Local is 100, CI is 500 | Partial | `src/litmus/dst/engine.py` |
 | Fault profiles | `gentle`, `hostile`, `chaos` profiles configurable via CLI | Internal fault kinds exist, but no user-facing fault-profile config or CLI surface exists | Not Implemented | `src/litmus/dst/faults.py`, `src/litmus/cli.py` |
 | Zero-config FastAPI/Starlette path | Supported launch path for Python async ASGI apps | Grounded alpha supports this path and demo/docs validate it | Implemented | `docs/alpha-quickstart.md`, `examples/payment_service/` |
-| Zero-config adapters for launch stack | asyncio, `httpx`, `aiohttp`, `sqlalchemy.ext.asyncio`, `redis.asyncio` | HTTP/SQLAlchemy/Redis simulators exist, but shipped verify only patches HTTP and the simulator fidelity is narrower than the full launch story | Partial | `src/litmus/simulators/`, `src/litmus/dst/asgi.py` |
-| Honest degradation on unsupported stack | Clearly report what can and cannot be simulated | Core reporting is more honest now, but there is still no richer unsupported-boundary report matching the full spec language | Partial | `src/litmus/reporting/console.py`, `docs/alpha-quickstart.md` |
+| Zero-config adapters for launch stack | asyncio, `httpx`, `aiohttp`, `sqlalchemy.ext.asyncio`, `redis.asyncio` | HTTP/SQLAlchemy/Redis simulators now participate in the shipped verify path on a narrow supported constructor surface, but broader library fidelity remains below the full launch story | Partial | `src/litmus/simulators/`, `src/litmus/dst/asgi.py`, `src/litmus/simulators/boundary_patches.py` |
+| Honest degradation on unsupported stack | Clearly report what can and cannot be simulated | Verify, replay, PR comments, and MCP now surface boundary detection, unsupported constructors, and partial coverage more honestly, though there is still no richer capability-matrix style unsupported report | Partial | `src/litmus/reporting/console.py`, `src/litmus/replay/explain.py`, `docs/alpha-quickstart.md` |
 | GitHub Action | Action runs verify in CI and outputs verdicts | Action exists and is tested | Implemented | `action.yml`, `src/litmus/github_action/report.py` |
 | PR comment as dashboard | Publish/update a single Litmus PR comment | Publisher works, paginates, dedupes, and renders suggested review lines | Implemented | `src/litmus/github_action/publish.py`, `src/litmus/reporting/pr_comment.py` |
 | Watch mode | Continuous rerun on file save | Implemented, with `.litmus` ignore and stale-artifact cleanup on failures | Implemented | `src/litmus/watch.py` |
@@ -92,7 +93,7 @@ The repo is now strong enough to support a grounded verification-platform alpha 
 - runnable demo repo
 - `init` / `verify` / `watch` / `replay`
 - scoped verify
-- seeded HTTP fault injection in the shipped verify path
+- seeded cross-layer fault injection in the shipped verify path
 - replay traces plus replay explanations
 - GitHub Action and PR comment publishing
 - suggested invariant surfacing with curated-store support
@@ -104,7 +105,7 @@ The repo is **still not at full product-spec parity**.
 
 The biggest missing or partial items are:
 
-1. full DST hero-path depth beyond the current HTTP-first shipped path
+1. exact deterministic replay fidelity beyond the current scenario-level re-execution contract
 2. larger local and CI search budgets matching the broader spec targets
 3. richer suggested-invariant approval UX
 4. broader CLI/config surfaces described in the README (`invariants`, `config set`, fault profiles)

@@ -201,13 +201,16 @@ def test_run_asgi_app_patches_httpx_and_records_fault_injection_trace() -> None:
     assert [event.kind for event in result.trace] == [
         "fault_plan_selected",
         "request_started",
+        "boundary_detected",
+        "boundary_intercepted",
+        "boundary_simulated",
         "http_request_started",
         "fault_injected",
         "response_started",
         "response_body",
         "request_completed",
     ]
-    assert result.trace[3].metadata == {
+    assert result.trace[6].metadata == {
         "fault_kind": "timeout",
         "params": {},
         "step": 1,
@@ -259,6 +262,9 @@ def test_run_asgi_app_converts_uncaught_fault_exceptions_into_500_result() -> No
     assert [event.kind for event in result.trace] == [
         "fault_plan_selected",
         "request_started",
+        "boundary_detected",
+        "boundary_intercepted",
+        "boundary_simulated",
         "http_request_started",
         "fault_injected",
         "app_exception",

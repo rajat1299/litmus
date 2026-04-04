@@ -74,6 +74,37 @@ class PropertyCounts:
 
 
 @dataclass(slots=True)
+class BoundaryCoverageCounts:
+    detected: bool
+    intercepted: bool
+    simulated: bool
+    faulted: bool
+    unsupported: bool
+
+    @classmethod
+    def from_mapping(cls, mapping) -> dict[str, BoundaryCoverageCounts]:
+        return {
+            boundary: cls(
+                detected=coverage.detected,
+                intercepted=coverage.intercepted,
+                simulated=coverage.simulated,
+                faulted=coverage.faulted,
+                unsupported=coverage.unsupported,
+            )
+            for boundary, coverage in mapping.items()
+        }
+
+    def to_dict(self) -> dict[str, bool]:
+        return {
+            "detected": self.detected,
+            "intercepted": self.intercepted,
+            "simulated": self.simulated,
+            "faulted": self.faulted,
+            "unsupported": self.unsupported,
+        }
+
+
+@dataclass(slots=True)
 class InvariantView:
     name: str
     source: str
@@ -120,6 +151,7 @@ class VerifyOperationResult:
     scenarios: int
     replay: ReplayCounts
     properties: PropertyCounts
+    boundary_coverage: dict[str, BoundaryCoverageCounts] = field(default_factory=dict)
     replay_seeds: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -132,6 +164,10 @@ class VerifyOperationResult:
             "scenarios": self.scenarios,
             "replay": self.replay.to_dict(),
             "properties": self.properties.to_dict(),
+            "boundary_coverage": {
+                boundary: coverage.to_dict()
+                for boundary, coverage in self.boundary_coverage.items()
+            },
             "replay_seeds": list(self.replay_seeds),
         }
 
@@ -209,6 +245,14 @@ class PropertyCountsPayload(BaseModel):
     skipped: int
 
 
+class BoundaryCoveragePayload(BaseModel):
+    detected: bool
+    intercepted: bool
+    simulated: bool
+    faulted: bool
+    unsupported: bool
+
+
 class InvariantViewPayload(BaseModel):
     name: str
     source: str
@@ -227,6 +271,7 @@ class ReplayResponsePayload(BaseModel):
 class ReplayFaultContextPayload(BaseModel):
     selected_faults: list[str] = []
     injected_faults: list[str] = []
+    boundary_coverage: list[str] = []
     defaulted_responses: list[str] = []
     app_exception: str | None = None
 
@@ -270,6 +315,7 @@ class VerifyOperationPayload(BaseModel):
     scenarios: int
     replay: ReplayCountsPayload
     properties: PropertyCountsPayload
+    boundary_coverage: dict[str, BoundaryCoveragePayload]
     replay_seeds: list[str]
 
     @classmethod

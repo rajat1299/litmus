@@ -4,6 +4,12 @@ from dataclasses import dataclass, field
 from random import Random
 from typing import Any
 
+DEFAULT_FAULT_KINDS_BY_TARGET: dict[str, list[str]] = {
+    "http": ["timeout", "connection_refused", "http_error", "slow_response"],
+    "sqlalchemy": ["connection_dropped", "pool_exhausted"],
+    "redis": ["timeout", "connection_refused", "partial_write", "moved"],
+}
+
 
 @dataclass(slots=True, frozen=True)
 class FaultSpec:
@@ -35,12 +41,15 @@ def build_fault_plan(
     rng = Random(seed)
     event_count = min(steps, max(1, min(len(available_targets), len(available_kinds))))
     selected_steps = sorted(rng.sample(range(1, steps + 1), k=event_count))
-
-    schedule = {
-        step: FaultSpec(
-            kind=rng.choice(available_kinds),
-            target=rng.choice(available_targets),
-        )
-        for step in selected_steps
-    }
+    schedule: dict[int, FaultSpec] = {}
+    for index, step in enumerate(selected_steps):
+        cycle_index = ((seed - 1) // max(1, len(available_targets))) + index
+        if kinds is not None:
+            target = available_targets[(seed + index - 1) % len(available_targets)]
+            kind = available_kinds[cycle_index % len(available_kinds)]
+        else:
+            target = available_targets[(seed + index - 1) % len(available_targets)]
+            target_kinds = DEFAULT_FAULT_KINDS_BY_TARGET.get(target, ["timeout"])
+            kind = target_kinds[cycle_index % len(target_kinds)]
+        schedule[step] = FaultSpec(kind=kind, target=target)
     return FaultPlan(seed=seed, schedule=schedule)

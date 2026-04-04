@@ -6,9 +6,15 @@ from pathlib import Path
 
 from litmus.discovery.app import default_app_loader
 from litmus.dst.asgi import run_asgi_app
-from litmus.dst.engine import collect_verification_inputs, run_verification
+from litmus.dst.engine import (
+    _boundary_usage_for_loaded_app,
+    _unsupported_boundary_trace_events,
+    collect_verification_inputs,
+    run_verification,
+)
 from litmus.invariants.models import RequestExample, ResponseExample
 from litmus.mcp.types import (
+    BoundaryCoverageCounts,
     ExplainFailureOperationResult,
     InvariantCounts,
     InvariantView,
@@ -22,7 +28,8 @@ from litmus.replay.differential import ReplayClassification, run_differential_re
 from litmus.replay.explain import explain_replay
 from litmus.replay.fidelity import compare_execution_transcripts, normalize_execution_transcript
 from litmus.replay.models import ReplayExplanation
-from litmus.replay.trace import replay_fault_plan
+from litmus.replay.trace import boundary_coverage_from_result, replay_fault_plan
+from litmus.simulators.boundary_patches import patched_supported_boundaries
 from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
 from litmus.runs.summary import VerificationProjection
 from litmus.scenarios.builder import Scenario
@@ -56,6 +63,7 @@ def run_verify_operation(
             improvement=projection.replay["improvement"],
         ),
         properties=PropertyCounts(**projection.properties),
+        boundary_coverage=BoundaryCoverageCounts.from_mapping(boundary_coverage_from_result(result)),
         replay_seeds=[record.seed for record in result.replay_traces],
     )
 
@@ -126,17 +134,19 @@ class _ReplayExecutionResult:
 
 def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
     source_run, record = replay_record_for_seed(root, seed)
-    app = default_app_loader().load(record.app_reference, root)
-    current_result = asyncio.run(
-        run_asgi_app(
-            app,
-            method=record.method,
-            path=record.path,
-            json_body=record.request_payload,
-            seed=record.seed_value,
-            fault_plan=replay_fault_plan(record),
+    with patched_supported_boundaries(root):
+        app = default_app_loader().load(record.app_reference, root)
+        boundary_usage = _boundary_usage_for_loaded_app(record.app_reference, root)
+        current_result = asyncio.run(
+            run_asgi_app(
+                app,
+                method=record.method,
+                path=record.path,
+                json_body=record.request_payload,
+                seed=record.seed_value,
+                fault_plan=replay_fault_plan(record),
+            )
         )
-    )
     current_response = ResponseExample(
         status_code=current_result.status_code,
         json=current_result.body if isinstance(current_result.body, dict) else None,
@@ -158,7 +168,8 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
     replay_results = asyncio.run(run_differential_replay([scenario], runner))
     classification = replay_results[0].classification if replay_results else ReplayClassification.UNCHANGED
     diff = replay_results[0].diff if replay_results else {}
-    replay_transcript = normalize_execution_transcript(current_result.trace)
+    current_trace = [*_unsupported_boundary_trace_events(boundary_usage), *current_result.trace]
+    replay_transcript = normalize_execution_transcript(current_trace)
     fidelity = compare_execution_transcripts(record.execution_transcript, replay_transcript)
     explanation = explain_replay(
         seed=seed,
@@ -170,7 +181,7 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         current_body=current_result.body,
         classification=classification,
         diff=diff,
-        trace=current_result.trace,
+        trace=current_trace,
         fidelity=fidelity,
     )
     return _ReplayExecutionResult(

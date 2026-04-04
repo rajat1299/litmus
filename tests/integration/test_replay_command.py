@@ -328,6 +328,288 @@ def test_litmus_replay_reports_app_load_error_cleanly(tmp_path: Path) -> None:
     assert "Traceback" not in replay_result.stderr
 
 
+def test_litmus_replay_explains_sqlalchemy_fault_context_from_shipped_verify_path(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path)
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:2"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: breaking_change" in replay_result.stdout
+    assert "Step 1 scheduled connection_dropped on sqlalchemy." in replay_result.stdout
+    assert "Injected connection_dropped on sqlalchemy for begin at step 1." in replay_result.stdout
+    assert "Simulated sqlalchemy with Litmus state machines." in replay_result.stdout
+
+
+def _write_cross_layer_dst_repo(tmp_path: Path) -> Path:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    redis_dir = repo_root / "redis"
+    sqlalchemy_dir = repo_root / "sqlalchemy"
+    sqlalchemy_ext_dir = sqlalchemy_dir / "ext"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+    redis_dir.mkdir()
+    sqlalchemy_dir.mkdir()
+    sqlalchemy_ext_dir.mkdir()
+
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        textwrap.dedent(
+            """
+            class Redis:
+                def __init__(self, *args, **kwargs):
+                    raise RuntimeError("litmus should patch redis.asyncio.Redis")
+
+
+            def from_url(*args, **kwargs):
+                raise RuntimeError("litmus should patch redis.asyncio.from_url")
+
+
+            class RedisCluster:
+                def __init__(self, *args, **kwargs):
+                    self._store = {}
+
+                async def get(self, key):
+                    return self._store.get(key)
+
+                async def set(self, key, value):
+                    self._store[key] = value
+                    return True
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (sqlalchemy_dir / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            from types import SimpleNamespace
+
+
+            class String:
+                pass
+
+
+            class MetaData:
+                pass
+
+
+            class Condition:
+                def __init__(self, column_name, value):
+                    self.column_name = column_name
+                    self.value = value
+
+
+            class Column:
+                def __init__(self, name, type_=None, primary_key=False):
+                    self.name = name
+                    self.type_ = type_
+                    self.primary_key = primary_key
+
+                def __eq__(self, value):
+                    return Condition(self.name, value)
+
+
+            class _PrimaryKey:
+                def __init__(self, columns):
+                    self.columns = tuple(column for column in columns if column.primary_key)
+
+
+            class Table:
+                def __init__(self, name, metadata, *columns):
+                    self.name = name
+                    self.metadata = metadata
+                    self.columns = tuple(columns)
+                    self.primary_key = _PrimaryKey(columns)
+                    self.c = SimpleNamespace(**{column.name: column for column in columns})
+
+
+            class Insert:
+                __litmus_statement_type__ = "insert"
+
+                def __init__(self, table):
+                    self.table = table
+                    self.values_dict = {}
+
+                def values(self, **kwargs):
+                    self.values_dict.update(kwargs)
+                    return self
+
+
+            class Select:
+                __litmus_statement_type__ = "select"
+
+                def __init__(self, table):
+                    self.table = table
+                    self.filter = None
+
+                def where(self, condition):
+                    self.filter = condition
+                    return self
+
+
+            def insert(table):
+                return Insert(table)
+
+
+            def select(table):
+                return Select(table)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (sqlalchemy_ext_dir / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "asyncio.py").write_text(
+        textwrap.dedent(
+            """
+            class AsyncSession:
+                def __init__(self, *args, **kwargs):
+                    self.args = args
+                    self.kwargs = kwargs
+
+
+            def create_async_engine(*args, **kwargs):
+                raise RuntimeError("litmus should patch sqlalchemy.ext.asyncio.create_async_engine")
+
+
+            def async_sessionmaker(*args, **kwargs):
+                raise RuntimeError("litmus should patch sqlalchemy.ext.asyncio.async_sessionmaker")
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+            import httpx
+            from redis.asyncio import from_url
+            from sqlalchemy import Column, MetaData, String, Table, insert, select
+            from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def post(self, path: str):
+                    def decorator(func):
+                        self.routes[("POST", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    request = await receive()
+                    payload = json.loads(request["body"].decode("utf-8")) if request["body"] else None
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler(payload)
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+            metadata = MetaData()
+            ledger = Table(
+                "ledger",
+                metadata,
+                Column("id", String, primary_key=True),
+                Column("status", String),
+            )
+            engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+            redis = from_url("redis://cache")
+
+
+            @app.post("/payments/charge")
+            async def charge(payload):
+                payment_id = payload["payment_id"]
+
+                async with httpx.AsyncClient() as client:
+                    await client.get("https://processor.invalid/charge")
+
+                cached = await redis.get(f"charge:{payment_id}")
+                if cached == "charged":
+                    return {"status_code": 200, "json": {"status": "charged", "source": "cache"}}
+
+                async with SessionLocal() as session:
+                    await session.begin()
+                    existing = await session.execute(
+                        select(ledger).where(ledger.c.id == payment_id)
+                    )
+                    if existing.scalar_one_or_none() is None:
+                        await session.execute(
+                            insert(ledger).values(id=payment_id, status="charged")
+                        )
+                    await session.commit()
+
+                await redis.set(f"charge:{payment_id}", "charged")
+                return {"status_code": 200, "json": {"status": "charged"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_payments.py").write_text(
+        textwrap.dedent(
+            """
+            def test_charge_returns_200():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/charge",
+                    "json": {"payment_id": "ord-1"},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "charged"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return repo_root
+
+
 def test_litmus_replay_reuses_recorded_fault_plan_for_fault_only_breaking_seed(tmp_path: Path) -> None:
     repo_root = tmp_path
     service_dir = repo_root / "service"
@@ -515,7 +797,8 @@ def test_litmus_replay_reports_execution_fidelity_drift_even_when_response_is_un
     assert replay_result.returncode == 0, replay_result.stderr
     assert "Classification: unchanged" in replay_result.stdout
     assert "Execution fidelity: drifted" in replay_result.stdout
-    assert "- Recorded step 2: fault_injected on http (timeout)" in replay_result.stdout
+    assert "- Replay execution diverged from the recorded transcript." in replay_result.stdout
+    assert "- Recorded step 2:" in replay_result.stdout
     assert "- Replay step 2: response_completed (status 200)" in replay_result.stdout
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
+from litmus.dst.faults import FaultPlan, FaultSpec
 from litmus.simulators.redis_async import (
     SimulatedRedis,
     UnsupportedRedisOperationError,
@@ -74,3 +75,23 @@ def test_simulated_redis_rejects_unsupported_pubsub_operations() -> None:
         raise AssertionError("expected unsupported redis operation error")
 
     asyncio.run(exercise())
+
+
+def test_partial_write_fault_is_not_recorded_for_non_partial_write_operations() -> None:
+    events: list[tuple[str, dict[str, object]]] = []
+    redis = SimulatedRedis(
+        fault_plan=FaultPlan(
+            seed=13,
+            schedule={
+                1: FaultSpec(kind="partial_write", target="redis"),
+            },
+        ),
+        record_event=lambda kind, **metadata: events.append((kind, metadata)),
+    )
+
+    async def exercise() -> None:
+        assert await redis.get("status") is None
+
+    asyncio.run(exercise())
+
+    assert events == []

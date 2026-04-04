@@ -1,7 +1,7 @@
-# Residual Risks Through WS-14 Reviews
+# Residual Risks Through WS-15 Reviews
 
-**Status Date:** 2026-04-01
-**Scope:** Residual risks and open limitations that still remain after the reviewed WS-01 through WS-14 checkpoints. This list excludes findings that were already fixed during review.
+**Status Date:** 2026-04-04
+**Scope:** Residual risks and open limitations that still remain after the reviewed WS-01 through WS-15 checkpoints. This list excludes findings that were already fixed during review.
 
 ## Purpose
 
@@ -125,17 +125,21 @@ Empty `--staged` or `--diff` scopes now correctly produce an empty verification 
 
 ## WS-11 Shipped DST Moat
 
-### R-WS11-1 Main-path seeded fault injection currently covers outbound HTTP first
+### R-WS11-1 Cross-layer shipped DST is real, but still intentionally narrow
 
-The shipped verify path now injects deterministic seeded HTTP faults and records those schedules in replay traces, which is a real moat improvement over plain replay. However, SQLAlchemy and Redis are still not patched into the main verify loop, so the shipped fault model remains HTTP-first rather than cross-layer.
+The shipped verify path now injects deterministic seeded faults across HTTP, SQLAlchemy, and Redis on a narrow zero-config supported surface, which closes the earlier HTTP-only moat gap. However, the supported interception contract is still intentionally bounded to specific constructor and query shapes rather than broader client or ORM fidelity. The cross-layer moat is now real, but it is still a constrained launch slice rather than a full drop-in runtime for broader app patterns.
 
 ### R-WS11-2 Seed depth and replay fidelity are still below the broader target
 
-Local verify now runs multiple seeded replays per scenario, but the default remains `3` seeds rather than the larger target discussed in the product vision. Replay artifacts also still restore scenario records rather than re-executing the exact stored fault schedule. The moat path is materially more real now, but it is still a bounded first slice.
+Local verify now runs multiple seeded replays per scenario, but the default remains `3` seeds rather than the larger target discussed in the product vision. Replay artifacts still restore scenario records plus stored fault plans rather than re-executing an exact runtime schedule and order-of-operations contract. The moat path is materially stronger now, but exact deterministic replay fidelity remains the next meaningful depth increase.
 
 ### R-WS11-3 Unknown outbound traffic still falls back to a generic synthesized upstream shape
 
 Unknown outbound HTTP now defaults to a neutral parseable JSON response and records `http_response_defaulted` in the trace, which avoids false crashes from empty-body decoding. However, Litmus is still synthesizing a generic upstream shape in those cases rather than replaying known service semantics. That is honest and trace-visible now, but it remains a fidelity limit in the shipped moat path.
+
+### R-WS11-4 Route target selection is now runtime-derived on the no-fault path, not full reachability
+
+Litmus now narrows seeded fault targets per scenario by probing a fresh app instance on the no-fault execution path, which avoids wasting local seeds on dead helper code and avoids mutating the measured replay app. However, this still reflects only the boundaries reached on a clean path through the exercised route. Boundaries that become reachable only after an injected failure, retry, or alternate branch still require a deeper reachability model than the current shipped heuristic.
 
 ## WS-12 Run Records And Replay Artifacts
 
@@ -183,4 +187,4 @@ The current review loop has strong targeted tests for individual behaviors, but 
 2. Keep confirmed and suggested behavior separated in every new layer unless a review explicitly approves a merge point.
 3. Add more full-flow integration coverage across scoped verify, seeded HTTP fault injection, replay, MCP, and GitHub workflow reporting before those paths are considered fully stable.
 4. Revisit the property schema before expanding Hypothesis generation, so richer exploration does not outpace the trust model.
-5. If moat work continues next, choose the next depth increase explicitly: higher local seed budgets, richer replay fidelity, and whether SQLAlchemy or Redis patching should land in the shipped verify path.
+5. If moat work continues next, choose the next depth increase explicitly: exact deterministic replay fidelity, higher local seed budgets, and a deeper reachability model for fault-only branches.

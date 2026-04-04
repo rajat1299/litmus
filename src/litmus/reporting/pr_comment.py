@@ -5,6 +5,7 @@ import json
 from typing import Any
 
 from litmus.properties.runner import PropertyCheckStatus
+from litmus.replay.trace import boundary_coverage_from_result
 from litmus.replay.differential import ReplayClassification
 from litmus.reporting.confidence import calculate_confidence_score
 from litmus.runs.summary import VerificationProjection
@@ -40,6 +41,8 @@ def render_pr_comment(result) -> str:
             f"passed={projection.properties['passed']} "
             f"failed={projection.properties['failed']} "
             f"skipped={projection.properties['skipped']}",
+            "- DST coverage: "
+            + " ".join(_boundary_coverage_tokens(result)),
             "",
             "### Failing Seeds",
         ]
@@ -201,3 +204,26 @@ def _replay_identity_key(*, method: str, path: str, payload: dict[str, Any] | No
         path,
         json.dumps(payload, sort_keys=True) if payload is not None else "null",
     )
+
+
+def _boundary_coverage_tokens(result) -> list[str]:
+    coverage = boundary_coverage_from_result(result)
+    return [
+        f"{boundary}={_coverage_token(snapshot)}"
+        for boundary, snapshot in coverage.items()
+        if snapshot.detected or snapshot.intercepted or snapshot.simulated or snapshot.faulted or snapshot.unsupported
+    ]
+
+
+def _coverage_token(snapshot) -> str:
+    if snapshot.unsupported:
+        return "unsupported"
+    if snapshot.faulted:
+        return "faulted"
+    if snapshot.simulated:
+        return "simulated"
+    if snapshot.intercepted:
+        return "intercepted"
+    if snapshot.detected:
+        return "detected"
+    return "none"

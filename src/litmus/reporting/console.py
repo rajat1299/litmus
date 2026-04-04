@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from litmus.replay.trace import boundary_coverage_from_result
 from litmus.runs.summary import VerificationProjection
 
 
@@ -26,6 +27,10 @@ def render_verification_summary(result) -> str:
         f"skipped={projection.properties['skipped']}",
         f"Confidence: {projection.confidence:.2f}",
     ]
+    coverage_lines = _boundary_coverage_lines(result)
+    if coverage_lines:
+        lines.append("DST coverage:")
+        lines.extend(coverage_lines)
     suggestion_lines = _suggestion_lines(result)
     if suggestion_lines:
         lines.append("Suggested actions:")
@@ -43,3 +48,27 @@ def _suggestion_lines(result) -> list[str]:
             continue
         lines.append(f"- {invariant.name}: {invariant.reasoning}")
     return lines
+
+
+def _boundary_coverage_lines(result) -> list[str]:
+    coverage = boundary_coverage_from_result(result)
+    return [
+        f"- {boundary}: {_format_coverage_state(snapshot)}"
+        for boundary, snapshot in coverage.items()
+        if snapshot.detected or snapshot.intercepted or snapshot.simulated or snapshot.faulted or snapshot.unsupported
+    ]
+
+
+def _format_coverage_state(snapshot) -> str:
+    states: list[str] = []
+    if snapshot.unsupported:
+        states.append("unsupported")
+    if snapshot.detected:
+        states.append("detected")
+    if snapshot.intercepted:
+        states.append("intercepted")
+    if snapshot.simulated:
+        states.append("simulated")
+    if snapshot.faulted:
+        states.append("faulted")
+    return ", ".join(states)

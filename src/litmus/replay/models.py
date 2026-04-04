@@ -30,6 +30,7 @@ class ReplayResponseDetails:
 class ReplayFaultContext:
     selected_faults: list[str] = field(default_factory=list)
     injected_faults: list[str] = field(default_factory=list)
+    boundary_coverage: list[str] = field(default_factory=list)
     defaulted_responses: list[str] = field(default_factory=list)
     app_exception: str | None = None
 
@@ -37,6 +38,7 @@ class ReplayFaultContext:
         payload: dict[str, Any] = {
             "selected_faults": list(self.selected_faults),
             "injected_faults": list(self.injected_faults),
+            "boundary_coverage": list(self.boundary_coverage),
             "defaulted_responses": list(self.defaulted_responses),
         }
         if self.app_exception is not None:
@@ -48,6 +50,7 @@ class ReplayFaultContext:
         return cls(
             selected_faults=list(payload.get("selected_faults", [])),
             injected_faults=list(payload.get("injected_faults", [])),
+            boundary_coverage=list(payload.get("boundary_coverage", [])),
             defaulted_responses=list(payload.get("defaulted_responses", [])),
             app_exception=payload.get("app_exception"),
         )

@@ -73,20 +73,58 @@ def _reasons_for_replay(
 def _fault_context_from_trace(trace: list[TraceEvent]) -> ReplayFaultContext:
     selected_faults: list[str] = []
     injected_faults: list[str] = []
+    boundary_coverage: list[str] = []
     defaulted_responses: list[str] = []
     app_exception: str | None = None
 
     for event in trace:
-        if event.kind == "fault_plan_selected":
+        if event.kind == "boundary_detected":
+            boundary_coverage.append(f"Detected {event.metadata['boundary']} boundary usage.")
+        elif event.kind == "boundary_intercepted":
+            boundary_coverage.append(
+                f"Intercepted {event.metadata['boundary']} via {event.metadata['supported_shape']}."
+            )
+        elif event.kind == "boundary_simulated":
+            boundary_coverage.append(
+                f"Simulated {event.metadata['boundary']} with Litmus state machines."
+            )
+        elif event.kind == "boundary_unsupported":
+            boundary = _display_boundary_name(str(event.metadata["boundary"]))
+            boundary_coverage.append(
+                f"{boundary} boundary was detected but unsupported: {event.metadata['detail']}."
+            )
+        elif event.kind == "fault_plan_selected":
             for scheduled_fault in event.metadata.get("schedule", []):
                 selected_faults.append(
                     f"Step {scheduled_fault['step']} scheduled {scheduled_fault['kind']} on {scheduled_fault['target']}."
                 )
         elif event.kind == "fault_injected":
-            injected_faults.append(
-                f"Injected {event.metadata['fault_kind']} on {event.metadata['target']} "
-                f"for {event.metadata['url']} at step {event.metadata['step']}."
-            )
+            target = event.metadata["target"]
+            if target == "http":
+                injected_faults.append(
+                    f"Injected {event.metadata['fault_kind']} on http "
+                    f"for {event.metadata['url']} at step {event.metadata['step']}."
+                )
+            elif target == "redis":
+                injected_faults.append(
+                    f"Injected {event.metadata['fault_kind']} on redis for "
+                    f"{event.metadata['operation']} {event.metadata.get('key', '<unknown>')} "
+                    f"at step {event.metadata['step']}."
+                )
+            elif target == "sqlalchemy":
+                table_suffix = (
+                    f" {event.metadata['table']}"
+                    if event.metadata.get("table") is not None
+                    else ""
+                )
+                injected_faults.append(
+                    f"Injected {event.metadata['fault_kind']} on sqlalchemy for "
+                    f"{event.metadata['operation']}{table_suffix} at step {event.metadata['step']}."
+                )
+            else:
+                injected_faults.append(
+                    f"Injected {event.metadata['fault_kind']} on {target} at step {event.metadata['step']}."
+                )
         elif event.kind == "http_response_defaulted":
             defaulted_responses.append(
                 f"Used Litmus default JSON response for {event.metadata['method']} "
@@ -98,9 +136,16 @@ def _fault_context_from_trace(trace: list[TraceEvent]) -> ReplayFaultContext:
     return ReplayFaultContext(
         selected_faults=selected_faults,
         injected_faults=injected_faults,
+        boundary_coverage=boundary_coverage,
         defaulted_responses=defaulted_responses,
         app_exception=app_exception,
     )
+
+
+def _display_boundary_name(boundary: str) -> str:
+    if boundary == "sqlalchemy":
+        return "SQLAlchemy"
+    return boundary.capitalize()
 
 
 def _next_step_for_replay(
@@ -123,5 +168,8 @@ def _next_step_for_replay(
 
     if fault_context.injected_faults:
         return f"Inspect the injected fault path and rerun `litmus replay {seed}`."
+
+    if fault_context.boundary_coverage:
+        return f"Inspect the cross-layer DST coverage for `litmus replay {seed}` and widen support or fix the path."
 
     return f"Review the changed response and rerun `litmus replay {seed}` after fixing it or updating the baseline."

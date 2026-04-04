@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any, Callable
 
 from litmus.dst.faults import FaultPlan
 
@@ -30,6 +31,7 @@ class SimulatedAsyncEngine:
         schemas: dict[str, TableSchema],
         fault_plan: FaultPlan | None = None,
         pool_size: int = 5,
+        record_event: Callable[[str, Any], None] | None = None,
     ) -> None:
         self._schemas = schemas
         self._state: dict[str, dict[object, dict[str, object]]] = {
@@ -40,6 +42,7 @@ class SimulatedAsyncEngine:
         self._pool_size = pool_size
         self._active_sessions = 0
         self._step = 0
+        self._record_event = record_event
 
     def session(self) -> SimulatedAsyncSession:
         return SimulatedAsyncSession(engine=self)
@@ -47,6 +50,10 @@ class SimulatedAsyncEngine:
     def _next_fault(self):
         self._step += 1
         return self._fault_plan.fault_for_step(self._step)
+
+    def _record(self, kind: str, **metadata: Any) -> None:
+        if self._record_event is not None:
+            self._record_event(kind, **metadata)
 
 
 class SimulatedAsyncSession:
@@ -72,7 +79,7 @@ class SimulatedAsyncSession:
 
     async def begin(self) -> None:
         self._ensure_open()
-        self._apply_fault()
+        self._apply_fault(operation="begin")
         self._transaction_writes = {
             table_name: {}
             for table_name in self._engine._schemas
@@ -84,7 +91,7 @@ class SimulatedAsyncSession:
 
     async def commit(self) -> None:
         self._ensure_open()
-        self._apply_fault()
+        self._apply_fault(operation="commit")
         if not self._in_transaction():
             return
         assert self._transaction_writes is not None
@@ -106,7 +113,7 @@ class SimulatedAsyncSession:
 
     async def insert(self, table_name: str, row: dict[str, object]) -> None:
         schema = self._schema(table_name)
-        self._apply_fault()
+        self._apply_fault(operation="insert", table_name=table_name)
         primary_key = row[schema.primary_key]
         if self._in_transaction():
             assert self._transaction_writes is not None
@@ -118,13 +125,13 @@ class SimulatedAsyncSession:
 
     async def get(self, table_name: str, primary_key: object) -> dict[str, object] | None:
         self._schema(table_name)
-        self._apply_fault()
+        self._apply_fault(operation="select", table_name=table_name)
         row = self._current_row(table_name, primary_key)
         return deepcopy(row) if row is not None else None
 
     async def all(self, table_name: str) -> list[dict[str, object]]:
         self._schema(table_name)
-        self._apply_fault()
+        self._apply_fault(operation="select_all", table_name=table_name)
         table_rows = {
             primary_key: deepcopy(row)
             for primary_key, row in self._engine._state[table_name].items()
@@ -143,7 +150,7 @@ class SimulatedAsyncSession:
 
     async def update(self, table_name: str, primary_key: object, values: dict[str, object]) -> None:
         schema = self._schema(table_name)
-        self._apply_fault()
+        self._apply_fault(operation="update", table_name=table_name)
         current_row = self._current_row(table_name, primary_key)
         if current_row is None:
             raise KeyError(f"no simulated row for {table_name}.{schema.primary_key}={primary_key!r}")
@@ -158,7 +165,7 @@ class SimulatedAsyncSession:
 
     async def delete(self, table_name: str, primary_key: object) -> None:
         schema = self._schema(table_name)
-        self._apply_fault()
+        self._apply_fault(operation="delete", table_name=table_name)
         if self._current_row(table_name, primary_key) is None:
             raise KeyError(f"no simulated row for {table_name}.{schema.primary_key}={primary_key!r}")
         if self._in_transaction():
@@ -205,10 +212,19 @@ class SimulatedAsyncSession:
         if self._dropped and not allow_dropped:
             raise DatabaseConnectionDroppedError("simulated connection already dropped")
 
-    def _apply_fault(self) -> None:
+    def _apply_fault(self, *, operation: str, table_name: str | None = None) -> None:
         fault = self._engine._next_fault()
         if fault is None or fault.target not in {"sqlalchemy", "database", "db"}:
             return
+        self._engine._record(
+            "fault_injected",
+            step=self._engine._step,
+            target="sqlalchemy",
+            fault_kind=fault.kind,
+            operation=operation,
+            table=table_name,
+            params=dict(fault.params),
+        )
         if fault.kind == "connection_dropped":
             self._clear_transaction()
             self._dropped = True

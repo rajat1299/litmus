@@ -11,6 +11,7 @@ from types import ModuleType
 from litmus.config import load_repo_config
 from litmus.errors import AppDiscoveryError, LitmusUserError
 from litmus.discovery.project import iter_python_files, module_name_from_path
+from litmus.simulators.boundary_patches import patched_supported_boundaries
 
 _SUPPORTED_APP_FACTORIES = {"FastAPI", "Starlette"}
 _INTERNAL_MODULE_ROOT = Path(__file__).resolve().parents[2]
@@ -36,13 +37,14 @@ class AppLoader:
                 root=root_path,
                 module_name=module_name,
             )
-            try:
-                module = importlib.import_module(module_name)
-            except Exception as exc:  # pragma: no cover - exercised via callers
-                raise AppLoadError(
-                    reference,
-                    f"Could not import module '{module_name}': {exc}",
-                ) from exc
+            with patched_supported_boundaries(root_path):
+                try:
+                    module = importlib.import_module(module_name)
+                except Exception as exc:  # pragma: no cover - exercised via callers
+                    raise AppLoadError(
+                        reference,
+                        f"Could not import module '{module_name}': {exc}",
+                    ) from exc
         if root_path is not None:
             self.loaded_roots.add(root_path)
         try:

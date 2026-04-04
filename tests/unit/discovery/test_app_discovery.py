@@ -142,6 +142,74 @@ def test_app_loader_wraps_reference_failures_in_app_load_error(
     assert expected_message in message
 
 
+def test_load_asgi_app_does_not_replace_unsupported_type_imports_in_user_module(tmp_path: Path) -> None:
+    sqlalchemy_ext = tmp_path / "sqlalchemy" / "ext"
+    redis_dir = tmp_path / "redis"
+    service = tmp_path / "service"
+    sqlalchemy_ext.mkdir(parents=True)
+    redis_dir.mkdir()
+    service.mkdir()
+
+    (tmp_path / "sqlalchemy" / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext / "asyncio.py").write_text(
+        """
+class AsyncSession:
+    pass
+
+def create_async_engine(*args, **kwargs):
+    return object()
+
+def async_sessionmaker(*args, **kwargs):
+    return object()
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        """
+class Redis:
+    pass
+
+class RedisCluster:
+    pass
+
+def from_url(*args, **kwargs):
+    return object()
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (service / "__init__.py").write_text("", encoding="utf-8")
+    (service / "main.py").write_text(
+        """
+from redis.asyncio import RedisCluster
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class FastAPI:
+    pass
+
+
+session_type = AsyncSession
+cluster_type = RedisCluster
+app = FastAPI()
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.main:app", tmp_path)
+
+    import service.main as main_module
+
+    assert isinstance(main_module.session_type, type)
+    assert main_module.session_type.__name__ == "AsyncSession"
+    assert isinstance(main_module.cluster_type, type)
+    assert main_module.cluster_type.__name__ == "RedisCluster"
+
+
 def _write_loader_repo(root: Path, *, status: str) -> None:
     service = root / "service"
     service.mkdir(parents=True)
