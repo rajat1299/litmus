@@ -3,6 +3,7 @@ from __future__ import annotations
 from litmus.dst.runtime import TraceEvent
 from litmus.replay.differential import ReplayClassification
 from litmus.replay.explain import explain_replay
+from litmus.replay.models import ReplayCheckpoint, ReplayFidelityResult, ReplayFidelityStatus
 
 
 def test_explain_replay_extracts_reasons_fault_context_and_next_step() -> None:
@@ -99,3 +100,30 @@ def test_explain_replay_for_unchanged_seed_recommends_no_action() -> None:
 
     assert explanation.reasons == ["Current behavior still matches the baseline response."]
     assert explanation.next_step == "No action needed. This seed still matches the baseline."
+
+
+def test_explain_replay_attaches_execution_fidelity() -> None:
+    explanation = explain_replay(
+        seed="seed:7",
+        method="POST",
+        path="/payments/charge",
+        baseline_status_code=200,
+        baseline_body={"status": "charged"},
+        current_status_code=200,
+        current_body={"status": "charged"},
+        classification=ReplayClassification.UNCHANGED,
+        diff={},
+        trace=[TraceEvent(kind="request_completed", metadata={"status_code": 200})],
+        fidelity=ReplayFidelityResult(
+            status=ReplayFidelityStatus.DRIFTED,
+            recorded_step=2,
+            replay_step=2,
+            reason="Replay execution diverged from the recorded transcript.",
+            recorded_checkpoint=ReplayCheckpoint(kind="fault_injected", target="http", detail="timeout"),
+            replay_checkpoint=ReplayCheckpoint(kind="response_completed", status_code=200),
+        ),
+    )
+
+    assert explanation.fidelity.status is ReplayFidelityStatus.DRIFTED
+    assert explanation.fidelity.recorded_step == 2
+    assert explanation.fidelity.replay_checkpoint == ReplayCheckpoint(kind="response_completed", status_code=200)

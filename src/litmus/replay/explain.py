@@ -4,7 +4,13 @@ from typing import Any
 
 from litmus.dst.runtime import TraceEvent
 from litmus.replay.differential import ReplayClassification
-from litmus.replay.models import ReplayExplanation, ReplayFaultContext, ReplayResponseDetails
+from litmus.replay.models import (
+    ReplayExplanation,
+    ReplayFaultContext,
+    ReplayFidelityResult,
+    ReplayResponseDetails,
+    replay_fidelity_not_checked,
+)
 
 
 def explain_replay(
@@ -19,6 +25,7 @@ def explain_replay(
     classification: ReplayClassification,
     diff: dict[str, tuple[Any, Any]],
     trace: list[TraceEvent],
+    fidelity: ReplayFidelityResult | None = None,
 ) -> ReplayExplanation:
     fault_context = _fault_context_from_trace(trace)
     return ReplayExplanation(
@@ -30,6 +37,7 @@ def explain_replay(
         current=ReplayResponseDetails(status_code=current_status_code, body=current_body),
         reasons=_reasons_for_replay(classification, diff),
         fault_context=fault_context,
+        fidelity=fidelity or replay_fidelity_not_checked(),
         next_step=_next_step_for_replay(seed, classification, fault_context),
         trace_kinds=[event.kind for event in trace],
     )
