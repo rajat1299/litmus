@@ -24,7 +24,7 @@ def test_litmus_mcp_server_exposes_structured_verify_replay_explain_and_list_too
                 verify_result = await session.call_tool("verify", arguments={})
                 verify_payload = verify_result.structuredContent
                 assert verify_payload["app_reference"] == "service.app:app"
-                assert verify_payload["replay"]["breaking"] == 3
+                assert verify_payload["replay"]["breaking"] == 1
                 assert verify_payload["run_id"].startswith("run-")
 
                 invariants_result = await session.call_tool("list_invariants", arguments={})
@@ -58,7 +58,7 @@ def test_litmus_mcp_server_observes_repo_edits_across_repeated_verify_calls(tmp_
 
                 first_result = await session.call_tool("verify", arguments={})
                 first_payload = first_result.structuredContent
-                assert first_payload["replay"]["unchanged"] == 3
+                assert first_payload["replay"]["unchanged"] == 1
                 assert first_payload["replay"]["breaking"] == 0
 
                 _rewrite_health_app(
@@ -70,7 +70,7 @@ def test_litmus_mcp_server_observes_repo_edits_across_repeated_verify_calls(tmp_
                 second_result = await session.call_tool("verify", arguments={})
                 second_payload = second_result.structuredContent
                 assert second_payload["replay"]["unchanged"] == 0
-                assert second_payload["replay"]["breaking"] == 3
+                assert second_payload["replay"]["breaking"] == 1
 
     asyncio.run(exercise_server())
 

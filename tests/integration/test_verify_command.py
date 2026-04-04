@@ -123,7 +123,7 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
         },
         "scenarios": 2,
         "replay": {
-            "unchanged": 6,
+            "unchanged": 2,
             "breaking_change": 0,
             "benign_change": 0,
             "improvement": 0,
@@ -618,7 +618,7 @@ def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:
     assert summary["routes"] == 1
     assert summary["invariants"]["total"] == 1
     assert summary["scenarios"] == 1
-    assert summary["replay"]["unchanged"] == 3
+    assert summary["replay"]["unchanged"] == 1
 
 
 def test_litmus_verify_scopes_to_explicit_changed_test_file(tmp_path: Path) -> None:

@@ -392,6 +392,76 @@ def test_run_replay_probes_with_fresh_app_instance_when_root_is_available(monkey
     assert measured_app.count == 1
 
 
+def test_run_replay_uses_single_no_fault_seed_when_no_supported_boundaries_are_detected(monkeypatch) -> None:
+    scenario = Scenario(
+        method="GET",
+        path="/health",
+        request=RequestExample(method="GET", path="/health"),
+        expected_response=ResponseExample(status_code=200, json={"status": "ok"}),
+    )
+
+    observed_runs: list[tuple[int, dict[int, object]]] = []
+
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
+        assert method == "GET"
+        assert path == "/health"
+        assert json_body is None
+        schedule = {} if fault_plan is None else dict(fault_plan.schedule)
+        observed_runs.append((seed, schedule))
+        return type(
+            "FakeAsgiResult",
+            (),
+            {
+                "status_code": 200,
+                "body": {"status": "ok"},
+                "trace": [TraceEvent(kind="request_started", metadata={"seed": seed})],
+                "boundary_coverage": {
+                    "http": BoundaryCoverage(),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(),
+                },
+            },
+        )()
+
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            object(),
+            "service.app:app",
+            [scenario],
+            seeds_per_scenario=3,
+        )
+    )
+
+    assert len(replay_results) == 1
+    assert len(replay_traces) == 1
+    assert observed_runs == [
+        (0, {}),
+        (1, {}),
+    ]
+    assert replay_traces[0].seed == "seed:1"
+    assert replay_traces[0].target_selection.to_dict() == {
+        "clean_path_targets": [],
+        "fault_path_targets": [],
+        "selected_targets": [],
+        "probe_records": [
+            {
+                "phase": "clean_path",
+                "trigger_target": None,
+                "trigger_fault_kind": None,
+                "discovered_targets": [],
+            }
+        ],
+        "planned_fault_seed": {
+            "seed_value": 1,
+            "target": "none",
+            "fault_kind": "none",
+            "selection_source": "no_boundary",
+        },
+    }
+
+
 def test_scenario_fault_targets_include_fault_only_reachable_redis(monkeypatch, tmp_path: Path) -> None:
     scenario = Scenario(
         method="POST",
@@ -587,6 +657,19 @@ def test_fault_targets_for_boundary_coverage_does_not_force_http_without_runtime
     )
 
     assert targets == ["redis"]
+
+
+def test_fault_targets_for_boundary_coverage_returns_empty_when_nothing_is_detected() -> None:
+    targets = _fault_targets_for_boundary_coverage(
+        ["http", "redis", "sqlalchemy"],
+        {
+            "http": BoundaryCoverage(),
+            "redis": BoundaryCoverage(),
+            "sqlalchemy": BoundaryCoverage(),
+        },
+    )
+
+    assert targets == []
 
 
 def test_run_verification_keeps_suggested_route_gaps_out_of_replay_scenarios(monkeypatch, tmp_path: Path) -> None:

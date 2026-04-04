@@ -29,7 +29,7 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.invariants.suggested == 0
     assert result.scenarios == 1
     assert result.replay.breaking == 0
-    assert result.replay_seeds == ["seed:1", "seed:2", "seed:3"]
+    assert result.replay_seeds == ["seed:1"]
 
 
 def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatch, tmp_path: Path) -> None:
@@ -100,7 +100,7 @@ def test_run_replay_and_explain_failure_operations_return_structured_breaking_ex
     repo_root = _build_breaking_verify_repo(tmp_path)
 
     verify_result = run_verify_operation(repo_root)
-    assert verify_result.replay.breaking == 3
+    assert verify_result.replay.breaking == 1
 
     replay_result = run_replay_operation(repo_root, "seed:1")
     explain_result = run_explain_failure_operation(repo_root, "seed:1")
@@ -123,7 +123,7 @@ def test_run_verify_operation_observes_app_edits_across_repeated_calls(tmp_path:
 
     first_result = run_verify_operation(repo_root)
     assert first_result.replay.breaking == 0
-    assert first_result.replay.unchanged == 3
+    assert first_result.replay.unchanged == 1
 
     _rewrite_health_app(
         repo_root / "service" / "app.py",
@@ -132,7 +132,7 @@ def test_run_verify_operation_observes_app_edits_across_repeated_calls(tmp_path:
     )
 
     second_result = run_verify_operation(repo_root)
-    assert second_result.replay.breaking == 3
+    assert second_result.replay.breaking == 1
     assert second_result.replay.unchanged == 0
 
 

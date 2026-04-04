@@ -13,6 +13,7 @@ from litmus.discovery.routes import RouteDefinition, extract_routes
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.faults import build_fault_plan
 from litmus.dst.reachability import (
+    PlannedFaultSeed,
     ReachabilityProbeRecord,
     ScenarioReachability,
     TargetSelectionArtifact,
@@ -240,13 +241,28 @@ async def _run_replay(
             reachability=reachability,
             seeds_per_scenario=seeds_per_scenario,
         )
+        if not planned_fault_seeds and seeds_per_scenario > 0:
+            planned_fault_seeds = [
+                PlannedFaultSeed(
+                    seed_value=next_seed_value,
+                    target="none",
+                    fault_kind="none",
+                    selection_source="no_boundary",
+                )
+            ]
         for planned_seed in planned_fault_seeds:
-            fault_plan = build_fault_plan(
-                seed=planned_seed.seed_value,
-                steps=1,
-                targets=[planned_seed.target],
-                kinds=[planned_seed.fault_kind],
-            )
+            if planned_seed.selection_source == "no_boundary":
+                fault_plan = build_fault_plan(
+                    seed=planned_seed.seed_value,
+                    steps=0,
+                )
+            else:
+                fault_plan = build_fault_plan(
+                    seed=planned_seed.seed_value,
+                    steps=1,
+                    targets=[planned_seed.target],
+                    kinds=[planned_seed.fault_kind],
+                )
             result = await run_asgi_app(
                 app,
                 method=scenario.method,
@@ -421,8 +437,6 @@ def _fault_targets_for_boundary_coverage(
             continue
         if getattr(coverage, "detected", False):
             active_targets.append(target)
-    if not active_targets and "http" in candidate_targets:
-        return ["http"]
     return active_targets
 
 

@@ -87,8 +87,8 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
     run_payload = json.loads((demo_repo / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
     assert run_payload["activities"][0]["summary"]["replay"] == {
-        "unchanged": 3,
-        "breaking_change": 3,
+        "unchanged": 1,
+        "breaking_change": 1,
         "benign_change": 0,
         "improvement": 0,
     }

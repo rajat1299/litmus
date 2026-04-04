@@ -94,8 +94,8 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
         },
         "scenarios": 2,
         "replay": {
-            "unchanged": 3,
-            "breaking_change": 3,
+            "unchanged": 1,
+            "breaking_change": 1,
             "benign_change": 0,
             "improvement": 0,
         },
@@ -143,7 +143,7 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
         (demo_repo / ".litmus" / "runs" / latest_fixed_run_id / "run.json").read_text(encoding="utf-8")
     )
     assert fixed_run_payload["activities"][0]["summary"]["replay"] == {
-        "unchanged": 6,
+        "unchanged": 2,
         "breaking_change": 0,
         "benign_change": 0,
         "improvement": 0,
