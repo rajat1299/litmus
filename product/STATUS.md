@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-04-01
-**Phase:** Alpha gap closure / verification platform tranche 1
+**Status Date:** 2026-04-04
+**Phase:** Post-tranche moat follow-through
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -10,7 +10,7 @@
 
 ## Current Objective
 
-Close the highest-value alpha gaps in the shipped verification product, starting with `litmus init`, scoped verify, the main-path DST moat work, replay/activity artifacts, and the suggested-invariant and MCP surfaces needed for the real v0.1 verification story.
+Keep the shipped verification product honest and demonstrable after tranche 1 by landing bounded moat-deepening slices without broadening the launch surface or weakening the zero-config contract.
 
 ---
 
@@ -21,7 +21,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | Complete | WS-09 through WS-14 are done; tranche 1 is closed |
+| Implementation | Complete | WS-09 through WS-14 are done, tranche 1 is closed, and WS-16 replay fidelity landed as the first bounded post-tranche moat slice |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -71,6 +71,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-12 | Run/activity records and replay artifacts | Codex | Done | WS-04, WS-07, WS-11 | 2026-04-01 |
 | WS-13 | Suggested invariants in shipped flow | Codex | Done | WS-03, WS-10, WS-12 | 2026-04-01 |
 | WS-14 | MCP surface and minimal shared handlers | Codex | Done | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
+| WS-16 | Exact deterministic replay fidelity | Codex | Done | WS-12, WS-14 | 2026-04-04 |
 
 ---
 
@@ -93,13 +94,14 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-03-29 | Chose option 2 repo structure: canonical spec, master plan, status file, agent handbook, workstream packets |
 | 2026-03-29 | Chose parallel multi-agent execution with continuous review and evaluation |
 | 2026-03-29 | Canonicalized spec from `litmus-product-spec-v0.2.md` into repo with minor hardening edits |
+| 2026-04-04 | Landed exact replay fidelity via persisted execution transcripts, replay drift classification, and MCP/CLI divergence reporting |
 
 ---
 
 ## Immediate Next Actions
 
-1. Decide whether release hardening and public alpha closeout should be the next planned tranche.
-2. If product work continues immediately, write a new bounded plan instead of extending tranche 1 ad hoc.
+1. Decide the next bounded moat slice after WS-16 instead of extending replay fidelity opportunistically.
+2. Keep release hardening and public alpha closeout separate from moat work unless explicitly planned together.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
