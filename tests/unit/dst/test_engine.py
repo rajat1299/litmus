@@ -9,6 +9,7 @@ import sys
 from litmus.config import RepoConfig
 from litmus.dst.engine import (
     _boundary_usage_for_loaded_app,
+    _fault_targets_for_boundary_coverage,
     _fault_targets_for_loaded_app,
     _run_replay,
     _scenario_fault_targets,
@@ -400,6 +401,7 @@ def test_scenario_fault_targets_include_fault_only_reachable_redis(monkeypatch, 
     )
 
     load_count = 0
+    planned_probe_targets: list[str] = []
 
     class FakeFaultPlan:
         def __init__(self, target: str, kind: str) -> None:
@@ -437,8 +439,9 @@ def test_scenario_fault_targets_include_fault_only_reachable_redis(monkeypatch, 
     def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
         assert seed == 0
         assert steps == 1
-        assert targets == ["http"]
-        return FakeFaultPlan(target="http", kind="timeout")
+        assert len(targets) == 1
+        planned_probe_targets.append(targets[0])
+        return FakeFaultPlan(target=targets[0], kind=kinds[0] if kinds is not None else "timeout")
 
     async def fake_run_asgi_app(_app, *, fault_plan=None, **_kwargs):
         if fault_plan is None:
@@ -466,7 +469,124 @@ def test_scenario_fault_targets_include_fault_only_reachable_redis(monkeypatch, 
     )
 
     assert targets == ["http", "redis"]
-    assert load_count == 2
+    assert planned_probe_targets == ["http", "redis"]
+    assert load_count == 3
+
+
+def test_scenario_fault_targets_include_transitively_fault_reachable_sqlalchemy(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"payment_id": "ord-1"}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+
+    load_count = 0
+    planned_probe_targets: list[str] = []
+
+    class FakeFaultPlan:
+        def __init__(self, target: str, kind: str) -> None:
+            self.schedule = {
+                1: {
+                    "target": target,
+                    "kind": kind,
+                }
+            }
+
+    @dataclass(slots=True)
+    class FakeAsgiResult:
+        status_code: int = 200
+        body: dict[str, str] | None = None
+        trace: list[TraceEvent] = None  # type: ignore[assignment]
+        boundary_coverage: dict[str, BoundaryCoverage] = None  # type: ignore[assignment]
+
+        def __post_init__(self) -> None:
+            if self.body is None:
+                self.body = {"status": "charged"}
+            if self.trace is None:
+                self.trace = []
+            if self.boundary_coverage is None:
+                self.boundary_coverage = {
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(),
+                }
+
+    def fake_load_asgi_app(*_args, **_kwargs):
+        nonlocal load_count
+        load_count += 1
+        return object()
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
+        assert seed == 0
+        assert steps == 1
+        assert len(targets) == 1
+        planned_probe_targets.append(targets[0])
+        return FakeFaultPlan(target=targets[0], kind=kinds[0] if kinds is not None else "timeout")
+
+    async def fake_run_asgi_app(_app, *, fault_plan=None, **_kwargs):
+        if fault_plan is None:
+            return FakeAsgiResult()
+
+        target = fault_plan.schedule[1]["target"]
+        if target == "http":
+            return FakeAsgiResult(
+                boundary_coverage={
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(detected=True),
+                }
+            )
+        if target == "redis":
+            return FakeAsgiResult(
+                boundary_coverage={
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(detected=True),
+                    "redis": BoundaryCoverage(detected=True),
+                }
+            )
+        assert target == "sqlalchemy"
+        return FakeAsgiResult(
+            boundary_coverage={
+                "http": BoundaryCoverage(detected=True),
+                "sqlalchemy": BoundaryCoverage(detected=True),
+                "redis": BoundaryCoverage(detected=True),
+            }
+        )
+
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", fake_load_asgi_app)
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    targets = asyncio.run(
+        _scenario_fault_targets(
+            object(),
+            "service.app:app",
+            scenario,
+            ["http", "redis", "sqlalchemy"],
+            root=tmp_path,
+        )
+    )
+
+    assert targets == ["http", "redis", "sqlalchemy"]
+    assert planned_probe_targets == ["http", "redis", "sqlalchemy"]
+    assert load_count == 4
+
+
+def test_fault_targets_for_boundary_coverage_does_not_force_http_without_runtime_detection() -> None:
+    targets = _fault_targets_for_boundary_coverage(
+        ["http", "redis", "sqlalchemy"],
+        {
+            "http": BoundaryCoverage(),
+            "redis": BoundaryCoverage(detected=True),
+            "sqlalchemy": BoundaryCoverage(),
+        },
+    )
+
+    assert targets == ["redis"]
 
 
 def test_run_verification_keeps_suggested_route_gaps_out_of_replay_scenarios(monkeypatch, tmp_path: Path) -> None:

@@ -358,6 +358,12 @@ def test_litmus_verify_schedules_fault_only_reachable_redis_in_local_seed_budget
                 "trigger_fault_kind": "timeout",
                 "discovered_targets": ["http", "redis"],
             },
+            {
+                "phase": "fault_path",
+                "trigger_target": "redis",
+                "trigger_fault_kind": "timeout",
+                "discovered_targets": ["http"],
+            },
         ],
         "planned_fault_seed": {
             "seed_value": 1,

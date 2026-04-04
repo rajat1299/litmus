@@ -45,7 +45,30 @@ class RuntimeContext:
     )
 
     def record(self, kind: str, **metadata: Any) -> None:
-        if kind == "fault_injected":
+        if kind == "boundary_detected":
+            boundary = str(metadata.get("boundary", "")).lower()
+            if boundary in self.boundary_coverage:
+                self.boundary_coverage[boundary].detected = True
+        elif kind == "boundary_intercepted":
+            boundary = str(metadata.get("boundary", "")).lower()
+            if boundary in self.boundary_coverage:
+                coverage = self.boundary_coverage[boundary]
+                coverage.detected = True
+                coverage.intercepted = True
+        elif kind == "boundary_simulated":
+            boundary = str(metadata.get("boundary", "")).lower()
+            if boundary in self.boundary_coverage:
+                coverage = self.boundary_coverage[boundary]
+                coverage.detected = True
+                coverage.intercepted = True
+                coverage.simulated = True
+        elif kind == "boundary_unsupported":
+            boundary = str(metadata.get("boundary", "")).lower()
+            if boundary in self.boundary_coverage:
+                coverage = self.boundary_coverage[boundary]
+                coverage.detected = True
+                coverage.unsupported = True
+        elif kind == "fault_injected":
             target = str(metadata.get("target", "")).lower()
             if target in self.boundary_coverage:
                 self.boundary_coverage[target].faulted = True

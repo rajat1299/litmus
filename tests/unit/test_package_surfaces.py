@@ -32,6 +32,22 @@ def test_importing_litmus_cli_does_not_eagerly_import_mcp_tools() -> None:
     assert result.stdout.strip() == "False"
 
 
+def test_importing_litmus_mcp_tools_in_isolation_does_not_hit_package_cycles() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import litmus.mcp.tools",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=Path.cwd(),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_pyproject_declares_anyio_as_runtime_dependency() -> None:
     pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     dependencies = pyproject["project"]["dependencies"]

@@ -346,8 +346,14 @@ async def _scenario_reachability(
     ]
     fault_path_targets: list[str] = []
     selected_targets = list(clean_path_targets)
+    pending_probe_targets = list(clean_path_targets)
+    probed_targets: set[str] = set()
 
-    for target in clean_path_targets:
+    while pending_probe_targets:
+        target = pending_probe_targets.pop(0)
+        if target in probed_targets:
+            continue
+        probed_targets.add(target)
         probe_fault_kind = representative_fault_kind_for_target(target)
         probe_app = app if root is None else load_asgi_app(app_reference, root)
         probe_result = await run_asgi_app(
@@ -383,6 +389,8 @@ async def _scenario_reachability(
             selected_targets.append(discovered_target)
             if discovered_target not in clean_path_targets:
                 fault_path_targets.append(discovered_target)
+            if discovered_target not in probed_targets:
+                pending_probe_targets.append(discovered_target)
 
     return ScenarioReachability(
         clean_path_targets=clean_path_targets,
@@ -406,15 +414,15 @@ def _fault_targets_for_boundary_coverage(
     candidate_targets: list[str],
     boundary_coverage: dict[str, object],
 ) -> list[str]:
-    active_targets = ["http"]
+    active_targets: list[str] = []
     for target in candidate_targets:
-        if target == "http":
-            continue
         coverage = boundary_coverage.get(target)
         if coverage is None:
             continue
         if getattr(coverage, "detected", False):
             active_targets.append(target)
+    if not active_targets and "http" in candidate_targets:
+        return ["http"]
     return active_targets
 
 
