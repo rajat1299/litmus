@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from litmus.replay.models import ReplayExplanation
+from litmus.replay.models import ReplayCheckpoint, ReplayExplanation, ReplayFidelityResult, ReplayFidelityStatus
 
 
 def render_replay_explanation(explanation: ReplayExplanation) -> str:
@@ -18,9 +18,12 @@ def render_replay_explanation(explanation: ReplayExplanation) -> str:
         f"- Status: {explanation.current.status_code}",
         f"- Body: {explanation.current.body}",
         "",
+        f"Execution fidelity: {explanation.fidelity.status.value}",
+        "",
         "Why Litmus flagged this:",
     ]
 
+    lines.extend(_fidelity_context_lines(explanation.fidelity))
     lines.extend(f"- {reason}" for reason in explanation.reasons)
 
     fault_lines = _fault_context_lines(explanation)
@@ -54,3 +57,36 @@ def _fault_context_lines(explanation: ReplayExplanation) -> list[str]:
     if explanation.fault_context.app_exception is not None:
         lines.append(f"- {explanation.fault_context.app_exception}")
     return lines
+
+
+def _fidelity_context_lines(fidelity: ReplayFidelityResult) -> list[str]:
+    if fidelity.status is ReplayFidelityStatus.MATCHED:
+        return []
+
+    lines = [f"- {fidelity.reason}"]
+    if fidelity.status is not ReplayFidelityStatus.DRIFTED:
+        return lines
+
+    if fidelity.recorded_step is not None:
+        lines.append(
+            f"- Recorded step {fidelity.recorded_step}: {_format_checkpoint(fidelity.recorded_checkpoint)}"
+        )
+    if fidelity.replay_step is not None:
+        lines.append(
+            f"- Replay step {fidelity.replay_step}: {_format_checkpoint(fidelity.replay_checkpoint)}"
+        )
+    return lines
+
+
+def _format_checkpoint(checkpoint: ReplayCheckpoint | None) -> str:
+    if checkpoint is None:
+        return "missing"
+
+    parts = [checkpoint.kind]
+    if checkpoint.target is not None:
+        parts.append(f"on {checkpoint.target}")
+    if checkpoint.detail is not None:
+        parts.append(f"({checkpoint.detail})")
+    if checkpoint.status_code is not None:
+        parts.append(f"(status {checkpoint.status_code})")
+    return " ".join(parts)

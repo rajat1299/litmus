@@ -5,6 +5,7 @@ from typing import Any
 
 from litmus.dst.faults import FaultPlan, FaultSpec
 from litmus.dst.runtime import TraceEvent
+from litmus.replay.models import ReplayCheckpoint
 
 
 @dataclass(slots=True)
@@ -18,6 +19,7 @@ class ReplayTraceRecord:
     baseline_status_code: int | None
     baseline_body: dict[str, Any] | None
     trace: list[TraceEvent]
+    execution_transcript: list[ReplayCheckpoint] | None = None
 
 
 def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
@@ -37,6 +39,9 @@ def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
             }
             for event in record.trace
         ],
+        "execution_transcript": None
+        if record.execution_transcript is None
+        else [checkpoint.to_dict() for checkpoint in record.execution_transcript],
     }
 
 
@@ -53,6 +58,12 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
         trace=[
             TraceEvent(kind=event["kind"], metadata=event.get("metadata", {}))
             for event in payload.get("trace", [])
+        ],
+        execution_transcript=None
+        if payload.get("execution_transcript") is None
+        else [
+            ReplayCheckpoint.from_dict(checkpoint_payload)
+            for checkpoint_payload in payload.get("execution_transcript", [])
         ],
     )
 

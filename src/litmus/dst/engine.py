@@ -16,6 +16,7 @@ from litmus.invariants.suggested import suggest_route_gap_invariants
 from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
+from litmus.replay.fidelity import normalize_execution_transcript
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import RunMode
 from litmus.scenarios.builder import Scenario, build_scenarios
@@ -238,6 +239,7 @@ async def _run_replay(
                         baseline_status_code=replay_result.baseline_response.status_code,
                         baseline_body=replay_result.baseline_response.body,
                         trace=result.trace,
+                        execution_transcript=normalize_execution_transcript(result.trace),
                     )
                 )
             next_seed_value += 1

@@ -20,6 +20,7 @@ from litmus.mcp.types import (
 )
 from litmus.replay.differential import ReplayClassification, run_differential_replay
 from litmus.replay.explain import explain_replay
+from litmus.replay.fidelity import compare_execution_transcripts, normalize_execution_transcript
 from litmus.replay.models import ReplayExplanation
 from litmus.replay.trace import replay_fault_plan
 from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
@@ -157,6 +158,8 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
     replay_results = asyncio.run(run_differential_replay([scenario], runner))
     classification = replay_results[0].classification if replay_results else ReplayClassification.UNCHANGED
     diff = replay_results[0].diff if replay_results else {}
+    replay_transcript = normalize_execution_transcript(current_result.trace)
+    fidelity = compare_execution_transcripts(record.execution_transcript, replay_transcript)
     explanation = explain_replay(
         seed=seed,
         method=record.method,
@@ -168,6 +171,7 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         classification=classification,
         diff=diff,
         trace=current_result.trace,
+        fidelity=fidelity,
     )
     return _ReplayExecutionResult(
         source_run_id=source_run.run_id,

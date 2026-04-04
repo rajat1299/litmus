@@ -231,6 +231,22 @@ class ReplayFaultContextPayload(BaseModel):
     app_exception: str | None = None
 
 
+class ReplayCheckpointPayload(BaseModel):
+    kind: str
+    target: str | None = None
+    detail: str | None = None
+    status_code: int | None = None
+
+
+class ReplayFidelityPayload(BaseModel):
+    status: str
+    recorded_step: int | None = None
+    replay_step: int | None = None
+    reason: str
+    recorded_checkpoint: ReplayCheckpointPayload | None = None
+    replay_checkpoint: ReplayCheckpointPayload | None = None
+
+
 class ReplayExplanationPayload(BaseModel):
     seed: str
     method: str
@@ -240,6 +256,7 @@ class ReplayExplanationPayload(BaseModel):
     current: ReplayResponsePayload
     reasons: list[str]
     fault_context: ReplayFaultContextPayload
+    fidelity: ReplayFidelityPayload
     next_step: str
     trace_kinds: list[str]
 

@@ -109,10 +109,13 @@ def test_run_replay_and_explain_failure_operations_return_structured_breaking_ex
     assert replay_result.run_id == latest_run.run_id
     assert latest_run.mode.value == "mcp"
     assert replay_result.explanation.classification is ReplayClassification.BREAKING_CHANGE
+    assert replay_result.explanation.fidelity.status.value == "matched"
     assert replay_result.source_run_id is not None
     assert explain_result.source_run_id == replay_result.source_run_id
     assert explain_result.explanation.classification is ReplayClassification.BREAKING_CHANGE
+    assert explain_result.explanation.fidelity.status.value == "matched"
     assert explain_result.explanation.next_step == replay_result.explanation.next_step
+    assert replay_result.to_dict()["explanation"]["fidelity"]["status"] == "matched"
 
 
 def test_run_verify_operation_observes_app_edits_across_repeated_calls(tmp_path: Path) -> None:

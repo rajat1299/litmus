@@ -40,6 +40,12 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "suggested": 0,
     }
     assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
+    transcript = run_payload["artifacts"]["replay_traces"][0]["execution_transcript"]
+    assert transcript is not None
+    assert transcript[-1] == {
+        "kind": "response_completed",
+        "status_code": 200,
+    }
     assert not (repo_root / ".litmus" / "replay-traces.json").exists()
 
 
