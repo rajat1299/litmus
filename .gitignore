@@ -1,3 +1,5 @@
+.DS_Store
+.agents/
 .cursor/
 # Unrelated / scratch Claude Code workspace (not litmus package source)
 claudecode/
