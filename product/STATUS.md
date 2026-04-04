@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-04
-**Phase:** Post-tranche moat follow-through
+**Phase:** WS-17 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -21,7 +21,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | Complete | WS-09 through WS-16 are done; tranche 1 is closed, WS-15 cross-layer DST landed, and WS-16 replay fidelity landed as the next bounded moat slice |
+| Implementation | Complete | WS-09 through WS-16 are done; tranche 1 is closed, WS-15 cross-layer DST landed, and WS-16 replay fidelity landed |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -73,6 +73,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-14 | MCP surface and minimal shared handlers | Codex | Done | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
 | WS-15 | Cross-layer DST in shipped verify | Codex | Done | WS-11, WS-12, WS-14 | 2026-04-04 |
 | WS-16 | Exact deterministic replay fidelity | Codex | Done | WS-12, WS-15 | 2026-04-04 |
+| WS-17 | Fault-path reachability and target-aware local coverage | Codex | In progress | WS-15, WS-16 | 2026-04-04 |
 
 ---
 
@@ -96,12 +97,13 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-03-29 | Chose parallel multi-agent execution with continuous review and evaluation |
 | 2026-03-29 | Canonicalized spec from `litmus-product-spec-v0.2.md` into repo with minor hardening edits |
 | 2026-04-04 | Landed exact replay fidelity via persisted execution transcripts, replay drift classification, and MCP/CLI divergence reporting |
+| 2026-04-04 | Chose WS-17 as the next moat slice: bounded fault-path reachability plus deterministic target-aware local coverage |
 
 ---
 
 ## Immediate Next Actions
 
-1. Decide the next bounded moat slice after WS-16 instead of extending replay fidelity opportunistically.
+1. Execute the bounded reachability plus target-coverage slice from the new design and implementation plan docs.
 2. Keep release hardening and public alpha closeout separate from moat work unless explicitly planned together.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 

@@ -316,6 +316,33 @@ def test_litmus_verify_does_not_schedule_redis_for_unused_supported_helper(tmp_p
     )
 
 
+def test_litmus_verify_schedules_fault_only_reachable_redis_in_local_seed_budget(tmp_path: Path) -> None:
+    repo_root = _write_fault_path_reachability_repo(tmp_path)
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout
+
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    replay_traces = run_payload["artifacts"]["replay_traces"]
+    planned_targets = [
+        event["metadata"]["schedule"][0]["target"]
+        for trace in replay_traces
+        for event in trace["trace"]
+        if event["kind"] == "fault_plan_selected" and event["metadata"]["schedule"]
+    ]
+
+    assert planned_targets[:2] == ["http", "redis"]
+    assert planned_targets.count("redis") >= 1
+
+
 def test_litmus_verify_reports_partial_dst_coverage_for_unsupported_redis_constructor(tmp_path: Path) -> None:
     repo_root = _write_unsupported_redis_repo(tmp_path)
 
@@ -1512,6 +1539,140 @@ def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str 
                 response = {
                     "status_code": 200,
                     "json": {"status": "charged"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return repo_root
+
+
+def _write_fault_path_reachability_repo(tmp_path: Path) -> Path:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    redis_dir = repo_root / "redis"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+    redis_dir.mkdir()
+
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        textwrap.dedent(
+            """
+            class Redis:
+                def __init__(self):
+                    self._store = {}
+
+                @classmethod
+                def from_url(cls, *args, **kwargs):
+                    raise RuntimeError("litmus should patch redis.asyncio.Redis.from_url")
+
+                async def get(self, key):
+                    return self._store.get(key)
+
+                async def set(self, key, value):
+                    self._store[key] = value
+                    return True
+
+
+            def from_url(*args, **kwargs):
+                raise RuntimeError("litmus should patch redis.asyncio.from_url")
+
+
+            class RedisCluster:
+                pass
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+            import httpx
+            from redis.asyncio import from_url
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def post(self, path: str):
+                    def decorator(func):
+                        self.routes[("POST", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    request = await receive()
+                    payload = json.loads(request["body"].decode("utf-8")) if request["body"] else None
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler(payload)
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+            redis = from_url("redis://cache")
+
+
+            @app.post("/payments/charge")
+            async def charge(payload):
+                payment_id = payload["payment_id"]
+                try:
+                    async with httpx.AsyncClient() as client:
+                        await client.get("https://processor.invalid/charge")
+                except httpx.HTTPError:
+                    try:
+                        cached = await redis.get(f"charge:{payment_id}")
+                        if cached is None:
+                            await redis.set(f"charge:{payment_id}", "charged")
+                    except Exception:
+                        return {"status_code": 503, "json": {"status": "retry_later"}}
+                    return {"status_code": 200, "json": {"status": "charged", "source": "fallback"}}
+
+                return {"status_code": 200, "json": {"status": "charged", "source": "primary"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_payments.py").write_text(
+        textwrap.dedent(
+            """
+            def test_charge_returns_200():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/charge",
+                    "json": {"payment_id": "ord-1"},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "charged", "source": "primary"},
                 }
 
                 assert response["status_code"] == 200

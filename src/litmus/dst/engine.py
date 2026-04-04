@@ -12,6 +12,12 @@ from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.faults import build_fault_plan
+from litmus.dst.reachability import (
+    ReachabilityProbeRecord,
+    ScenarioReachability,
+    plan_local_fault_seeds,
+    representative_fault_kind_for_target,
+)
 from litmus.dst.runtime import TraceEvent
 from litmus.simulators.boundary_patches import patched_supported_boundaries
 from litmus.invariants.mined import mine_invariants_from_tests
@@ -221,26 +227,31 @@ async def _run_replay(
     candidate_fault_targets = _normalize_fault_targets(fault_targets or VERIFY_FAULT_TARGETS)
 
     for scenario in scenarios:
-        scenario_fault_targets = await _scenario_fault_targets(
+        reachability = await _scenario_reachability(
             app,
             app_reference,
             scenario,
             candidate_fault_targets,
             root=root,
         )
-        for _ in range(seeds_per_scenario):
+        planned_fault_seeds = plan_local_fault_seeds(
+            seed_start=next_seed_value,
+            reachability=reachability,
+            seeds_per_scenario=seeds_per_scenario,
+        )
+        for planned_seed in planned_fault_seeds:
             fault_plan = build_fault_plan(
-                seed=next_seed_value,
+                seed=planned_seed.seed_value,
                 steps=1,
-                targets=scenario_fault_targets,
-                kinds=VERIFY_FAULT_KINDS,
+                targets=[planned_seed.target],
+                kinds=[planned_seed.fault_kind],
             )
             result = await run_asgi_app(
                 app,
                 method=scenario.method,
                 path=scenario.path,
                 json_body=scenario.request.payload,
-                seed=next_seed_value,
+                seed=planned_seed.seed_value,
                 fault_plan=fault_plan,
             )
             trace = [
@@ -261,8 +272,8 @@ async def _run_replay(
                 replay_results.append(replay_result)
                 replay_traces.append(
                     ReplayTraceRecord(
-                        seed=f"seed:{next_seed_value}",
-                        seed_value=next_seed_value,
+                        seed=f"seed:{planned_seed.seed_value}",
+                        seed_value=planned_seed.seed_value,
                         app_reference=app_reference,
                         method=scenario.method,
                         path=scenario.path,
@@ -273,7 +284,7 @@ async def _run_replay(
                         execution_transcript=normalize_execution_transcript(trace),
                     )
                 )
-            next_seed_value += 1
+        next_seed_value += len(planned_fault_seeds)
 
     return replay_results, replay_traces
 
@@ -286,9 +297,27 @@ async def _scenario_fault_targets(
     *,
     root: Path | None = None,
 ) -> list[str]:
+    reachability = await _scenario_reachability(
+        app,
+        app_reference,
+        scenario,
+        candidate_targets,
+        root=root,
+    )
+    return list(reachability.selected_targets)
+
+
+async def _scenario_reachability(
+    app,
+    app_reference: str,
+    scenario: Scenario,
+    candidate_targets: list[str],
+    *,
+    root: Path | None = None,
+) -> ScenarioReachability:
     normalized_targets = _normalize_fault_targets(candidate_targets)
-    if normalized_targets == ["http"]:
-        return normalized_targets
+    if not normalized_targets:
+        return ScenarioReachability()
 
     probe_app = app if root is None else load_asgi_app(app_reference, root)
     baseline_result = await run_asgi_app(
@@ -298,11 +327,64 @@ async def _scenario_fault_targets(
         json_body=scenario.request.payload,
         seed=0,
     )
-    return _fault_targets_for_boundary_coverage(
-        normalized_targets,
-        baseline_result.boundary_coverage,
+    clean_path_targets = tuple(
+        _fault_targets_for_boundary_coverage(
+            normalized_targets,
+            baseline_result.boundary_coverage,
+        )
     )
+    probe_records = [
+        ReachabilityProbeRecord(
+            phase="clean_path",
+            discovered_targets=clean_path_targets,
+        )
+    ]
+    fault_path_targets: list[str] = []
+    selected_targets = list(clean_path_targets)
 
+    for target in clean_path_targets:
+        probe_fault_kind = representative_fault_kind_for_target(target)
+        probe_app = app if root is None else load_asgi_app(app_reference, root)
+        probe_result = await run_asgi_app(
+            probe_app,
+            method=scenario.method,
+            path=scenario.path,
+            json_body=scenario.request.payload,
+            seed=0,
+            fault_plan=build_fault_plan(
+                seed=0,
+                steps=1,
+                targets=[target],
+                kinds=[probe_fault_kind],
+            ),
+        )
+        discovered_targets = tuple(
+            _fault_targets_for_boundary_coverage(
+                normalized_targets,
+                probe_result.boundary_coverage,
+            )
+        )
+        probe_records.append(
+            ReachabilityProbeRecord(
+                phase="fault_path",
+                trigger_target=target,
+                trigger_fault_kind=probe_fault_kind,
+                discovered_targets=discovered_targets,
+            )
+        )
+        for discovered_target in discovered_targets:
+            if discovered_target in selected_targets:
+                continue
+            selected_targets.append(discovered_target)
+            if discovered_target not in clean_path_targets:
+                fault_path_targets.append(discovered_target)
+
+    return ScenarioReachability(
+        clean_path_targets=clean_path_targets,
+        fault_path_targets=tuple(fault_path_targets),
+        selected_targets=tuple(selected_targets),
+        probe_records=tuple(probe_records),
+    )
 
 def _normalize_fault_targets(targets: list[str]) -> list[str]:
     normalized_targets: list[str] = []

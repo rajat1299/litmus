@@ -7,7 +7,13 @@ from pathlib import Path
 import sys
 
 from litmus.config import RepoConfig
-from litmus.dst.engine import _boundary_usage_for_loaded_app, _fault_targets_for_loaded_app, _run_replay, run_verification
+from litmus.dst.engine import (
+    _boundary_usage_for_loaded_app,
+    _fault_targets_for_loaded_app,
+    _run_replay,
+    _scenario_fault_targets,
+    run_verification,
+)
 from litmus.dst.runtime import BoundaryCoverage, TraceEvent
 from litmus.discovery.routes import RouteDefinition
 from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
@@ -142,6 +148,7 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
         boundary_coverage: dict[str, BoundaryCoverage]
 
     captured_fault_plan_seeds: list[int] = []
+    captured_planned_faults: list[tuple[int, list[str], list[str] | None]] = []
 
     class FakeFaultPlan:
         def __init__(self, seed: int) -> None:
@@ -150,14 +157,14 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
 
     def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
         assert steps == 1
-        assert targets == ["http", "sqlalchemy", "redis"]
+        captured_planned_faults.append((seed, list(targets), None if kinds is None else list(kinds)))
         return FakeFaultPlan(seed)
 
     async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
         assert method == "POST"
         assert path == "/payments/charge"
         assert json_body == {"amount": 100}
-        if fault_plan is not None:
+        if fault_plan is not None and seed != 0:
             captured_fault_plan_seeds.append(fault_plan.seed)
         return FakeAsgiResult(
             status_code=200,
@@ -186,6 +193,11 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
     assert len(replay_traces) == 3
     assert [trace.seed for trace in replay_traces] == ["seed:1", "seed:2", "seed:3"]
     assert captured_fault_plan_seeds == [1, 2, 3]
+    assert [call for call in captured_planned_faults if call[0] > 0] == [
+        (1, ["http"], ["timeout"]),
+        (2, ["sqlalchemy"], ["connection_dropped"]),
+        (3, ["redis"], ["timeout"]),
+    ]
 
 
 def test_run_replay_spreads_local_fault_targets_across_http_sqlalchemy_and_redis(monkeypatch) -> None:
@@ -210,9 +222,9 @@ def test_run_replay_spreads_local_fault_targets_across_http_sqlalchemy_and_redis
 
     def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
         assert steps == 1
-        assert targets == ["http", "sqlalchemy", "redis"]
-        target = targets[seed - 1]
-        captured_targets.append(target)
+        target = targets[0]
+        if seed > 0:
+            captured_targets.append(target)
         return FakeFaultPlan(seed, target)
 
     async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
@@ -273,7 +285,8 @@ def test_run_replay_narrows_fault_targets_to_runtime_detected_boundaries(monkeyp
 
     def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
         assert steps == 1
-        captured_targets.append(list(targets))
+        if seed > 0:
+            captured_targets.append(list(targets))
         return FakeFaultPlan(seed)
 
     async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
@@ -376,6 +389,84 @@ def test_run_replay_probes_with_fresh_app_instance_when_root_is_available(monkey
     assert len(replay_traces) == 1
     assert replay_results[0].changed_response.body == {"count": 1}
     assert measured_app.count == 1
+
+
+def test_scenario_fault_targets_include_fault_only_reachable_redis(monkeypatch, tmp_path: Path) -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"payment_id": "ord-1"}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+
+    load_count = 0
+
+    class FakeFaultPlan:
+        def __init__(self, target: str, kind: str) -> None:
+            self.schedule = {
+                1: {
+                    "target": target,
+                    "kind": kind,
+                }
+            }
+
+    @dataclass(slots=True)
+    class FakeAsgiResult:
+        status_code: int = 200
+        body: dict[str, str] | None = None
+        trace: list[TraceEvent] = None  # type: ignore[assignment]
+        boundary_coverage: dict[str, BoundaryCoverage] = None  # type: ignore[assignment]
+
+        def __post_init__(self) -> None:
+            if self.body is None:
+                self.body = {"status": "charged"}
+            if self.trace is None:
+                self.trace = []
+            if self.boundary_coverage is None:
+                self.boundary_coverage = {
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(),
+                }
+
+    def fake_load_asgi_app(*_args, **_kwargs):
+        nonlocal load_count
+        load_count += 1
+        return object()
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
+        assert seed == 0
+        assert steps == 1
+        assert targets == ["http"]
+        return FakeFaultPlan(target="http", kind="timeout")
+
+    async def fake_run_asgi_app(_app, *, fault_plan=None, **_kwargs):
+        if fault_plan is None:
+            return FakeAsgiResult()
+        return FakeAsgiResult(
+            boundary_coverage={
+                "http": BoundaryCoverage(detected=True),
+                "sqlalchemy": BoundaryCoverage(),
+                "redis": BoundaryCoverage(detected=True),
+            }
+        )
+
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", fake_load_asgi_app)
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    targets = asyncio.run(
+        _scenario_fault_targets(
+            object(),
+            "service.app:app",
+            scenario,
+            ["http", "redis"],
+            root=tmp_path,
+        )
+    )
+
+    assert targets == ["http", "redis"]
+    assert load_count == 2
 
 
 def test_run_verification_keeps_suggested_route_gaps_out_of_replay_scenarios(monkeypatch, tmp_path: Path) -> None:
