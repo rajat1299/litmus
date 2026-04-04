@@ -4,7 +4,7 @@ import asyncio
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from litmus.dst.faults import FaultPlan, FaultSpec
 
@@ -49,28 +49,33 @@ class _BlockingPopWaiter:
 
 
 class SimulatedRedis:
-    def __init__(self, fault_plan: FaultPlan | None = None) -> None:
+    def __init__(
+        self,
+        fault_plan: FaultPlan | None = None,
+        record_event: Callable[[str, Any], None] | None = None,
+    ) -> None:
         self._entries: dict[str, _RedisEntry] = {}
         self._fault_plan = fault_plan or FaultPlan(seed=0)
         self._step = 0
         self._now = 0.0
         self._waiters: dict[str, list[_BlockingPopWaiter]] = defaultdict(list)
+        self._record_event = record_event
 
     async def get(self, key: str) -> Any | None:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="get", key=key)
         entry = self._entry(key, expected_kind="string", allow_missing=True)
         return deepcopy(entry.value) if entry is not None else None
 
     async def set(self, key: str, value: Any) -> bool:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="set", key=key)
         self._entries[key] = _RedisEntry(kind="string", value=deepcopy(value))
         return True
 
     async def setex(self, key: str, ttl_seconds: int | float, value: Any) -> bool:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="setex", key=key)
         self._entries[key] = _RedisEntry(
             kind="string",
             value=deepcopy(value),
@@ -80,7 +85,7 @@ class SimulatedRedis:
 
     async def incr(self, key: str) -> int:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="incr", key=key)
         entry = self._entry(key, expected_kind="string", allow_missing=True)
         current_value = None if entry is None else entry.value
         next_value = 1 if current_value is None else int(current_value) + 1
@@ -89,7 +94,7 @@ class SimulatedRedis:
 
     async def delete(self, *keys: str) -> int:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="delete", key=",".join(keys))
         deleted_count = 0
         for key in keys:
             if key in self._entries:
@@ -99,7 +104,7 @@ class SimulatedRedis:
 
     async def hset(self, key: str, field: str, value: Any) -> int:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="hset", key=key)
         entry = self._hash_entry(key, create=True)
         assert entry is not None
         is_new_field = field not in entry.value
@@ -108,7 +113,7 @@ class SimulatedRedis:
 
     async def hget(self, key: str, field: str) -> Any | None:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="hget", key=key)
         entry = self._hash_entry(key, create=False)
         if entry is None:
             return None
@@ -116,7 +121,7 @@ class SimulatedRedis:
 
     async def hgetall(self, key: str) -> dict[str, Any]:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="hgetall", key=key)
         entry = self._hash_entry(key, create=False)
         if entry is None:
             return {}
@@ -130,7 +135,7 @@ class SimulatedRedis:
 
     async def lpop(self, key: str) -> Any | None:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="lpop", key=key)
         entry = self._list_entry(key, create=False)
         if entry is None or not entry.value:
             return None
@@ -141,7 +146,7 @@ class SimulatedRedis:
 
     async def brpop(self, key: str, timeout: int | float) -> tuple[str, Any] | None:
         self._expire_due_keys()
-        self._apply_fault()
+        self._apply_fault(operation="brpop", key=key)
 
         entry = self._list_entry(key, create=False)
         if entry is not None and entry.value:
@@ -181,7 +186,11 @@ class SimulatedRedis:
 
     async def _push(self, key: str, values: tuple[Any, ...], left: bool) -> int:
         self._expire_due_keys()
-        fault = self._apply_fault(allow_partial_write=True)
+        fault = self._apply_fault(
+            operation="lpush" if left else "rpush",
+            key=key,
+            allow_partial_write=True,
+        )
 
         values_to_apply = values
         partial_applied_count: int | None = None
@@ -298,20 +307,66 @@ class SimulatedRedis:
         self._step += 1
         return self._fault_plan.fault_for_step(self._step)
 
-    def _apply_fault(self, allow_partial_write: bool = False) -> FaultSpec | None:
+    def _apply_fault(
+        self,
+        *,
+        operation: str,
+        key: str | None = None,
+        allow_partial_write: bool = False,
+    ) -> FaultSpec | None:
         fault = self._next_fault()
         if fault is None or fault.target not in {"redis", "redis.asyncio", "cache"}:
             return None
 
         if fault.kind == "connection_refused":
+            self._record(
+                "fault_injected",
+                step=self._step,
+                target="redis",
+                fault_kind=fault.kind,
+                operation=operation,
+                key=key,
+                params=dict(fault.params),
+            )
             raise RedisConnectionRefusedError("simulated redis connection refused")
         if fault.kind == "timeout":
+            self._record(
+                "fault_injected",
+                step=self._step,
+                target="redis",
+                fault_kind=fault.kind,
+                operation=operation,
+                key=key,
+                params=dict(fault.params),
+            )
             raise RedisTimeoutError("simulated redis timeout")
         if fault.kind == "moved":
+            self._record(
+                "fault_injected",
+                step=self._step,
+                target="redis",
+                fault_kind=fault.kind,
+                operation=operation,
+                key=key,
+                params=dict(fault.params),
+            )
             raise RedisMovedError(
                 slot=int(fault.params.get("slot", 0)),
                 location=str(fault.params.get("location", "127.0.0.1:6379")),
             )
         if fault.kind == "partial_write" and allow_partial_write:
+            self._record(
+                "fault_injected",
+                step=self._step,
+                target="redis",
+                fault_kind=fault.kind,
+                operation=operation,
+                key=key,
+                params=dict(fault.params),
+            )
             return fault
         return None
+
+    def _record(self, kind: str, **metadata: Any) -> None:
+        if self._record_event is not None:
+            self._record_event(kind, **metadata)

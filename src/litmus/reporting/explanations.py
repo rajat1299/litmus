@@ -50,6 +50,7 @@ def _fault_context_lines(explanation: ReplayExplanation) -> list[str]:
     lines: list[str] = []
     lines.extend(f"- {item}" for item in explanation.fault_context.selected_faults)
     lines.extend(f"- {item}" for item in explanation.fault_context.injected_faults)
+    lines.extend(f"- {item}" for item in explanation.fault_context.boundary_coverage)
     lines.extend(f"- {item}" for item in explanation.fault_context.defaulted_responses)
     if explanation.fault_context.app_exception is not None:
         lines.append(f"- {explanation.fault_context.app_exception}")

@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-04-01
-**Phase:** Alpha gap closure / verification platform tranche 1
+**Status Date:** 2026-04-04
+**Phase:** Tranche 1 closed / WS-16 planning
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -21,7 +21,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | Product direction | Locked | Canonical spec copied into repo |
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
-| Implementation | Complete | WS-09 through WS-14 are done; tranche 1 is closed |
+| Implementation | Complete | WS-09 through WS-15 are done; tranche 1 is closed |
 | Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
 
 ---
@@ -47,7 +47,7 @@ Close the highest-value alpha gaps in the shipped verification product, starting
 | M3 | DST engine | Complete | Deterministic runtime and semantic simulators catch seeded failures |
 | M4 | Team workflow | Complete | GitHub Action and PR comment are usable end-to-end |
 | M5 | Demo-ready launch candidate | In review | Demo app, packaged CLI install path, and launch workflow prove the current alpha loop |
-| M6 | Alpha gap closure tranche 1 | Complete | `init`, scoped verify, shipped DST moat work, replay/activity records, suggested invariants, and MCP access landed in bounded reviewed slices |
+| M6 | Alpha gap closure tranche 1 | Complete | `init`, scoped verify, shipped DST moat work including cross-layer verify, replay/activity records, suggested invariants, and MCP access landed in bounded reviewed slices |
 
 ---
 
@@ -71,6 +71,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-12 | Run/activity records and replay artifacts | Codex | Done | WS-04, WS-07, WS-11 | 2026-04-01 |
 | WS-13 | Suggested invariants in shipped flow | Codex | Done | WS-03, WS-10, WS-12 | 2026-04-01 |
 | WS-14 | MCP surface and minimal shared handlers | Codex | Done | WS-09, WS-10, WS-12, WS-13 | 2026-04-01 |
+| WS-15 | Cross-layer DST in shipped verify | Codex | Done | WS-11, WS-12, WS-14 | 2026-04-04 |
+| WS-16 | Exact deterministic replay fidelity | Unassigned | Planned | WS-12, WS-15 | 2026-04-04 |
 
 ---
 
@@ -98,8 +100,8 @@ Update this table whenever work is claimed, blocked, or completed.
 
 ## Immediate Next Actions
 
-1. Decide whether release hardening and public alpha closeout should be the next planned tranche.
-2. If product work continues immediately, write a new bounded plan instead of extending tranche 1 ad hoc.
+1. Claim `WS-16` and execute the bounded replay-fidelity slice from the new design and implementation plan docs.
+2. Keep release hardening and public alpha closeout as a separate bounded track instead of mixing them into `WS-16`.
 3. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

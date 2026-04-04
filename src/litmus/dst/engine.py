@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 from litmus.config import load_repo_config
 from litmus.discovery.app import default_app_loader, discover_app_reference
@@ -10,6 +12,8 @@ from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.faults import build_fault_plan
+from litmus.dst.runtime import TraceEvent
+from litmus.simulators.boundary_patches import patched_supported_boundaries
 from litmus.invariants.mined import mine_invariants_from_tests
 from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
 from litmus.invariants.suggested import suggest_route_gap_invariants
@@ -25,8 +29,8 @@ LOCAL_PROPERTY_MAX_EXAMPLES = 100
 CI_PROPERTY_MAX_EXAMPLES = 500
 LOCAL_REPLAY_SEEDS_PER_SCENARIO = 3
 CI_REPLAY_SEEDS_PER_SCENARIO = 500
-VERIFY_FAULT_TARGETS = ["http"]
-VERIFY_FAULT_KINDS = ["timeout", "connection_refused", "http_error", "slow_response"]
+VERIFY_FAULT_TARGETS = ["http", "sqlalchemy", "redis"]
+VERIFY_FAULT_KINDS = None
 load_asgi_app = default_app_loader().load
 
 
@@ -52,6 +56,12 @@ class VerificationInputs:
     scope_label: str = "full repo"
 
 
+@dataclass(slots=True, frozen=True)
+class AppBoundaryUsage:
+    supported_targets: tuple[str, ...] = ()
+    unsupported_targets: tuple[str, ...] = ()
+
+
 def run_verification(
     root: Path | str,
     mode: RunMode | str = RunMode.LOCAL,
@@ -60,20 +70,26 @@ def run_verification(
 ) -> VerificationResult:
     inputs = collect_verification_inputs(root, scope=scope)
     verification_mode = _coerce_run_mode(mode)
-    app = load_asgi_app(inputs.app_reference, Path(root))
-    replay_results, replay_traces = asyncio.run(
-        _run_replay(
-            app,
-            inputs.app_reference,
-            inputs.scenarios,
-            seeds_per_scenario=_replay_seed_count_for_mode(verification_mode),
+    with patched_supported_boundaries(Path(root)):
+        app = load_asgi_app(inputs.app_reference, Path(root))
+        boundary_usage = _boundary_usage_for_loaded_app(inputs.app_reference, Path(root))
+        active_fault_targets = _fault_targets_for_loaded_app(inputs.app_reference, Path(root))
+        replay_results, replay_traces = asyncio.run(
+            _run_replay(
+                app,
+                inputs.app_reference,
+                inputs.scenarios,
+                seeds_per_scenario=_replay_seed_count_for_mode(verification_mode),
+                fault_targets=active_fault_targets,
+                boundary_usage=boundary_usage,
+                root=Path(root),
+            )
         )
-    )
-    property_results = _run_property_checks(
-        app,
-        inputs.confirmed_invariants,
-        max_examples=_property_max_examples_for_mode(verification_mode),
-    )
+        property_results = _run_property_checks(
+            app,
+            inputs.confirmed_invariants,
+            max_examples=_property_max_examples_for_mode(verification_mode),
+        )
     return VerificationResult(
         scope_label=inputs.scope_label,
         app_reference=inputs.app_reference,
@@ -194,17 +210,28 @@ async def _run_replay(
     scenarios: list[Scenario],
     *,
     seeds_per_scenario: int = LOCAL_REPLAY_SEEDS_PER_SCENARIO,
+    fault_targets: list[str] | None = None,
+    boundary_usage: AppBoundaryUsage | None = None,
+    root: Path | None = None,
 ) -> tuple[list[DifferentialReplayResult], list[ReplayTraceRecord]]:
     replay_results: list[DifferentialReplayResult] = []
     replay_traces: list[ReplayTraceRecord] = []
     next_seed_value = 1
+    candidate_fault_targets = _normalize_fault_targets(fault_targets or VERIFY_FAULT_TARGETS)
 
     for scenario in scenarios:
+        scenario_fault_targets = await _scenario_fault_targets(
+            app,
+            app_reference,
+            scenario,
+            candidate_fault_targets,
+            root=root,
+        )
         for _ in range(seeds_per_scenario):
             fault_plan = build_fault_plan(
                 seed=next_seed_value,
                 steps=1,
-                targets=VERIFY_FAULT_TARGETS,
+                targets=scenario_fault_targets,
                 kinds=VERIFY_FAULT_KINDS,
             )
             result = await run_asgi_app(
@@ -215,6 +242,10 @@ async def _run_replay(
                 seed=next_seed_value,
                 fault_plan=fault_plan,
             )
+            trace = [
+                *_unsupported_boundary_trace_events(boundary_usage),
+                *result.trace,
+            ]
             changed_response = ResponseExample(
                 status_code=result.status_code,
                 json=result.body if isinstance(result.body, dict) else None,
@@ -237,12 +268,65 @@ async def _run_replay(
                         request_payload=scenario.request.payload,
                         baseline_status_code=replay_result.baseline_response.status_code,
                         baseline_body=replay_result.baseline_response.body,
-                        trace=result.trace,
+                        trace=trace,
                     )
                 )
             next_seed_value += 1
 
     return replay_results, replay_traces
+
+
+async def _scenario_fault_targets(
+    app,
+    app_reference: str,
+    scenario: Scenario,
+    candidate_targets: list[str],
+    *,
+    root: Path | None = None,
+) -> list[str]:
+    normalized_targets = _normalize_fault_targets(candidate_targets)
+    if normalized_targets == ["http"]:
+        return normalized_targets
+
+    probe_app = app if root is None else load_asgi_app(app_reference, root)
+    baseline_result = await run_asgi_app(
+        probe_app,
+        method=scenario.method,
+        path=scenario.path,
+        json_body=scenario.request.payload,
+        seed=0,
+    )
+    return _fault_targets_for_boundary_coverage(
+        normalized_targets,
+        baseline_result.boundary_coverage,
+    )
+
+
+def _normalize_fault_targets(targets: list[str]) -> list[str]:
+    normalized_targets: list[str] = []
+    seen: set[str] = set()
+    for target in ["http", *targets]:
+        if target in seen:
+            continue
+        seen.add(target)
+        normalized_targets.append(target)
+    return normalized_targets
+
+
+def _fault_targets_for_boundary_coverage(
+    candidate_targets: list[str],
+    boundary_coverage: dict[str, object],
+) -> list[str]:
+    active_targets = ["http"]
+    for target in candidate_targets:
+        if target == "http":
+            continue
+        coverage = boundary_coverage.get(target)
+        if coverage is None:
+            continue
+        if getattr(coverage, "detected", False):
+            active_targets.append(target)
+    return active_targets
 
 
 def _run_property_checks(
@@ -303,3 +387,307 @@ def _coerce_run_mode(mode: RunMode | str) -> RunMode:
     if normalized_mode == RunMode.WATCH.value:
         return RunMode.WATCH
     raise ValueError(f"unsupported verification mode: {mode}")
+
+
+def _fault_targets_for_loaded_app(reference: str, root: Path) -> list[str]:
+    targets = ["http"]
+    boundary_usage = _boundary_usage_for_loaded_app(reference, root)
+    targets.extend(boundary_usage.supported_targets)
+    return targets
+
+
+def _boundary_usage_for_loaded_app(reference: str, root: Path) -> AppBoundaryUsage:
+    _module_name, _separator, _attribute = reference.partition(":")
+    module_files = _loaded_repo_module_files(root)
+    if not module_files:
+        return AppBoundaryUsage()
+
+    supported: set[str] = set()
+    unsupported: set[str] = set()
+
+    for module_file in module_files:
+        tree = ast.parse(module_file.read_text(encoding="utf-8"))
+        module_supported, module_unsupported = _boundary_usage_for_module(tree)
+        supported.update(module_supported)
+        unsupported.update(module_unsupported)
+
+    return AppBoundaryUsage(
+        supported_targets=tuple(
+            target
+            for target in ("sqlalchemy", "redis")
+            if target in supported
+        ),
+        unsupported_targets=tuple(
+            target
+            for target in ("sqlalchemy", "redis")
+            if target in unsupported
+        ),
+    )
+
+
+def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
+    supported: set[str] = set()
+    unsupported: set[str] = set()
+    sqlalchemy_module_aliases: set[str] = set()
+    redis_module_aliases: set[str] = set()
+    sqlalchemy_symbol_aliases: set[str] = set()
+    redis_symbol_aliases: set[str] = set()
+    sqlalchemy_factory_aliases: set[str] = set()
+    redis_factory_aliases: set[str] = set()
+    redis_class_aliases: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "sqlalchemy.ext.asyncio":
+                    sqlalchemy_module_aliases.add(alias.asname or "sqlalchemy.ext.asyncio")
+                elif alias.name == "redis.asyncio":
+                    redis_module_aliases.add(alias.asname or "redis.asyncio")
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            if node.module == "sqlalchemy.ext.asyncio":
+                sqlalchemy_factory_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name in {"create_async_engine", "async_sessionmaker"}
+                )
+                sqlalchemy_symbol_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "AsyncSession"
+                )
+            elif node.module == "redis.asyncio":
+                redis_factory_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "from_url"
+                )
+                redis_class_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "Redis"
+                )
+                redis_symbol_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "RedisCluster"
+                )
+
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            assigned_name = _assignment_target_name(node)
+            if assigned_name is None:
+                continue
+            value_path = _assigned_value_path(node)
+            if value_path is None:
+                continue
+            if _matches_supported_boundary_call(
+                value_path,
+                direct_path=("sqlalchemy", "ext", "asyncio", "create_async_engine"),
+                module_aliases=sqlalchemy_module_aliases,
+                symbol_aliases=sqlalchemy_factory_aliases,
+                attribute_name="create_async_engine",
+            ) or _matches_supported_boundary_call(
+                value_path,
+                direct_path=("sqlalchemy", "ext", "asyncio", "async_sessionmaker"),
+                module_aliases=sqlalchemy_module_aliases,
+                symbol_aliases=sqlalchemy_factory_aliases,
+                attribute_name="async_sessionmaker",
+            ):
+                changed |= _add_alias(sqlalchemy_factory_aliases, assigned_name)
+            if _matches_supported_boundary_call(
+                value_path,
+                direct_path=("redis", "asyncio", "from_url"),
+                module_aliases=redis_module_aliases,
+                symbol_aliases=redis_factory_aliases,
+                attribute_name="from_url",
+            ) or _matches_supported_boundary_call(
+                value_path,
+                direct_path=("redis", "asyncio", "Redis", "from_url"),
+                module_aliases=redis_class_aliases,
+                symbol_aliases=redis_factory_aliases,
+                attribute_name="from_url",
+            ) or _matches_supported_boundary_call(
+                value_path,
+                direct_path=("redis", "asyncio", "Redis", "from_url"),
+                module_aliases=redis_module_aliases,
+                symbol_aliases=redis_factory_aliases,
+                attribute_name="from_url",
+                module_alias_suffix=("Redis", "from_url"),
+            ):
+                changed |= _add_alias(redis_factory_aliases, assigned_name)
+            if _matches_supported_boundary_call(
+                value_path,
+                direct_path=("redis", "asyncio", "Redis"),
+                module_aliases=redis_module_aliases,
+                symbol_aliases=redis_class_aliases,
+                attribute_name="Redis",
+            ):
+                changed |= _add_alias(redis_class_aliases, assigned_name)
+            if _matches_supported_boundary_call(
+                value_path,
+                direct_path=("sqlalchemy", "ext", "asyncio", "AsyncSession"),
+                module_aliases=sqlalchemy_module_aliases,
+                symbol_aliases=sqlalchemy_symbol_aliases,
+                attribute_name="AsyncSession",
+            ):
+                changed |= _add_alias(sqlalchemy_symbol_aliases, assigned_name)
+            if _matches_supported_boundary_call(
+                value_path,
+                direct_path=("redis", "asyncio", "RedisCluster"),
+                module_aliases=redis_module_aliases,
+                symbol_aliases=redis_symbol_aliases,
+                attribute_name="RedisCluster",
+            ):
+                changed |= _add_alias(redis_symbol_aliases, assigned_name)
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        call_path = _call_path(node.func)
+        if call_path is None:
+            continue
+        if _matches_supported_boundary_call(
+            call_path,
+            direct_path=("sqlalchemy", "ext", "asyncio", "create_async_engine"),
+            module_aliases=sqlalchemy_module_aliases,
+            symbol_aliases=sqlalchemy_factory_aliases,
+            attribute_name="create_async_engine",
+        ) or _matches_supported_boundary_call(
+            call_path,
+            direct_path=("sqlalchemy", "ext", "asyncio", "async_sessionmaker"),
+            module_aliases=sqlalchemy_module_aliases,
+            symbol_aliases=sqlalchemy_factory_aliases,
+            attribute_name="async_sessionmaker",
+        ):
+            supported.add("sqlalchemy")
+        if _matches_supported_boundary_call(
+            call_path,
+            direct_path=("redis", "asyncio", "from_url"),
+            module_aliases=redis_module_aliases,
+            symbol_aliases=redis_factory_aliases,
+            attribute_name="from_url",
+        ) or _matches_supported_boundary_call(
+            call_path,
+            direct_path=("redis", "asyncio", "Redis"),
+            module_aliases=redis_module_aliases,
+            symbol_aliases=redis_class_aliases,
+            attribute_name="Redis",
+        ) or _matches_supported_boundary_call(
+            call_path,
+            direct_path=("redis", "asyncio", "Redis", "from_url"),
+            module_aliases=redis_class_aliases,
+            symbol_aliases=set(),
+            attribute_name="from_url",
+        ) or _matches_supported_boundary_call(
+            call_path,
+            direct_path=("redis", "asyncio", "Redis", "from_url"),
+            module_aliases=redis_module_aliases,
+            symbol_aliases=set(),
+            attribute_name="from_url",
+            module_alias_suffix=("Redis", "from_url"),
+        ):
+            supported.add("redis")
+        if _matches_supported_boundary_call(
+            call_path,
+            direct_path=("sqlalchemy", "ext", "asyncio", "AsyncSession"),
+            module_aliases=sqlalchemy_module_aliases,
+            symbol_aliases=sqlalchemy_symbol_aliases,
+            attribute_name="AsyncSession",
+        ):
+            unsupported.add("sqlalchemy")
+        if _matches_supported_boundary_call(
+            call_path,
+            direct_path=("redis", "asyncio", "RedisCluster"),
+            module_aliases=redis_module_aliases,
+            symbol_aliases=redis_symbol_aliases,
+            attribute_name="RedisCluster",
+        ):
+            unsupported.add("redis")
+
+    return supported, unsupported
+
+
+def _call_path(node: ast.AST) -> tuple[str, ...] | None:
+    if isinstance(node, ast.Name):
+        return (node.id,)
+    if isinstance(node, ast.Attribute):
+        parent = _call_path(node.value)
+        if parent is None:
+            return None
+        return (*parent, node.attr)
+    return None
+
+
+def _assignment_target_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+        return node.targets[0].id
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return node.target.id
+    return None
+
+
+def _assigned_value_path(node: ast.AST) -> tuple[str, ...] | None:
+    if isinstance(node, ast.Assign):
+        return _call_path(node.value)
+    if isinstance(node, ast.AnnAssign):
+        return _call_path(node.value)
+    return None
+
+
+def _add_alias(aliases: set[str], alias: str) -> bool:
+    if alias in aliases:
+        return False
+    aliases.add(alias)
+    return True
+
+
+def _matches_supported_boundary_call(
+    call_path: tuple[str, ...],
+    *,
+    direct_path: tuple[str, ...],
+    module_aliases: set[str],
+    symbol_aliases: set[str],
+    attribute_name: str,
+    module_alias_suffix: tuple[str, ...] | None = None,
+) -> bool:
+    if call_path == direct_path:
+        return True
+    alias_suffix = module_alias_suffix or (attribute_name,)
+    if len(call_path) == len(alias_suffix) + 1 and call_path[0] in module_aliases and call_path[1:] == alias_suffix:
+        return True
+    return len(call_path) == 1 and call_path[0] in symbol_aliases
+
+
+def _loaded_repo_module_files(root: Path) -> list[Path]:
+    repo_root = Path(root).resolve()
+    module_files: list[Path] = []
+    for module in sys.modules.values():
+        module_path = getattr(module, "__file__", None)
+        if module_path is None:
+            continue
+        path = Path(module_path).resolve()
+        try:
+            path.relative_to(repo_root)
+        except ValueError:
+            continue
+        module_files.append(path)
+    return module_files
+
+
+def _unsupported_boundary_trace_events(boundary_usage: AppBoundaryUsage | None) -> list[TraceEvent]:
+    if boundary_usage is None:
+        return []
+
+    events: list[TraceEvent] = []
+    for boundary in boundary_usage.unsupported_targets:
+        detail = "Unsupported constructor or type import in loaded app modules."
+        events.append(TraceEvent(kind="boundary_detected", metadata={"boundary": boundary}))
+        events.append(
+            TraceEvent(
+                kind="boundary_unsupported",
+                metadata={"boundary": boundary, "detail": detail},
+            )
+        )
+    return events

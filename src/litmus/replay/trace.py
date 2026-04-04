@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from litmus.dst.faults import FaultPlan, FaultSpec
-from litmus.dst.runtime import TraceEvent
+from litmus.dst.runtime import BoundaryCoverage, TraceEvent
 
 
 @dataclass(slots=True)
@@ -73,3 +73,50 @@ def replay_fault_plan(record: ReplayTraceRecord) -> FaultPlan:
         return FaultPlan(seed=record.seed_value, schedule=schedule)
 
     return FaultPlan(seed=record.seed_value)
+
+
+def boundary_coverage_from_trace(trace: list[TraceEvent]) -> dict[str, BoundaryCoverage]:
+    coverage = {
+        "http": BoundaryCoverage(),
+        "sqlalchemy": BoundaryCoverage(),
+        "redis": BoundaryCoverage(),
+    }
+    for event in trace:
+        if event.kind == "boundary_detected":
+            coverage[event.metadata["boundary"]].detected = True
+        elif event.kind == "boundary_intercepted":
+            boundary = event.metadata["boundary"]
+            coverage[boundary].detected = True
+            coverage[boundary].intercepted = True
+        elif event.kind == "boundary_simulated":
+            boundary = event.metadata["boundary"]
+            coverage[boundary].detected = True
+            coverage[boundary].intercepted = True
+            coverage[boundary].simulated = True
+        elif event.kind == "boundary_unsupported":
+            boundary = event.metadata["boundary"]
+            coverage[boundary].detected = True
+            coverage[boundary].unsupported = True
+        elif event.kind == "fault_injected":
+            boundary = event.metadata["target"]
+            if boundary in coverage:
+                coverage[boundary].faulted = True
+    return coverage
+
+
+def boundary_coverage_from_result(result) -> dict[str, BoundaryCoverage]:
+    aggregate = {
+        "http": BoundaryCoverage(),
+        "sqlalchemy": BoundaryCoverage(),
+        "redis": BoundaryCoverage(),
+    }
+    for record in result.replay_traces:
+        trace_coverage = boundary_coverage_from_trace(record.trace)
+        for boundary, snapshot in trace_coverage.items():
+            current = aggregate[boundary]
+            current.detected = current.detected or snapshot.detected
+            current.intercepted = current.intercepted or snapshot.intercepted
+            current.simulated = current.simulated or snapshot.simulated
+            current.faulted = current.faulted or snapshot.faulted
+            current.unsupported = current.unsupported or snapshot.unsupported
+    return aggregate

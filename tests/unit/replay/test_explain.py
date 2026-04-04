@@ -99,3 +99,76 @@ def test_explain_replay_for_unchanged_seed_recommends_no_action() -> None:
 
     assert explanation.reasons == ["Current behavior still matches the baseline response."]
     assert explanation.next_step == "No action needed. This seed still matches the baseline."
+
+
+def test_explain_replay_includes_cross_layer_boundary_coverage_context() -> None:
+    explanation = explain_replay(
+        seed="seed:3",
+        method="POST",
+        path="/payments/charge",
+        baseline_status_code=200,
+        baseline_body={"status": "charged"},
+        current_status_code=500,
+        current_body={"error": "uncaught_exception"},
+        classification=ReplayClassification.BREAKING_CHANGE,
+        diff={
+            "status_code": (200, 500),
+            "body": ({"status": "charged"}, {"error": "uncaught_exception"}),
+        },
+        trace=[
+            TraceEvent(
+                kind="boundary_detected",
+                metadata={"boundary": "redis"},
+            ),
+            TraceEvent(
+                kind="boundary_intercepted",
+                metadata={"boundary": "redis", "supported_shape": "redis.asyncio.from_url"},
+            ),
+            TraceEvent(
+                kind="boundary_simulated",
+                metadata={"boundary": "redis"},
+            ),
+            TraceEvent(
+                kind="fault_plan_selected",
+                metadata={
+                    "schedule": [
+                        {"step": 1, "target": "redis", "kind": "timeout", "params": {}},
+                    ]
+                },
+            ),
+            TraceEvent(
+                kind="fault_injected",
+                metadata={
+                    "step": 1,
+                    "target": "redis",
+                    "fault_kind": "timeout",
+                    "operation": "get",
+                    "key": "charge:ord-1",
+                    "params": {},
+                },
+            ),
+            TraceEvent(
+                kind="boundary_unsupported",
+                metadata={"boundary": "sqlalchemy", "detail": "AsyncSession direct construction"},
+            ),
+        ],
+    )
+
+    assert "Step 1 scheduled timeout on redis." in explanation.fault_context.selected_faults
+    assert (
+        "Intercepted redis via redis.asyncio.from_url."
+        in explanation.fault_context.boundary_coverage
+    )
+    assert "Simulated redis with Litmus state machines." in explanation.fault_context.boundary_coverage
+    assert (
+        "Redis boundary was detected but unsupported: AsyncSession direct construction."
+        not in explanation.fault_context.boundary_coverage
+    )
+    assert (
+        "SQLAlchemy boundary was detected but unsupported: AsyncSession direct construction."
+        in explanation.fault_context.boundary_coverage
+    )
+    assert (
+        "Injected timeout on redis for get charge:ord-1 at step 1."
+        in explanation.fault_context.injected_faults
+    )

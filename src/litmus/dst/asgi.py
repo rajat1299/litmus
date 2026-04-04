@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from litmus.dst.faults import FaultPlan
-from litmus.dst.runtime import RuntimeContext, TraceEvent
+from litmus.dst.runtime import BoundaryCoverage, RuntimeContext, TraceEvent
+from litmus.simulators.boundary_patches import activate_runtime, patched_supported_boundaries
 from litmus.simulators.aiohttp_adapter import patch_aiohttp
 from litmus.simulators.http import HttpSimulator
 from litmus.simulators.httpx_adapter import patch_httpx
@@ -16,6 +17,7 @@ class AsgiExecutionResult:
     status_code: int
     body: Any
     trace: list[TraceEvent]
+    boundary_coverage: dict[str, BoundaryCoverage]
 
 
 async def run_asgi_app(
@@ -93,17 +95,19 @@ async def run_asgi_app(
     )
 
     app_exception: Exception | None = None
-    with patch_httpx(http_simulator):
-        with patch_aiohttp(http_simulator):
-            try:
-                await app(scope, receive, send)
-            except Exception as exc:  # pragma: no cover - exercised by integration behavior
-                app_exception = exc
-                runtime.record(
-                    "app_exception",
-                    type=exc.__class__.__name__,
-                    message=str(exc),
-                )
+    with activate_runtime(runtime):
+        with patched_supported_boundaries():
+            with patch_httpx(http_simulator):
+                with patch_aiohttp(http_simulator):
+                    try:
+                        await app(scope, receive, send)
+                    except Exception as exc:  # pragma: no cover - exercised by integration behavior
+                        app_exception = exc
+                        runtime.record(
+                            "app_exception",
+                            type=exc.__class__.__name__,
+                            message=str(exc),
+                        )
 
     if app_exception is not None and not response_headers and not response_chunks:
         response_status = 500
@@ -124,6 +128,7 @@ async def run_asgi_app(
         status_code=response_status,
         body=_decode_body(body, response_headers),
         trace=list(runtime.trace),
+        boundary_coverage=dict(runtime.boundary_coverage),
     )
 
 

@@ -4,10 +4,11 @@ import asyncio
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import sys
 
 from litmus.config import RepoConfig
-from litmus.dst.engine import _run_replay, run_verification
-from litmus.dst.runtime import TraceEvent
+from litmus.dst.engine import _boundary_usage_for_loaded_app, _fault_targets_for_loaded_app, _run_replay, run_verification
+from litmus.dst.runtime import BoundaryCoverage, TraceEvent
 from litmus.discovery.routes import RouteDefinition
 from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, RequestExample, ResponseExample
 from litmus.properties.runner import PropertyCheckStatus
@@ -51,8 +52,19 @@ def test_run_verification_uses_ci_replay_and_property_budgets(monkeypatch, tmp_p
 
     captured: dict[str, int] = {}
 
-    async def fake_run_replay(_app, _app_reference, _scenarios, *, seeds_per_scenario: int):
+    async def fake_run_replay(
+        _app,
+        _app_reference,
+        _scenarios,
+        *,
+        seeds_per_scenario: int,
+        fault_targets=None,
+        boundary_usage=None,
+        root=None,
+    ):
         captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["fault_targets"] = fault_targets
+        captured["boundary_usage"] = boundary_usage
         return [], []
 
     monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
@@ -67,6 +79,9 @@ def test_run_verification_uses_ci_replay_and_property_budgets(monkeypatch, tmp_p
 
     assert captured["seeds_per_scenario"] == 500
     assert captured["max_examples"] == 500
+    assert captured["fault_targets"] == ["http"]
+    assert captured["boundary_usage"].supported_targets == ()
+    assert captured["boundary_usage"].unsupported_targets == ()
 
 
 def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypatch, tmp_path: Path) -> None:
@@ -79,8 +94,19 @@ def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypa
 
     captured: dict[str, int] = {}
 
-    async def fake_run_replay(_app, _app_reference, _scenarios, *, seeds_per_scenario: int):
+    async def fake_run_replay(
+        _app,
+        _app_reference,
+        _scenarios,
+        *,
+        seeds_per_scenario: int,
+        fault_targets=None,
+        boundary_usage=None,
+        root=None,
+    ):
         captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["fault_targets"] = fault_targets
+        captured["boundary_usage"] = boundary_usage
         return [], []
 
     monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
@@ -95,6 +121,9 @@ def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypa
 
     assert captured["seeds_per_scenario"] == 3
     assert captured["max_examples"] == 100
+    assert captured["fault_targets"] == ["http"]
+    assert captured["boundary_usage"].supported_targets == ()
+    assert captured["boundary_usage"].unsupported_targets == ()
 
 
 def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(monkeypatch) -> None:
@@ -110,6 +139,7 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
         status_code: int
         body: dict[str, str]
         trace: list[TraceEvent]
+        boundary_coverage: dict[str, BoundaryCoverage]
 
     captured_fault_plan_seeds: list[int] = []
 
@@ -118,21 +148,26 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
             self.seed = seed
             self.schedule = {1: {"kind": "timeout"}}
 
-    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str]):
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
         assert steps == 1
-        assert targets == ["http"]
-        assert "timeout" in kinds
+        assert targets == ["http", "sqlalchemy", "redis"]
         return FakeFaultPlan(seed)
 
-    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan):
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
         assert method == "POST"
         assert path == "/payments/charge"
         assert json_body == {"amount": 100}
-        captured_fault_plan_seeds.append(fault_plan.seed)
+        if fault_plan is not None:
+            captured_fault_plan_seeds.append(fault_plan.seed)
         return FakeAsgiResult(
             status_code=200,
             body={"status": "charged"},
             trace=[TraceEvent(kind="request_started", metadata={"seed": seed})],
+            boundary_coverage={
+                "http": BoundaryCoverage(detected=True),
+                "sqlalchemy": BoundaryCoverage(detected=True),
+                "redis": BoundaryCoverage(detected=True),
+            },
         )
 
     monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
@@ -151,6 +186,196 @@ def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(
     assert len(replay_traces) == 3
     assert [trace.seed for trace in replay_traces] == ["seed:1", "seed:2", "seed:3"]
     assert captured_fault_plan_seeds == [1, 2, 3]
+
+
+def test_run_replay_spreads_local_fault_targets_across_http_sqlalchemy_and_redis(monkeypatch) -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+
+    captured_targets: list[str] = []
+
+    class FakeFaultPlan:
+        def __init__(self, seed: int, target: str) -> None:
+            self.seed = seed
+            self.schedule = {
+                1: {
+                    "kind": "fault",
+                    "target": target,
+                }
+            }
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
+        assert steps == 1
+        assert targets == ["http", "sqlalchemy", "redis"]
+        target = targets[seed - 1]
+        captured_targets.append(target)
+        return FakeFaultPlan(seed, target)
+
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
+        assert method == "POST"
+        assert path == "/payments/charge"
+        assert json_body == {"amount": 100}
+        return type(
+            "FakeAsgiResult",
+            (),
+            {
+                "status_code": 200,
+                "body": {"status": "charged"},
+                "trace": [TraceEvent(kind="request_started", metadata={"seed": seed})],
+                "boundary_coverage": {
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(detected=True),
+                    "redis": BoundaryCoverage(detected=True),
+                },
+            },
+        )()
+
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            object(),
+            "service.app:app",
+            [scenario],
+            seeds_per_scenario=3,
+        )
+    )
+
+    assert len(replay_results) == 3
+    assert len(replay_traces) == 3
+    assert captured_targets == ["http", "sqlalchemy", "redis"]
+
+
+def test_run_replay_narrows_fault_targets_to_runtime_detected_boundaries(monkeypatch) -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+
+    captured_targets: list[list[str]] = []
+
+    class FakeFaultPlan:
+        def __init__(self, seed: int) -> None:
+            self.seed = seed
+            self.schedule = {
+                1: {
+                    "kind": "fault",
+                    "target": "http",
+                }
+            }
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
+        assert steps == 1
+        captured_targets.append(list(targets))
+        return FakeFaultPlan(seed)
+
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
+        assert method == "POST"
+        assert path == "/payments/charge"
+        assert json_body == {"amount": 100}
+        return type(
+            "FakeAsgiResult",
+            (),
+            {
+                "status_code": 200,
+                "body": {"status": "charged"},
+                "trace": [TraceEvent(kind="request_started", metadata={"seed": seed})],
+                "boundary_coverage": {
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(),
+                },
+            },
+        )()
+
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            object(),
+            "service.app:app",
+            [scenario],
+            seeds_per_scenario=3,
+            fault_targets=["http", "redis"],
+        )
+    )
+
+    assert len(replay_results) == 3
+    assert len(replay_traces) == 3
+    assert captured_targets == [["http"], ["http"], ["http"]]
+
+
+def test_run_replay_probes_with_fresh_app_instance_when_root_is_available(monkeypatch, tmp_path: Path) -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"count": 1}),
+    )
+
+    @dataclass(slots=True)
+    class StatefulApp:
+        count: int = 0
+
+    measured_app = StatefulApp()
+
+    class FakeFaultPlan:
+        def __init__(self, seed: int) -> None:
+            self.seed = seed
+            self.schedule = {1: {"kind": "fault", "target": "http"}}
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
+        assert steps == 1
+        assert targets == ["http"]
+        return FakeFaultPlan(seed)
+
+    async def fake_run_asgi_app(app, *, method, path, json_body, seed, fault_plan=None):
+        assert method == "POST"
+        assert path == "/payments/charge"
+        assert json_body == {"amount": 100}
+        app.count += 1
+        return type(
+            "FakeAsgiResult",
+            (),
+            {
+                "status_code": 200,
+                "body": {"count": app.count},
+                "trace": [TraceEvent(kind="request_started", metadata={"seed": seed, "count": app.count})],
+                "boundary_coverage": {
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(),
+                },
+            },
+        )()
+
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: StatefulApp())
+
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            measured_app,
+            "service.app:app",
+            [scenario],
+            seeds_per_scenario=1,
+            fault_targets=["http", "redis"],
+            root=tmp_path,
+        )
+    )
+
+    assert len(replay_results) == 1
+    assert len(replay_traces) == 1
+    assert replay_results[0].changed_response.body == {"count": 1}
+    assert measured_app.count == 1
 
 
 def test_run_verification_keeps_suggested_route_gaps_out_of_replay_scenarios(monkeypatch, tmp_path: Path) -> None:
@@ -359,3 +584,272 @@ def test_run_verification_exercises_real_property_path_for_failing_invariant(mon
     assert property_result.failing_request.path == "/payments/charge"
     assert property_result.failing_request.payload is not None
     assert property_result.failing_request.payload["amount"] > 500
+
+
+def test_fault_targets_for_loaded_app_detects_sqlalchemy_and_redis_one_module_hop_away(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "sqlalchemy", "redis")
+    service_dir = tmp_path / "service"
+    sqlalchemy_ext_dir = tmp_path / "sqlalchemy" / "ext"
+    redis_dir = tmp_path / "redis"
+    service_dir.mkdir()
+    sqlalchemy_ext_dir.mkdir(parents=True)
+    redis_dir.mkdir()
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "from service.db import engine\n"
+            "from service.cache import redis_client\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (service_dir / "db.py").write_text(
+        (
+            "from sqlalchemy.ext.asyncio import create_async_engine\n"
+            "engine = create_async_engine('sqlite+aiosqlite:///:memory:')\n"
+        ),
+        encoding="utf-8",
+    )
+    (service_dir / "cache.py").write_text(
+        (
+            "from redis.asyncio import from_url\n"
+            "redis_client = from_url('redis://cache')\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "sqlalchemy" / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "asyncio.py").write_text(
+        (
+            "class AsyncSession:\n"
+            "    pass\n"
+            "def create_async_engine(*args, **kwargs):\n"
+            "    return object()\n"
+            "def async_sessionmaker(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        (
+            "class Redis:\n"
+            "    pass\n"
+            "class RedisCluster:\n"
+            "    pass\n"
+            "def from_url(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    assert _fault_targets_for_loaded_app("service.app:app", tmp_path) == [
+        "http",
+        "sqlalchemy",
+        "redis",
+    ]
+
+
+def test_boundary_usage_ignores_asyncsession_type_import_when_supported_sqlalchemy_path_is_used(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "sqlalchemy")
+    service_dir = tmp_path / "service"
+    sqlalchemy_ext_dir = tmp_path / "sqlalchemy" / "ext"
+    service_dir.mkdir()
+    sqlalchemy_ext_dir.mkdir(parents=True)
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            "engine = create_async_engine('sqlite+aiosqlite:///:memory:')\n"
+            "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)\n"
+            "session_annotation = AsyncSession\n"
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "sqlalchemy" / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "asyncio.py").write_text(
+        (
+            "class AsyncSession:\n"
+            "    pass\n"
+            "def create_async_engine(*args, **kwargs):\n"
+            "    return object()\n"
+            "def async_sessionmaker(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    boundary_usage = _boundary_usage_for_loaded_app("service.app:app", tmp_path)
+
+    assert boundary_usage.supported_targets == ("sqlalchemy",)
+    assert boundary_usage.unsupported_targets == ()
+
+
+def test_fault_targets_ignore_type_only_supported_boundary_imports(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "redis", "sqlalchemy")
+    service_dir = tmp_path / "service"
+    redis_dir = tmp_path / "redis"
+    sqlalchemy_ext_dir = tmp_path / "sqlalchemy" / "ext"
+    service_dir.mkdir()
+    redis_dir.mkdir()
+    sqlalchemy_ext_dir.mkdir(parents=True)
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "from redis.asyncio import Redis\n"
+            "from sqlalchemy.ext.asyncio import create_async_engine\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            "redis_annotation = Redis\n"
+            "engine_factory = create_async_engine\n"
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        (
+            "class Redis:\n"
+            "    pass\n"
+            "def from_url(*args, **kwargs):\n"
+            "    return object()\n"
+            "class RedisCluster:\n"
+            "    pass\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "sqlalchemy" / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "asyncio.py").write_text(
+        (
+            "class AsyncSession:\n"
+            "    pass\n"
+            "def create_async_engine(*args, **kwargs):\n"
+            "    return object()\n"
+            "def async_sessionmaker(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    boundary_usage = _boundary_usage_for_loaded_app("service.app:app", tmp_path)
+
+    assert boundary_usage.supported_targets == ()
+    assert boundary_usage.unsupported_targets == ()
+    assert _fault_targets_for_loaded_app("service.app:app", tmp_path) == ["http"]
+
+
+def test_fault_targets_detect_redis_from_url_via_module_alias(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "redis")
+    service_dir = tmp_path / "service"
+    redis_dir = tmp_path / "redis"
+    service_dir.mkdir()
+    redis_dir.mkdir()
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "import redis.asyncio as redis\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            'redis_client = redis.Redis.from_url("redis://cache")\n'
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        (
+            "class Redis:\n"
+            "    @classmethod\n"
+            "    def from_url(cls, *args, **kwargs):\n"
+            "        return object()\n"
+            "def from_url(*args, **kwargs):\n"
+            "    return object()\n"
+            "class RedisCluster:\n"
+            "    pass\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    boundary_usage = _boundary_usage_for_loaded_app("service.app:app", tmp_path)
+
+    assert boundary_usage.supported_targets == ("redis",)
+    assert boundary_usage.unsupported_targets == ()
+    assert _fault_targets_for_loaded_app("service.app:app", tmp_path) == ["http", "redis"]
+
+
+def test_fault_targets_detect_redis_from_url_assignment_alias_via_module_alias(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "redis")
+    service_dir = tmp_path / "service"
+    redis_dir = tmp_path / "redis"
+    service_dir.mkdir()
+    redis_dir.mkdir()
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "import redis.asyncio as redis\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            "RedisFromUrl = redis.Redis.from_url\n"
+            'redis_client = RedisFromUrl("redis://cache")\n'
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (redis_dir / "__init__.py").write_text("", encoding="utf-8")
+    (redis_dir / "asyncio.py").write_text(
+        (
+            "class Redis:\n"
+            "    @classmethod\n"
+            "    def from_url(cls, *args, **kwargs):\n"
+            "        return object()\n"
+            "def from_url(*args, **kwargs):\n"
+            "    return object()\n"
+            "class RedisCluster:\n"
+            "    pass\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    boundary_usage = _boundary_usage_for_loaded_app("service.app:app", tmp_path)
+
+    assert boundary_usage.supported_targets == ("redis",)
+    assert boundary_usage.unsupported_targets == ()
+    assert _fault_targets_for_loaded_app("service.app:app", tmp_path) == ["http", "redis"]
+
+
+def _clear_test_modules(*prefixes: str) -> None:
+    for name in list(sys.modules):
+        if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):
+            sys.modules.pop(name, None)
