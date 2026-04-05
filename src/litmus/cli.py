@@ -11,7 +11,14 @@ from litmus.replay.differential import ReplayClassification
 from litmus.reporting.console import render_verification_summary
 from litmus.reporting.explanations import render_replay_explanation
 from litmus.runs import RunMode, record_verification_run
-from litmus.surface import GROUNDED_ALPHA_TAGLINE
+from litmus.surface import (
+    GROUNDED_ALPHA_TAGLINE,
+    INIT_OPERATION,
+    MCP_OPERATION,
+    REPLAY_OPERATION,
+    VERIFY_OPERATION,
+    WATCH_OPERATION,
+)
 from litmus.verify_scope import resolve_verification_scope
 from litmus.watch import run_watch
 
@@ -22,9 +29,8 @@ app = typer.Typer(
 )
 
 
-@app.command()
+@app.command(help=INIT_OPERATION.cli_help)
 def init() -> None:
-    """Bootstrap Litmus in the current repository using the grounded alpha path."""
     try:
         result = bootstrap_repo(Path.cwd())
     except LookupError as exc:
@@ -41,13 +47,12 @@ def init() -> None:
     typer.echo(f"Support: {result.support_summary[0]}")
 
 
-@app.command()
+@app.command(help=VERIFY_OPERATION.cli_help)
 def verify(
     target: Path | None = typer.Argument(None, help="Optional file or directory path to scope verification."),
     staged: bool = typer.Option(False, "--staged", help="Scope verification to staged git changes."),
     diff: str | None = typer.Option(None, "--diff", help="Scope verification to a named git diff range."),
 ) -> None:
-    """Run grounded Litmus alpha verification for the current scope."""
     try:
         scope = resolve_verification_scope(
             Path.cwd(),
@@ -74,26 +79,23 @@ def verify(
         raise typer.Exit(code=1)
 
 
-@app.command()
+@app.command(help=WATCH_OPERATION.cli_help)
 def watch() -> None:
-    """Watch local Python and config changes and rerun grounded Litmus verification."""
     try:
         run_watch(Path.cwd(), emit=typer.echo)
     except KeyboardInterrupt:
         typer.echo("Litmus watch stopped.")
 
 
-@app.command()
+@app.command(help=MCP_OPERATION.cli_help)
 def mcp() -> None:
-    """Run the local Litmus MCP server over stdio."""
     from litmus.mcp.server import serve_mcp
 
     serve_mcp(Path.cwd())
 
 
-@app.command()
+@app.command(help=REPLAY_OPERATION.cli_help)
 def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -> None:
-    """Replay a recorded seed from the latest replayable Litmus run."""
     from litmus.mcp.tools import run_replay_operation
 
     repo_root = Path.cwd()

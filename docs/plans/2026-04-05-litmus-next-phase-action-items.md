@@ -108,7 +108,7 @@ Implemented on 2026-04-05 as a grounded-surface reconciliation pass across alpha
 
 **What this item is**
 
-Reconcile the public product story across the README, product spec framing, alpha docs, demo flow, and in-product output so Litmus says exactly what it does today.
+Reconcile the shipped product story across grounded docs, product spec framing, alpha docs, demo flow, and in-product output so Litmus says exactly what it does today, while making the top-level `README.md` explicitly remain aspirational.
 
 **Why this matters**
 
@@ -141,8 +141,9 @@ The current risk is not missing capability. It is trust drift between the shippe
 
 **Exit criteria**
 
-- public docs no longer over-claim or under-claim current shipped behavior
-- alpha quickstart, README, spec framing, CLI help, and MCP surfaces tell the same story
+- grounded public docs no longer over-claim or under-claim current shipped behavior
+- alpha quickstart, release notes, spec framing, CLI help, reporting labels, and MCP surfaces tell the same shipped story
+- the top-level `README.md` is explicitly treated as aspirational rather than as launch-truth copy
 
 ### A2. Distribution And Install Automation
 

@@ -5,6 +5,17 @@ import sys
 import tomllib
 from pathlib import Path
 
+from typer.main import get_command
+
+from litmus.cli import app, init, mcp, replay, verify, watch
+from litmus.surface import (
+    INIT_OPERATION,
+    MCP_OPERATION,
+    REPLAY_OPERATION,
+    VERIFY_OPERATION,
+    WATCH_OPERATION,
+)
+
 
 def test_litmus_replay_no_longer_exports_run_store_lookup() -> None:
     import litmus.replay as replay
@@ -53,3 +64,18 @@ def test_pyproject_declares_anyio_as_runtime_dependency() -> None:
     dependencies = pyproject["project"]["dependencies"]
 
     assert any(dependency.startswith("anyio>=") for dependency in dependencies)
+
+
+def test_cli_command_help_comes_from_surface_contract_without_duplicate_docstrings() -> None:
+    command_group = get_command(app)
+    assert command_group.commands["init"].help == INIT_OPERATION.cli_help
+    assert command_group.commands["verify"].help == VERIFY_OPERATION.cli_help
+    assert command_group.commands["watch"].help == WATCH_OPERATION.cli_help
+    assert command_group.commands["mcp"].help == MCP_OPERATION.cli_help
+    assert command_group.commands["replay"].help == REPLAY_OPERATION.cli_help
+
+    assert init.__doc__ is None
+    assert verify.__doc__ is None
+    assert watch.__doc__ is None
+    assert mcp.__doc__ is None
+    assert replay.__doc__ is None
