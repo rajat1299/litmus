@@ -76,6 +76,7 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
     assert render_verification_summary(result) == "\n".join(
         [
             "Litmus verify",
+            "Surface: grounded alpha for Python async ASGI services",
             "App: service.app:app",
             "Scope: full repo",
             "Routes: 1",

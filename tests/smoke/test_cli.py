@@ -17,7 +17,11 @@ def test_litmus_help_shows_core_commands() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "Usage:" in result.stdout
+    assert "Grounded alpha verification for Python async ASGI services." in result.stdout
     assert "init" in result.stdout
     assert "verify" in result.stdout
     assert "watch" in result.stdout
+    assert "mcp" in result.stdout
     assert "replay" in result.stdout
+    assert "Run the local Litmus MCP server over stdio." in result.stdout
+    assert "Replay a recorded seed from the latest replayable Litmus run." in result.stdout

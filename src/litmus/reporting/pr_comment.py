@@ -9,6 +9,7 @@ from litmus.replay.trace import boundary_coverage_from_result
 from litmus.replay.differential import ReplayClassification
 from litmus.reporting.confidence import calculate_confidence_score
 from litmus.runs.summary import VerificationProjection
+from litmus.surface import GROUNDED_ALPHA_SURFACE_SHORT_LABEL
 
 
 def render_pr_comment(result) -> str:
@@ -16,8 +17,9 @@ def render_pr_comment(result) -> str:
     confidence = calculate_confidence_score(result.replay_results, result.property_results)
 
     lines = [
-        "## Litmus Verification",
+        "## Litmus Verification (Grounded Alpha)",
         "",
+        f"Surface: `{GROUNDED_ALPHA_SURFACE_SHORT_LABEL}`",
         f"Confidence score: `{confidence:.2f}`",
         f"App: `{projection.app_reference}`",
         "",

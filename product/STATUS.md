@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-04-04
-**Phase:** WS-17 done / next moat slice selection
+**Status Date:** 2026-04-05
+**Phase:** Track A1 done / Track A2 selection
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -10,7 +10,7 @@
 
 ## Current Objective
 
-Keep the shipped verification product honest and demonstrable after tranche 1 by landing bounded moat-deepening slices without broadening the launch surface or weakening the zero-config contract.
+Keep the shipped verification product honest and demonstrable after tranche 1 by closing public-alpha truth drift first, then continue bounded moat-deepening slices without broadening the launch surface or weakening the zero-config contract.
 
 ---
 
@@ -99,14 +99,16 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-04 | Landed exact replay fidelity via persisted execution transcripts, replay drift classification, and MCP/CLI divergence reporting |
 | 2026-04-04 | Chose WS-17 as the next moat slice: bounded fault-path reachability plus deterministic target-aware local coverage |
 | 2026-04-04 | Landed WS-17 via fresh-app fault-activation probes, deterministic local target coverage, and persisted target-selection artifacts |
+| 2026-04-05 | Completed Track A1 grounded-surface reconciliation across alpha docs, CLI help, MCP descriptions, and reporting labels without changing the aspirational top-level README |
 
 ---
 
 ## Immediate Next Actions
 
-1. Decide the next bounded moat slice after WS-17 instead of widening local planning heuristics ad hoc.
-2. Keep release hardening and public alpha closeout separate from moat work unless explicitly planned together.
-3. Keep `product/STATUS.md` as the single live source for what is in flight.
+1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
+2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
+3. Staff Track A2 next unless a Track B moat slice is chosen explicitly.
+4. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
 

@@ -9,6 +9,17 @@
 
 ---
 
+## Framing Note
+
+This document is the locked product design target, not the shipped alpha truth surface.
+
+For the currently shipped repository surface, use:
+
+- `docs/alpha-quickstart.md`
+- `docs/releases/2026-03-31-alpha.md`
+- CLI help from `litmus --help`
+- local MCP tool descriptions from `litmus mcp`
+
 ## Locked Decisions (Summary)
 
 These decisions are finalized and inform every section of this spec.

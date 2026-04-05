@@ -18,16 +18,23 @@ from litmus.mcp.types import (
     ReplayOperationPayload,
     VerifyOperationPayload,
 )
+from litmus.surface import (
+    EXPLAIN_FAILURE_OPERATION,
+    LIST_INVARIANTS_OPERATION,
+    MCP_SERVER_INSTRUCTIONS,
+    REPLAY_OPERATION,
+    VERIFY_OPERATION,
+)
 
 
 def build_mcp_server(root: Path | None = None) -> FastMCP:
     server = FastMCP(
         name="litmus",
-        instructions="Run Litmus verification, replay failing seeds, and inspect visible invariants.",
+        instructions=MCP_SERVER_INSTRUCTIONS,
     )
     workspace_root = Path.cwd() if root is None else Path(root)
 
-    @server.tool(name="verify", description="Run Litmus verification and persist a replayable run.", structured_output=True)
+    @server.tool(name="verify", description=VERIFY_OPERATION.mcp_description, structured_output=True)
     async def verify(
         target: str | None = None,
         staged: bool = False,
@@ -46,7 +53,7 @@ def build_mcp_server(root: Path | None = None) -> FastMCP:
 
     @server.tool(
         name="list_invariants",
-        description="List confirmed and suggested invariants visible for the selected scope.",
+        description=LIST_INVARIANTS_OPERATION.mcp_description,
         structured_output=True,
     )
     async def list_invariants(
@@ -67,7 +74,7 @@ def build_mcp_server(root: Path | None = None) -> FastMCP:
 
     @server.tool(
         name="replay",
-        description="Replay a stored Litmus seed using its recorded fault schedule and return a structured explanation.",
+        description=REPLAY_OPERATION.mcp_description,
         structured_output=True,
     )
     async def replay(seed: str) -> ReplayOperationPayload:
@@ -76,7 +83,7 @@ def build_mcp_server(root: Path | None = None) -> FastMCP:
 
     @server.tool(
         name="explain_failure",
-        description="Explain a stored Litmus seed using the recorded fault schedule without creating a new replay run.",
+        description=EXPLAIN_FAILURE_OPERATION.mcp_description,
         structured_output=True,
     )
     async def explain_failure(seed: str) -> ExplainFailureOperationPayload:

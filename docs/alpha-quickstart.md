@@ -1,8 +1,15 @@
 # Litmus Alpha Quickstart
 
-This guide is the grounded quickstart for the current alpha. It matches the code that ships in this repository today.
+This guide is the grounded quickstart for the current alpha. It is the source of truth for the shipped Litmus surface in this repository today.
 
 The top-level `README.md` remains the aspirational product surface. Use this document when you want the commands and flows that are verified in the repo right now.
+
+Current grounded alpha surface:
+
+- Python 3.11+
+- local CLI: `litmus init`, `litmus verify`, `litmus watch`, `litmus replay`
+- local stdio MCP server via `litmus mcp`
+- replay over the latest replayable local run artifacts under `.litmus/runs/`
 
 ## Prerequisites
 
@@ -84,6 +91,27 @@ Baseline: 200 {'status': 'charged'}
 Current: 500 {'status': 'duplicate_charge_risk'}
 Classification: breaking_change
 ```
+
+The grounded replay contract in this alpha is:
+
+- `litmus replay seed:N` replays a stored seed from the latest replayable local run
+- replay uses the recorded fault schedule for that stored seed
+- replay is local and file-backed, not a remote or hosted execution service
+
+## Run The Local MCP Server
+
+Litmus also ships a local stdio MCP server for the same grounded alpha surface:
+
+```bash
+uv run --project ../.. litmus mcp
+```
+
+This MCP surface is intentionally local:
+
+- transport: stdio only
+- scope: current workspace
+- tools: `verify`, `list_invariants`, `replay`, `explain_failure`
+- results: structured payloads backed by the same local run and replay artifacts as the CLI
 
 ## Fix The Demo
 

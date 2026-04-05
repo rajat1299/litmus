@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import textwrap
 
+from litmus.mcp.server import build_mcp_server
 from litmus.mcp.tools import (
     run_explain_failure_operation,
     run_list_invariants_operation,
@@ -12,6 +13,34 @@ from litmus.mcp.tools import (
 )
 from litmus.replay.differential import ReplayClassification
 from litmus.runs import RunMode, load_latest_verification_run
+
+
+def test_build_mcp_server_uses_grounded_alpha_descriptions(tmp_path: Path) -> None:
+    server = build_mcp_server(tmp_path)
+
+    assert server.instructions == (
+        "Use this local stdio Litmus alpha server to run grounded verification, "
+        "replay stored seeds from the latest replayable run, and inspect visible invariants."
+    )
+
+    tool_descriptions = {
+        tool.name: tool.description
+        for tool in server._tool_manager.list_tools()
+    }
+
+    assert tool_descriptions["verify"] == (
+        "Run grounded Litmus alpha verification for the selected workspace scope "
+        "and persist a replayable local run."
+    )
+    assert tool_descriptions["list_invariants"] == (
+        "List confirmed and suggested invariants visible in the selected grounded verification scope."
+    )
+    assert tool_descriptions["replay"] == (
+        "Replay a stored seed from the latest replayable Litmus run and return a structured explanation."
+    )
+    assert tool_descriptions["explain_failure"] == (
+        "Explain a stored seed from the latest replayable Litmus run without creating a new replay run."
+    )
 
 
 def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp_path: Path) -> None:

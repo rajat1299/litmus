@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from litmus.replay.trace import boundary_coverage_from_result
 from litmus.runs.summary import VerificationProjection
+from litmus.surface import GROUNDED_ALPHA_SURFACE_LABEL
 
 
 def render_verification_summary(result) -> str:
@@ -9,6 +10,7 @@ def render_verification_summary(result) -> str:
 
     lines = [
         "Litmus verify",
+        f"Surface: {GROUNDED_ALPHA_SURFACE_LABEL}",
         f"App: {projection.app_reference}",
         f"Scope: {projection.scope_label}",
         f"Routes: {projection.routes}",

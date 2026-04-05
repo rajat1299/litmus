@@ -99,7 +99,8 @@ def test_render_pr_comment_summarizes_failures_with_replay_commands() -> None:
 
     comment = render_pr_comment(result)
 
-    assert "## Litmus Verification" in comment
+    assert "## Litmus Verification (Grounded Alpha)" in comment
+    assert "Surface: `Python async ASGI services`" in comment
     assert "Confidence score: `0.33`" in comment
     assert "- `POST /payments/charge`" in comment
     assert "- `GET /health`" in comment
@@ -155,6 +156,8 @@ def test_render_pr_comment_reports_clean_verification_runs() -> None:
 
     comment = render_pr_comment(result)
 
+    assert "## Litmus Verification (Grounded Alpha)" in comment
+    assert "Surface: `Python async ASGI services`" in comment
     assert "Confidence score: `1.00`" in comment
     assert "- Invariants: total=0 confirmed=0 suggested=0" in comment
     assert "### Failing Seeds" in comment

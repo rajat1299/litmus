@@ -11,19 +11,20 @@ from litmus.replay.differential import ReplayClassification
 from litmus.reporting.console import render_verification_summary
 from litmus.reporting.explanations import render_replay_explanation
 from litmus.runs import RunMode, record_verification_run
+from litmus.surface import GROUNDED_ALPHA_TAGLINE
 from litmus.verify_scope import resolve_verification_scope
 from litmus.watch import run_watch
 
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Deterministic fault-injection verification for agent-written code.",
+    help=GROUNDED_ALPHA_TAGLINE,
 )
 
 
 @app.command()
 def init() -> None:
-    """Bootstrap Litmus in the current repository."""
+    """Bootstrap Litmus in the current repository using the grounded alpha path."""
     try:
         result = bootstrap_repo(Path.cwd())
     except LookupError as exc:
@@ -46,7 +47,7 @@ def verify(
     staged: bool = typer.Option(False, "--staged", help="Scope verification to staged git changes."),
     diff: str | None = typer.Option(None, "--diff", help="Scope verification to a named git diff range."),
 ) -> None:
-    """Run the Litmus verification pipeline."""
+    """Run grounded Litmus alpha verification for the current scope."""
     try:
         scope = resolve_verification_scope(
             Path.cwd(),
@@ -75,7 +76,7 @@ def verify(
 
 @app.command()
 def watch() -> None:
-    """Watch for changes and rerun Litmus verification."""
+    """Watch local Python and config changes and rerun grounded Litmus verification."""
     try:
         run_watch(Path.cwd(), emit=typer.echo)
     except KeyboardInterrupt:
@@ -84,7 +85,7 @@ def watch() -> None:
 
 @app.command()
 def mcp() -> None:
-    """Run the Litmus MCP server over stdio."""
+    """Run the local Litmus MCP server over stdio."""
     from litmus.mcp.server import serve_mcp
 
     serve_mcp(Path.cwd())
@@ -92,7 +93,7 @@ def mcp() -> None:
 
 @app.command()
 def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -> None:
-    """Replay a deterministic failing seed."""
+    """Replay a recorded seed from the latest replayable Litmus run."""
     from litmus.mcp.tools import run_replay_operation
 
     repo_root = Path.cwd()
