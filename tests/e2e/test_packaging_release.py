@@ -25,7 +25,11 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     assert "uv build" in quickstart
     assert "examples/payment_service" in quickstart
     assert "litmus verify" in quickstart
+    assert "Homebrew" in quickstart
+    assert "deferred" in quickstart
     assert "Known limitations" in release_notes
+    assert "Homebrew" in release_notes
+    assert "deferred" in release_notes
     assert "examples/payment_service" in release_notes
     assert "examples/payment_service" in contributing
     assert "uv run litmus verify" not in contributing
@@ -66,7 +70,7 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
         check=False,
     )
     assert help_result.returncode == 0, help_result.stderr
-    assert "Deterministic fault-injection verification for agent-written code." in help_result.stdout
+    assert "Grounded alpha verification for Python async ASGI services." in help_result.stdout
 
     demo_repo = tmp_path / "payment_service"
     shutil.copytree(

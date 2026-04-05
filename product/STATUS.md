@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-05
-**Phase:** Track A1 done / Track A2 selection
+**Phase:** Track A2 done / next staffed track selection
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In review | Demo app, packaged CLI smoke proof, and grounded alpha docs are in review |
+| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha docs, and tagged release automation are in review |
 
 ---
 
@@ -100,6 +100,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-04 | Chose WS-17 as the next moat slice: bounded fault-path reachability plus deterministic target-aware local coverage |
 | 2026-04-04 | Landed WS-17 via fresh-app fault-activation probes, deterministic local target coverage, and persisted target-selection artifacts |
 | 2026-04-05 | Completed Track A1 grounded-surface reconciliation across alpha docs, CLI help, MCP descriptions, and reporting labels without changing the aspirational top-level README |
+| 2026-04-05 | Completed Track A2 distribution/install automation via single-source version metadata, tagged release workflow automation, and explicit Homebrew deferral in grounded docs |
 
 ---
 
@@ -107,7 +108,7 @@ Update this table whenever work is claimed, blocked, or completed.
 
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
-3. Staff Track A2 next unless a Track B moat slice is chosen explicitly.
+3. Choose the next staffed tranche between Track A3 and Track B explicitly.
 4. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

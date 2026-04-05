@@ -11,6 +11,11 @@ Current grounded alpha surface:
 - local stdio MCP server via `litmus mcp`
 - replay over the latest replayable local run artifacts under `.litmus/runs/`
 
+Install-channel note:
+
+- package build and publish are now automated through the repository release workflow
+- Homebrew is explicitly deferred from the grounded alpha surface
+
 ## Prerequisites
 
 - Python 3.11+
@@ -31,6 +36,8 @@ uv run pytest
 ```bash
 uv build --out-dir dist
 ```
+
+The repository release path automates this same build through GitHub Actions on release tags. Homebrew is still deferred; do not treat `brew install litmus` as a grounded alpha path.
 
 Expected artifacts:
 

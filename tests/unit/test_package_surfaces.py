@@ -5,6 +5,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+import litmus
 from typer.main import get_command
 
 from litmus.cli import app, init, mcp, replay, verify, watch
@@ -64,6 +65,17 @@ def test_pyproject_declares_anyio_as_runtime_dependency() -> None:
     dependencies = pyproject["project"]["dependencies"]
 
     assert any(dependency.startswith("anyio>=") for dependency in dependencies)
+
+
+def test_pyproject_uses_dynamic_version_from_package_module() -> None:
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    project = pyproject["project"]
+
+    assert "version" not in project
+    assert "dynamic" in project
+    assert "version" in project["dynamic"]
+    assert pyproject["tool"]["hatch"]["version"]["path"] == "src/litmus/__init__.py"
+    assert litmus.__version__ == "0.1.0"
 
 
 def test_cli_command_help_comes_from_surface_contract_without_duplicate_docstrings() -> None:

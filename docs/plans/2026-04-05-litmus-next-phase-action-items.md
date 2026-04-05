@@ -147,6 +147,10 @@ The current risk is not missing capability. It is trust drift between the shippe
 
 ### A2. Distribution And Install Automation
 
+**Checkpoint Status**
+
+Implemented on 2026-04-05 as a bounded release-engineering pass: single-source package versioning, a tagged GitHub release workflow for build and PyPI publish, and grounded docs that explicitly defer Homebrew.
+
 **What this item is**
 
 Turn the local packaging proof into a repeatable publish path and make an explicit decision on Homebrew.

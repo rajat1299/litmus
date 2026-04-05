@@ -24,3 +24,17 @@ def test_repo_workflow_runs_on_pull_requests_using_local_action() -> None:
     assert "token: ${{ github.token }}" in workflow
     assert "min-score: '80'" in workflow
     assert "comment: 'true'" in workflow
+
+
+def test_release_workflow_builds_and_publishes_python_package() -> None:
+    workflow = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
+
+    assert "name: Litmus Release" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "push:" in workflow
+    assert "tags:" in workflow
+    assert "v*" in workflow
+    assert "uv build --out-dir dist" in workflow
+    assert "pypa/gh-action-pypi-publish" in workflow
+    assert "permissions:" in workflow
+    assert "id-token: write" in workflow
