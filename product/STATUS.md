@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha docs, and tagged release automation are in review |
+| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha/package docs, and tagged release automation are in review |
 
 ---
 
@@ -100,7 +100,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-04 | Chose WS-17 as the next moat slice: bounded fault-path reachability plus deterministic target-aware local coverage |
 | 2026-04-04 | Landed WS-17 via fresh-app fault-activation probes, deterministic local target coverage, and persisted target-selection artifacts |
 | 2026-04-05 | Completed Track A1 grounded-surface reconciliation across alpha docs, CLI help, MCP descriptions, and reporting labels without changing the aspirational top-level README |
-| 2026-04-05 | Completed Track A2 distribution/install automation via single-source version metadata, tagged release workflow automation, and explicit Homebrew deferral in grounded docs |
+| 2026-04-05 | Completed Track A2 distribution/install automation via single-source version metadata, grounded package metadata, tagged release workflow automation with an explicit manual tag-publish gate, and explicit Homebrew deferral in grounded docs |
 
 ---
 

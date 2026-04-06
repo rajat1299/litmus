@@ -14,6 +14,7 @@ Current grounded alpha surface:
 Install-channel note:
 
 - package build and publish are now automated through the repository release workflow
+- tag pushes publish to PyPI; manual dispatch can rerun the workflow as a build-only preflight, or publish from a `v*` tag when the `publish` input is explicitly enabled
 - Homebrew is explicitly deferred from the grounded alpha surface
 
 ## Prerequisites
@@ -37,7 +38,7 @@ uv run pytest
 uv build --out-dir dist
 ```
 
-The repository release path automates this same build through GitHub Actions on release tags. Homebrew is still deferred; do not treat `brew install litmus` as a grounded alpha path.
+The repository release path automates this same build through GitHub Actions on release tags. Manual dispatch is available for preflight builds and controlled tag-scoped republishes. Homebrew is still deferred; do not treat `brew install litmus` as a grounded alpha path.
 
 Expected artifacts:
 

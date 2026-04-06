@@ -149,7 +149,7 @@ The current risk is not missing capability. It is trust drift between the shippe
 
 **Checkpoint Status**
 
-Implemented on 2026-04-05 as a bounded release-engineering pass: single-source package versioning, a tagged GitHub release workflow for build and PyPI publish, and grounded docs that explicitly defer Homebrew.
+Implemented on 2026-04-05 as a bounded release-engineering pass: single-source package versioning, grounded package metadata for PyPI, a tagged GitHub release workflow with an explicit manual tag-publish gate, and grounded docs that explicitly defer Homebrew.
 
 **What this item is**
 

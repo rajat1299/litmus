@@ -78,6 +78,18 @@ def test_pyproject_uses_dynamic_version_from_package_module() -> None:
     assert litmus.__version__ == "0.1.0"
 
 
+def test_pyproject_uses_grounded_package_readme() -> None:
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    readme_path = Path(pyproject["project"]["readme"])
+
+    assert readme_path == Path("docs/package-readme.md")
+    assert readme_path.exists()
+
+    package_readme = readme_path.read_text(encoding="utf-8")
+    assert "The top-level `README.md` remains aspirational." in package_readme
+    assert "Homebrew remains deferred." in package_readme
+
+
 def test_cli_command_help_comes_from_surface_contract_without_duplicate_docstrings() -> None:
     command_group = get_command(app)
     assert command_group.commands["init"].help == INIT_OPERATION.cli_help

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "litmus-cli"
 description = "Deterministic fault-injection verification for agent-written code."
-readme = "README.md"
+readme = "docs/package-readme.md"
 requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [

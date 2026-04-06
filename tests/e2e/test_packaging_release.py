@@ -11,25 +11,33 @@ import sys
 def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     quickstart_path = repo_root / "docs" / "alpha-quickstart.md"
+    package_readme_path = repo_root / "docs" / "package-readme.md"
     release_notes_path = repo_root / "docs" / "releases" / "2026-03-31-alpha.md"
     contributing_path = repo_root / "CONTRIBUTING.md"
 
     assert quickstart_path.exists()
+    assert package_readme_path.exists()
     assert release_notes_path.exists()
     assert contributing_path.exists()
 
     quickstart = quickstart_path.read_text(encoding="utf-8")
+    package_readme = package_readme_path.read_text(encoding="utf-8")
     release_notes = release_notes_path.read_text(encoding="utf-8")
     contributing = contributing_path.read_text(encoding="utf-8")
 
     assert "uv build" in quickstart
+    assert "pip install litmus-cli" in package_readme
+    assert "The top-level `README.md` remains aspirational." in package_readme
+    assert "Homebrew remains deferred." in package_readme
     assert "examples/payment_service" in quickstart
     assert "litmus verify" in quickstart
     assert "Homebrew" in quickstart
     assert "deferred" in quickstart
+    assert "manual dispatch can rerun the workflow as a build-only preflight" in quickstart
     assert "Known limitations" in release_notes
     assert "Homebrew" in release_notes
     assert "deferred" in release_notes
+    assert "manual dispatch can run as a preflight build" in release_notes
     assert "examples/payment_service" in release_notes
     assert "examples/payment_service" in contributing
     assert "uv run litmus verify" not in contributing

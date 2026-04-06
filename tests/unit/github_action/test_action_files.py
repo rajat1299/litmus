@@ -31,10 +31,15 @@ def test_release_workflow_builds_and_publishes_python_package() -> None:
 
     assert "name: Litmus Release" in workflow
     assert "workflow_dispatch:" in workflow
+    assert "publish:" in workflow
+    assert "Manual preflight stays build-only unless publish is explicitly enabled" in workflow
+    assert "default: false" in workflow
     assert "push:" in workflow
     assert "tags:" in workflow
     assert "v*" in workflow
     assert "uv build --out-dir dist" in workflow
     assert "pypa/gh-action-pypi-publish" in workflow
+    assert "inputs.publish == true" in workflow
+    assert "startsWith(github.ref, 'refs/tags/v')" in workflow
     assert "permissions:" in workflow
     assert "id-token: write" in workflow
