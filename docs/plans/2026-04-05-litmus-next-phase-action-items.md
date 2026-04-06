@@ -189,6 +189,10 @@ A strong CLI product still fails external adoption if install and release paths 
 
 ### A3. Compatibility Matrix And Honest Degradation Harness
 
+**Checkpoint Status**
+
+Implemented on 2026-04-06 as a bounded compatibility-contract pass: a grounded alpha compatibility doc, a shared compatibility/capability payload in run summaries and MCP verify results, and consistent degradation reporting in CLI summaries, PR comments, and replay explanations.
+
 **What this item is**
 
 Formalize the supported launch stack as a tested compatibility matrix and strengthen the unsupported-path story.

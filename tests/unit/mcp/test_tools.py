@@ -59,6 +59,11 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.scenarios == 1
     assert result.replay.breaking == 0
     assert result.replay_seeds == ["seed:1"]
+    assert result.compatibility.matrix["python"] == "3.11+"
+    assert result.compatibility.matrix["http"]["package"] == "httpx/aiohttp"
+    assert result.compatibility.boundaries["http"].status == "not_detected"
+    assert result.compatibility.boundaries["sqlalchemy"].status == "not_detected"
+    assert result.compatibility.boundaries["redis"].status == "not_detected"
 
 
 def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatch, tmp_path: Path) -> None:

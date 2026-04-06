@@ -4,6 +4,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
+from litmus.compatibility import compatibility_report_from_result
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
 
@@ -17,6 +18,7 @@ class VerificationProjection:
     scenarios: int
     replay: dict[str, int]
     properties: dict[str, int]
+    compatibility: dict[str, Any]
     confidence: float
 
     @classmethod
@@ -48,6 +50,7 @@ class VerificationProjection:
                 PropertyCheckStatus.FAILED.value: property_counts[PropertyCheckStatus.FAILED.value],
                 PropertyCheckStatus.SKIPPED.value: property_counts[PropertyCheckStatus.SKIPPED.value],
             },
+            compatibility=compatibility_report_from_result(result).to_dict(),
             confidence=calculate_confidence_score(result.replay_results, result.property_results),
         )
 
@@ -58,6 +61,7 @@ class VerificationProjection:
             "scenarios": self.scenarios,
             "replay": dict(self.replay),
             "properties": dict(self.properties),
+            "compatibility": dict(self.compatibility),
             "confidence": self.confidence,
         }
 

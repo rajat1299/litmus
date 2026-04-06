@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-04-05
-**Phase:** Track A2 done / next staffed track selection
+**Status Date:** 2026-04-06
+**Phase:** Track A3 done / next staffed track selection
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha/package docs, and tagged release automation are in review |
+| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, and compatibility/degradation reporting are in review |
 
 ---
 
@@ -101,6 +101,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-04 | Landed WS-17 via fresh-app fault-activation probes, deterministic local target coverage, and persisted target-selection artifacts |
 | 2026-04-05 | Completed Track A1 grounded-surface reconciliation across alpha docs, CLI help, MCP descriptions, and reporting labels without changing the aspirational top-level README |
 | 2026-04-05 | Completed Track A2 distribution/install automation via single-source version metadata, grounded package metadata, tagged release workflow automation with an explicit manual tag-publish gate, and explicit Homebrew deferral in grounded docs |
+| 2026-04-06 | Completed Track A3 compatibility matrix and honest degradation harness via a grounded compatibility doc, shared compatibility payloads in run summaries and MCP verify results, and consistent compatibility reporting in CLI, PR comments, and replay explanations |
 
 ---
 
@@ -108,7 +109,7 @@ Update this table whenever work is claimed, blocked, or completed.
 
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
-3. Choose the next staffed tranche between Track A3 and Track B explicitly.
+3. Choose the next staffed tranche between Track A4 and Track B explicitly.
 4. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

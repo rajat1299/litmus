@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from litmus.compatibility import CompatibilityReport, render_compatibility_lines
 from litmus.replay.trace import boundary_coverage_from_result
 from litmus.runs.summary import VerificationProjection
 from litmus.surface import GROUNDED_ALPHA_SURFACE_LABEL
@@ -33,6 +34,10 @@ def render_verification_summary(result) -> str:
     if coverage_lines:
         lines.append("DST coverage:")
         lines.extend(coverage_lines)
+    compatibility_lines = _compatibility_lines(projection)
+    if compatibility_lines:
+        lines.append("Compatibility:")
+        lines.extend(compatibility_lines)
     suggestion_lines = _suggestion_lines(result)
     if suggestion_lines:
         lines.append("Suggested actions:")
@@ -74,3 +79,8 @@ def _format_coverage_state(snapshot) -> str:
     if snapshot.faulted:
         states.append("faulted")
     return ", ".join(states)
+
+
+def _compatibility_lines(projection: VerificationProjection) -> list[str]:
+    report = CompatibilityReport.from_dict(projection.compatibility)
+    return render_compatibility_lines(report)

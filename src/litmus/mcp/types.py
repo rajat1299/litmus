@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 
+from litmus.compatibility import CompatibilityReport
 from litmus.invariants.models import Invariant
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
@@ -152,6 +153,9 @@ class VerifyOperationResult:
     replay: ReplayCounts
     properties: PropertyCounts
     boundary_coverage: dict[str, BoundaryCoverageCounts] = field(default_factory=dict)
+    compatibility: CompatibilityReport = field(
+        default_factory=lambda: CompatibilityReport.from_dict({})
+    )
     replay_seeds: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -168,6 +172,7 @@ class VerifyOperationResult:
                 boundary: coverage.to_dict()
                 for boundary, coverage in self.boundary_coverage.items()
             },
+            "compatibility": self.compatibility.to_dict(),
             "replay_seeds": list(self.replay_seeds),
         }
 
@@ -316,6 +321,7 @@ class VerifyOperationPayload(BaseModel):
     replay: ReplayCountsPayload
     properties: PropertyCountsPayload
     boundary_coverage: dict[str, BoundaryCoveragePayload]
+    compatibility: dict[str, object]
     replay_seeds: list[str]
 
     @classmethod

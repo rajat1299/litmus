@@ -133,6 +133,7 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
             "failed": 0,
             "skipped": 0,
         },
+        "compatibility": _expected_not_detected_compatibility(),
         "confidence": 1.0,
     }
 
@@ -201,6 +202,7 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
             "failed": 0,
             "skipped": 0,
         },
+        "compatibility": _expected_not_detected_compatibility(),
         "confidence": 0.0,
     }
 
@@ -394,6 +396,17 @@ def test_litmus_verify_reports_partial_dst_coverage_for_unsupported_redis_constr
     assert result.returncode == 0, result.stderr
     assert "DST coverage:" in result.stdout
     assert "- redis: unsupported, detected" in result.stdout
+    assert "Compatibility:" in result.stdout
+    assert "- redis: unsupported (Unsupported constructor or type import in loaded app modules.)" in result.stdout
+
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    compatibility = run_payload["activities"][0]["summary"]["compatibility"]
+    assert compatibility["matrix"]["python"] == "3.11+"
+    assert compatibility["boundaries"]["redis"]["status"] == "unsupported"
+    assert compatibility["boundaries"]["redis"]["unsupported_details"] == [
+        "Unsupported constructor or type import in loaded app modules."
+    ]
 
 
 def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_coverage(tmp_path: Path) -> None:
@@ -1963,3 +1976,62 @@ def _latest_verify_summary(repo_root: Path) -> dict:
     latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
     run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
     return run_payload["activities"][0]["summary"]
+
+
+def _expected_not_detected_compatibility() -> dict[str, object]:
+    return {
+        "matrix": {
+            "python": "3.11+",
+            "asgi": "FastAPI / Starlette-style ASGI apps",
+            "http": {
+                "package": "httpx/aiohttp",
+                "supported_shapes": ["httpx/aiohttp"],
+            },
+            "sqlalchemy": {
+                "package": "sqlalchemy.ext.asyncio",
+                "supported_shapes": [
+                    "sqlalchemy.ext.asyncio.create_async_engine",
+                    "sqlalchemy.ext.asyncio.async_sessionmaker",
+                ],
+            },
+            "redis": {
+                "package": "redis.asyncio",
+                "supported_shapes": [
+                    "redis.asyncio.Redis",
+                    "redis.asyncio.Redis.from_url",
+                ],
+            },
+        },
+        "boundaries": {
+            "http": {
+                "status": "not_detected",
+                "detected": False,
+                "intercepted": False,
+                "simulated": False,
+                "faulted": False,
+                "unsupported": False,
+                "supported_shapes": [],
+                "unsupported_details": [],
+            },
+            "sqlalchemy": {
+                "status": "not_detected",
+                "detected": False,
+                "intercepted": False,
+                "simulated": False,
+                "faulted": False,
+                "unsupported": False,
+                "supported_shapes": [],
+                "unsupported_details": [],
+            },
+            "redis": {
+                "status": "not_detected",
+                "detected": False,
+                "intercepted": False,
+                "simulated": False,
+                "faulted": False,
+                "unsupported": False,
+                "supported_shapes": [],
+                "unsupported_details": [],
+            },
+        },
+    }

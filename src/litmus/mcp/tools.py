@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
+from litmus.compatibility import compatibility_report_from_result
 from litmus.discovery.app import default_app_loader
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.engine import (
@@ -64,6 +65,7 @@ def run_verify_operation(
         ),
         properties=PropertyCounts(**projection.properties),
         boundary_coverage=BoundaryCoverageCounts.from_mapping(boundary_coverage_from_result(result)),
+        compatibility=compatibility_report_from_result(result),
         replay_seeds=[record.seed for record in result.replay_traces],
     )
 

@@ -10,6 +10,7 @@ Current grounded alpha surface:
 - local CLI: `litmus init`, `litmus verify`, `litmus watch`, `litmus replay`
 - local stdio MCP server via `litmus mcp`
 - replay over the latest replayable local run artifacts under `.litmus/runs/`
+- compatibility and degradation contract documented in `docs/alpha-compatibility.md`
 
 Install-channel note:
 
@@ -105,6 +106,7 @@ The grounded replay contract in this alpha is:
 - `litmus replay seed:N` replays a stored seed from the latest replayable local run
 - replay uses the recorded fault schedule for that stored seed
 - replay is local and file-backed, not a remote or hosted execution service
+- replay explanations now include the same bounded compatibility states used by verify and MCP
 
 ## Run The Local MCP Server
 
@@ -119,7 +121,17 @@ This MCP surface is intentionally local:
 - transport: stdio only
 - scope: current workspace
 - tools: `verify`, `list_invariants`, `replay`, `explain_failure`
-- results: structured payloads backed by the same local run and replay artifacts as the CLI
+- results: structured payloads backed by the same local run and replay artifacts as the CLI, including compatibility and degradation status
+
+## Compatibility Contract
+
+The grounded launch matrix and honest-degradation rules now live in `docs/alpha-compatibility.md`.
+
+Use that document when you need:
+
+- the supported launch matrix for Python, ASGI discovery, `httpx` / `aiohttp`, SQLAlchemy async, and Redis async
+- the bounded constructor and adapter shapes Litmus actually intercepts
+- the meaning of `supported`, `unsupported`, `detected only`, and `not detected` in CLI, replay, PR, run-artifact, and MCP output
 
 ## Fix The Demo
 

@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 import json
 from typing import Any
 
+from litmus.compatibility import compatibility_report_from_result, render_compatibility_markdown_lines
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.trace import boundary_coverage_from_result
 from litmus.replay.differential import ReplayClassification
@@ -45,6 +46,9 @@ def render_pr_comment(result) -> str:
             f"skipped={projection.properties['skipped']}",
             "- DST coverage: "
             + " ".join(_boundary_coverage_tokens(result)),
+            "",
+            "### Compatibility",
+            *render_compatibility_markdown_lines(compatibility_report_from_result(result)),
             "",
             "### Failing Seeds",
         ]

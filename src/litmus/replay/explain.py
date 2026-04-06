@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from litmus.compatibility import replay_compatibility_lines
 from litmus.dst.runtime import TraceEvent
 from litmus.replay.differential import ReplayClassification
 from litmus.replay.models import (
@@ -132,6 +133,8 @@ def _fault_context_from_trace(trace: list[TraceEvent]) -> ReplayFaultContext:
             )
         elif event.kind == "app_exception":
             app_exception = f"Uncaught {event.metadata['type']}: {event.metadata['message']}"
+
+    boundary_coverage.extend(replay_compatibility_lines(trace))
 
     return ReplayFaultContext(
         selected_faults=selected_faults,

@@ -166,6 +166,68 @@ def test_render_pr_comment_reports_clean_verification_runs() -> None:
     assert "- No breaking replay or property failures detected." in comment
 
 
+def test_render_pr_comment_includes_compatibility_section_for_supported_and_unsupported_boundaries() -> None:
+    health_scenario = Scenario(
+        method="GET",
+        path="/health",
+        request=RequestExample(method="GET", path="/health"),
+        expected_response=ResponseExample(status_code=200, json={"status": "ok"}),
+    )
+    result = VerificationResult(
+        app_reference="service.app:app",
+        routes=[],
+        invariants=[],
+        scenarios=[health_scenario],
+        replay_results=[
+            DifferentialReplayResult(
+                scenario=health_scenario,
+                baseline_response=ResponseExample(status_code=200, json={"status": "ok"}),
+                changed_response=ResponseExample(status_code=200, json={"status": "ok"}),
+                classification=ReplayClassification.UNCHANGED,
+            )
+        ],
+        replay_traces=[
+            ReplayTraceRecord(
+                seed="seed:1",
+                seed_value=1,
+                app_reference="service.app:app",
+                method="GET",
+                path="/health",
+                request_payload=None,
+                baseline_status_code=200,
+                baseline_body={"status": "ok"},
+                trace=[
+                    TraceEvent(kind="boundary_detected", metadata={"boundary": "http"}),
+                    TraceEvent(
+                        kind="boundary_intercepted",
+                        metadata={"boundary": "http", "supported_shape": "httpx/aiohttp"},
+                    ),
+                    TraceEvent(kind="boundary_simulated", metadata={"boundary": "http"}),
+                    TraceEvent(kind="boundary_detected", metadata={"boundary": "redis"}),
+                    TraceEvent(
+                        kind="boundary_unsupported",
+                        metadata={
+                            "boundary": "redis",
+                            "detail": "Unsupported constructor or type import in loaded app modules.",
+                        },
+                    ),
+                ],
+            )
+        ],
+        property_results=[],
+    )
+
+    comment = render_pr_comment(result)
+
+    assert "### Compatibility" in comment
+    assert "- `http`: supported" in comment
+    assert "- `sqlalchemy`: not detected" in comment
+    assert (
+        "- `redis`: unsupported (`Unsupported constructor or type import in loaded app modules.`)"
+        in comment
+    )
+
+
 def test_render_pr_comment_surfaces_suggested_invariants_needing_review() -> None:
     suggested_invariant = Invariant(
         name="refund_post_payments_refund_needs_confirmed_anchor",
