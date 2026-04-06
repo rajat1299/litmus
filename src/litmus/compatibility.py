@@ -44,7 +44,9 @@ class BoundaryCompatibility:
     unsupported_details: list[str] = field(default_factory=list)
 
     def finalize(self) -> None:
-        if self.unsupported:
+        if self.unsupported and (self.simulated or self.intercepted):
+            self.status = "partial"
+        elif self.unsupported:
             self.status = "unsupported"
         elif self.simulated or self.intercepted:
             self.status = "supported"
@@ -180,6 +182,13 @@ def render_compatibility_status(
     *,
     markdown: bool = False,
 ) -> str:
+    if compatibility.status == "partial":
+        detail = compatibility.unsupported_details[0] if compatibility.unsupported_details else None
+        if detail is None:
+            return "partial (supported + unsupported)"
+        if markdown:
+            return f"partial (`supported` + `unsupported`: `{detail}`)"
+        return f"partial (supported + unsupported: {detail})"
     if compatibility.status == "unsupported":
         detail = compatibility.unsupported_details[0] if compatibility.unsupported_details else None
         if detail is None:

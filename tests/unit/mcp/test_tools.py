@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import textwrap
 
+from litmus.mcp.types import VerifyOperationPayload
 from litmus.mcp.server import build_mcp_server
 from litmus.mcp.tools import (
     run_explain_failure_operation,
@@ -64,6 +65,27 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.compatibility.boundaries["http"].status == "not_detected"
     assert result.compatibility.boundaries["sqlalchemy"].status == "not_detected"
     assert result.compatibility.boundaries["redis"].status == "not_detected"
+
+
+def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: Path) -> None:
+    repo_root = _build_verify_repo(tmp_path)
+
+    operation = run_verify_operation(repo_root)
+    payload = VerifyOperationPayload.from_operation(operation)
+    schema = VerifyOperationPayload.model_json_schema()
+
+    assert payload.compatibility.matrix.python == "3.11+"
+    assert payload.compatibility.matrix.http.package == "httpx/aiohttp"
+    assert payload.compatibility.boundaries.redis.status == "not_detected"
+    assert payload.compatibility.boundaries.redis.unsupported_details == []
+
+    compatibility_property = schema["properties"]["compatibility"]
+    assert "$ref" in compatibility_property
+    compatibility_schema = schema["$defs"][compatibility_property["$ref"].split("/")[-1]]
+    assert set(compatibility_schema["properties"]) == {"matrix", "boundaries"}
+
+    boundaries_schema = schema["$defs"][compatibility_schema["properties"]["boundaries"]["$ref"].split("/")[-1]]
+    assert set(boundaries_schema["properties"]) == {"http", "sqlalchemy", "redis"}
 
 
 def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatch, tmp_path: Path) -> None:

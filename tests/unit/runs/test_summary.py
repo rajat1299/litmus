@@ -157,3 +157,71 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
     }
     assert projection.confidence == pytest.approx(2 / 3, rel=1e-6)
     assert summarize_verification_result(result) == projection.to_dict()
+
+
+def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+    result = VerificationResult(
+        app_reference="service.app:app",
+        scope_label="full repo",
+        routes=[],
+        invariants=[],
+        scenarios=[scenario],
+        replay_results=[],
+        replay_traces=[
+            ReplayTraceRecord(
+                seed="seed:1",
+                seed_value=1,
+                app_reference="service.app:app",
+                method="POST",
+                path="/payments/charge",
+                request_payload={"amount": 100},
+                baseline_status_code=200,
+                baseline_body={"status": "charged"},
+                trace=[
+                    TraceEvent(kind="boundary_detected", metadata={"boundary": "redis"}),
+                    TraceEvent(
+                        kind="boundary_intercepted",
+                        metadata={"boundary": "redis", "supported_shape": "redis.asyncio.Redis.from_url"},
+                    ),
+                    TraceEvent(kind="boundary_simulated", metadata={"boundary": "redis"}),
+                ],
+            ),
+            ReplayTraceRecord(
+                seed="seed:2",
+                seed_value=2,
+                app_reference="service.app:app",
+                method="POST",
+                path="/payments/charge",
+                request_payload={"amount": 100},
+                baseline_status_code=200,
+                baseline_body={"status": "charged"},
+                trace=[
+                    TraceEvent(kind="boundary_detected", metadata={"boundary": "redis"}),
+                    TraceEvent(
+                        kind="boundary_unsupported",
+                        metadata={
+                            "boundary": "redis",
+                            "detail": "Unsupported constructor or type import in loaded app modules.",
+                        },
+                    ),
+                ],
+            ),
+        ],
+        property_results=[],
+    )
+
+    projection = VerificationProjection.from_result(result)
+
+    assert projection.compatibility["boundaries"]["redis"]["status"] == "partial"
+    assert projection.compatibility["boundaries"]["redis"]["supported_shapes"] == [
+        "redis.asyncio.Redis.from_url"
+    ]
+    assert projection.compatibility["boundaries"]["redis"]["unsupported_details"] == [
+        "Unsupported constructor or type import in loaded app modules."
+    ]

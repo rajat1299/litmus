@@ -258,6 +258,41 @@ class BoundaryCoveragePayload(BaseModel):
     unsupported: bool
 
 
+class CompatibilityMatrixEntryPayload(BaseModel):
+    package: str
+    supported_shapes: list[str]
+
+
+class CompatibilityMatrixPayload(BaseModel):
+    python: str
+    asgi: str
+    http: CompatibilityMatrixEntryPayload
+    sqlalchemy: CompatibilityMatrixEntryPayload
+    redis: CompatibilityMatrixEntryPayload
+
+
+class CompatibilityBoundaryPayload(BaseModel):
+    status: str
+    detected: bool
+    intercepted: bool
+    simulated: bool
+    faulted: bool
+    unsupported: bool
+    supported_shapes: list[str]
+    unsupported_details: list[str]
+
+
+class CompatibilityBoundariesPayload(BaseModel):
+    http: CompatibilityBoundaryPayload
+    sqlalchemy: CompatibilityBoundaryPayload
+    redis: CompatibilityBoundaryPayload
+
+
+class CompatibilityPayload(BaseModel):
+    matrix: CompatibilityMatrixPayload
+    boundaries: CompatibilityBoundariesPayload
+
+
 class InvariantViewPayload(BaseModel):
     name: str
     source: str
@@ -321,7 +356,7 @@ class VerifyOperationPayload(BaseModel):
     replay: ReplayCountsPayload
     properties: PropertyCountsPayload
     boundary_coverage: dict[str, BoundaryCoveragePayload]
-    compatibility: dict[str, object]
+    compatibility: CompatibilityPayload
     replay_seeds: list[str]
 
     @classmethod
