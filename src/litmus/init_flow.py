@@ -21,7 +21,11 @@ def bootstrap_repo(root: Path | str) -> InitBootstrapResult:
     if not config_path.exists():
         write_repo_config(
             config_path,
-            RepoConfig(app=app_reference, suggested_invariants=config.suggested_invariants),
+            RepoConfig(
+                app=app_reference,
+                suggested_invariants=config.suggested_invariants,
+                fault_profile=config.fault_profile,
+            ),
         )
         config_status = "created"
     elif config.app:
@@ -29,7 +33,11 @@ def bootstrap_repo(root: Path | str) -> InitBootstrapResult:
     else:
         write_repo_config(
             config_path,
-            RepoConfig(app=app_reference, suggested_invariants=config.suggested_invariants),
+            RepoConfig(
+                app=app_reference,
+                suggested_invariants=config.suggested_invariants,
+                fault_profile=config.fault_profile,
+            ),
         )
         config_status = "updated"
 

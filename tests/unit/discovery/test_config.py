@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from litmus.config import load_repo_config
+from litmus.config import FaultProfile, RepoConfig, load_repo_config, write_repo_config
 
 
 def test_load_repo_config_reads_litmus_yaml(tmp_path: Path) -> None:
@@ -44,3 +44,35 @@ def test_load_repo_config_reads_suggested_invariants_flag(tmp_path: Path) -> Non
 
     assert config.app == "service.main:app"
     assert config.suggested_invariants is True
+
+
+def test_load_repo_config_reads_fault_profile_from_litmus_yaml(tmp_path: Path) -> None:
+    (tmp_path / "litmus.yaml").write_text(
+        'app: "service.main:app"\nfault_profile: hostile\n',
+        encoding="utf-8",
+    )
+
+    config = load_repo_config(tmp_path)
+
+    assert config.app == "service.main:app"
+    assert config.fault_profile is FaultProfile.HOSTILE
+
+
+def test_write_repo_config_can_materialize_explicit_defaults(tmp_path: Path) -> None:
+    config_path = tmp_path / "litmus.yaml"
+
+    write_repo_config(
+        config_path,
+        RepoConfig(
+            app="service.main:app",
+            suggested_invariants=False,
+            fault_profile=FaultProfile.DEFAULT,
+        ),
+        include_defaults=True,
+    )
+
+    assert config_path.read_text(encoding="utf-8") == (
+        "app: service.main:app\n"
+        "suggested_invariants: false\n"
+        "fault_profile: default\n"
+    )

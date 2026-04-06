@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import sys
 
-from litmus.config import load_repo_config
+from litmus.config import FaultProfile, RepoConfig, load_repo_config
 from litmus.discovery.app import default_app_loader, discover_app_reference
 from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
@@ -57,6 +57,7 @@ class VerificationResult:
 
 @dataclass(slots=True)
 class VerificationInputs:
+    config: RepoConfig
     app_reference: str
     routes: list[RouteDefinition]
     invariants: list[Invariant]
@@ -88,7 +89,10 @@ def run_verification(
                 app,
                 inputs.app_reference,
                 inputs.scenarios,
-                seeds_per_scenario=_replay_seed_count_for_mode(verification_mode),
+                seeds_per_scenario=_replay_seed_count_for_mode(
+                    verification_mode,
+                    fault_profile=inputs.config.fault_profile,
+                ),
                 fault_targets=active_fault_targets,
                 boundary_usage=boundary_usage,
                 root=Path(root),
@@ -97,7 +101,10 @@ def run_verification(
         property_results = _run_property_checks(
             app,
             inputs.confirmed_invariants,
-            max_examples=_property_max_examples_for_mode(verification_mode),
+            max_examples=_property_max_examples_for_mode(
+                verification_mode,
+                fault_profile=inputs.config.fault_profile,
+            ),
         )
     return VerificationResult(
         scope_label=inputs.scope_label,
@@ -144,6 +151,7 @@ def collect_verification_inputs(
     invariants = [*confirmed_invariants, *curated_suggested_invariants, *suggested_invariants]
     scenarios = build_scenarios(routes, confirmed_invariants)
     return VerificationInputs(
+        config=config,
         scope_label=active_scope.label,
         app_reference=app_reference,
         routes=routes,
@@ -211,6 +219,34 @@ def _collect_routes(root: Path) -> list[RouteDefinition]:
 
 def _collect_test_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("test_*.py") if path.is_file())
+
+
+def _property_max_examples_for_mode(
+    mode: RunMode,
+    *,
+    fault_profile: FaultProfile = FaultProfile.DEFAULT,
+) -> int:
+    if mode is RunMode.CI:
+        return CI_PROPERTY_MAX_EXAMPLES
+    if fault_profile == FaultProfile.GENTLE:
+        return 25
+    if fault_profile == FaultProfile.HOSTILE:
+        return 250
+    return LOCAL_PROPERTY_MAX_EXAMPLES
+
+
+def _replay_seed_count_for_mode(
+    mode: RunMode,
+    *,
+    fault_profile: FaultProfile = FaultProfile.DEFAULT,
+) -> int:
+    if mode is RunMode.CI:
+        return CI_REPLAY_SEEDS_PER_SCENARIO
+    if fault_profile == FaultProfile.GENTLE:
+        return 1
+    if fault_profile == FaultProfile.HOSTILE:
+        return 9
+    return LOCAL_REPLAY_SEEDS_PER_SCENARIO
 
 
 async def _run_replay(
@@ -470,20 +506,6 @@ def _run_property_checks(
         return True
 
     return run_property_checks(property_invariants, checker=checker, max_examples=max_examples)
-
-
-def _property_max_examples_for_mode(mode: RunMode) -> int:
-    if mode is RunMode.CI:
-        return CI_PROPERTY_MAX_EXAMPLES
-    return LOCAL_PROPERTY_MAX_EXAMPLES
-
-
-def _replay_seed_count_for_mode(mode: RunMode) -> int:
-    if mode is RunMode.CI:
-        return CI_REPLAY_SEEDS_PER_SCENARIO
-    return LOCAL_REPLAY_SEEDS_PER_SCENARIO
-
-
 def _coerce_run_mode(mode: RunMode | str) -> RunMode:
     if isinstance(mode, RunMode):
         return mode

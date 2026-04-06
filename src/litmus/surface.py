@@ -44,9 +44,27 @@ REPLAY_OPERATION = OperationSurface(
     ),
 )
 
+INVARIANTS_GROUP_HELP = "Inspect and update curated Litmus invariant records."
+CONFIG_GROUP_HELP = "Set grounded Litmus repository configuration values."
+
 LIST_INVARIANTS_OPERATION = OperationSurface(
-    cli_help="",
+    cli_help="List curated Litmus invariants from the local invariant store.",
     mcp_description="List confirmed and suggested invariants visible in the selected grounded verification scope.",
+)
+
+SHOW_INVARIANT_OPERATION = OperationSurface(
+    cli_help="Show one curated Litmus invariant from the local invariant store.",
+    mcp_description="",
+)
+
+SET_INVARIANT_STATUS_OPERATION = OperationSurface(
+    cli_help="Set the status of one curated Litmus invariant.",
+    mcp_description="",
+)
+
+CONFIG_SET_OPERATION = OperationSurface(
+    cli_help="Set one grounded Litmus repository config value.",
+    mcp_description="",
 )
 
 EXPLAIN_FAILURE_OPERATION = OperationSurface(

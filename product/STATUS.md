@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-06
-**Phase:** Track A3 done / next staffed track selection
+**Phase:** Track A4 in review
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, and compatibility/degradation reporting are in review |
+| Release readiness | In review | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, and the bounded CLI management surface are in review |
 
 ---
 
@@ -74,6 +74,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-15 | Cross-layer DST in shipped verify | Codex | Done | WS-11, WS-12, WS-14 | 2026-04-04 |
 | WS-16 | Exact deterministic replay fidelity | Codex | Done | WS-12, WS-15 | 2026-04-04 |
 | WS-17 | Fault-path reachability and target-aware local coverage | Codex | Done | WS-15, WS-16 | 2026-04-04 |
+| WS-18 | CLI management surface for invariants, config, and fault profiles | Codex | In review | WS-08, WS-13, WS-17 | 2026-04-06 |
 
 ---
 
@@ -102,6 +103,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-05 | Completed Track A1 grounded-surface reconciliation across alpha docs, CLI help, MCP descriptions, and reporting labels without changing the aspirational top-level README |
 | 2026-04-05 | Completed Track A2 distribution/install automation via single-source version metadata, grounded package metadata, tagged release workflow automation with an explicit manual tag-publish gate, and explicit Homebrew deferral in grounded docs |
 | 2026-04-06 | Completed Track A3 compatibility matrix and honest degradation harness via a grounded compatibility doc, shared compatibility payloads in run summaries and MCP verify results, and consistent compatibility reporting in CLI, PR comments, and replay explanations |
+| 2026-04-06 | Completed Track A4 implementation on a review branch via bounded `invariants` and `config set` CLI commands, explicit `fault_profile` config, and grounded local verification-depth presets |
 
 ---
 
@@ -109,7 +111,7 @@ Update this table whenever work is claimed, blocked, or completed.
 
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
-3. Choose the next staffed tranche between Track A4 and Track B explicitly.
+3. Drive A4 through review and merge before opening A5 or Track B follow-on work.
 4. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

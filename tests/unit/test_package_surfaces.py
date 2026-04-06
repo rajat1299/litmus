@@ -8,11 +8,28 @@ from pathlib import Path
 import litmus
 from typer.main import get_command
 
-from litmus.cli import app, init, mcp, replay, verify, watch
+from litmus.cli import (
+    app,
+    config_set_command,
+    init,
+    list_invariants_command,
+    mcp,
+    replay,
+    set_invariant_status_command,
+    show_invariant_command,
+    verify,
+    watch,
+)
 from litmus.surface import (
+    CONFIG_GROUP_HELP,
+    CONFIG_SET_OPERATION,
     INIT_OPERATION,
+    INVARIANTS_GROUP_HELP,
+    LIST_INVARIANTS_OPERATION,
     MCP_OPERATION,
     REPLAY_OPERATION,
+    SET_INVARIANT_STATUS_OPERATION,
+    SHOW_INVARIANT_OPERATION,
     VERIFY_OPERATION,
     WATCH_OPERATION,
 )
@@ -97,9 +114,22 @@ def test_cli_command_help_comes_from_surface_contract_without_duplicate_docstrin
     assert command_group.commands["watch"].help == WATCH_OPERATION.cli_help
     assert command_group.commands["mcp"].help == MCP_OPERATION.cli_help
     assert command_group.commands["replay"].help == REPLAY_OPERATION.cli_help
+    assert command_group.commands["invariants"].help == INVARIANTS_GROUP_HELP
+    assert command_group.commands["config"].help == CONFIG_GROUP_HELP
+    assert command_group.commands["invariants"].commands["list"].help == LIST_INVARIANTS_OPERATION.cli_help
+    assert command_group.commands["invariants"].commands["show"].help == SHOW_INVARIANT_OPERATION.cli_help
+    assert (
+        command_group.commands["invariants"].commands["set-status"].help
+        == SET_INVARIANT_STATUS_OPERATION.cli_help
+    )
+    assert command_group.commands["config"].commands["set"].help == CONFIG_SET_OPERATION.cli_help
 
     assert init.__doc__ is None
     assert verify.__doc__ is None
     assert watch.__doc__ is None
     assert mcp.__doc__ is None
     assert replay.__doc__ is None
+    assert list_invariants_command.__doc__ is None
+    assert show_invariant_command.__doc__ is None
+    assert set_invariant_status_command.__doc__ is None
+    assert config_set_command.__doc__ is None

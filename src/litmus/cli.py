@@ -3,19 +3,28 @@ from pathlib import Path
 
 import typer
 
+from litmus.config import FaultProfile
 from litmus.dst.engine import run_verification
 from litmus.errors import LitmusUserError
 from litmus.init_flow import bootstrap_repo
+from litmus.invariants.models import InvariantStatus
+from litmus.management import list_invariants, set_config_value, set_invariant_status, show_invariant
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
 from litmus.reporting.console import render_verification_summary
 from litmus.reporting.explanations import render_replay_explanation
 from litmus.runs import RunMode, record_verification_run
 from litmus.surface import (
+    CONFIG_GROUP_HELP,
+    CONFIG_SET_OPERATION,
     GROUNDED_ALPHA_TAGLINE,
     INIT_OPERATION,
+    INVARIANTS_GROUP_HELP,
+    LIST_INVARIANTS_OPERATION,
     MCP_OPERATION,
     REPLAY_OPERATION,
+    SET_INVARIANT_STATUS_OPERATION,
+    SHOW_INVARIANT_OPERATION,
     VERIFY_OPERATION,
     WATCH_OPERATION,
 )
@@ -27,6 +36,10 @@ app = typer.Typer(
     no_args_is_help=True,
     help=GROUNDED_ALPHA_TAGLINE,
 )
+invariants_app = typer.Typer(no_args_is_help=True, help=INVARIANTS_GROUP_HELP)
+config_app = typer.Typer(no_args_is_help=True, help=CONFIG_GROUP_HELP)
+app.add_typer(invariants_app, name="invariants")
+app.add_typer(config_app, name="config")
 
 
 @app.command(help=INIT_OPERATION.cli_help)
@@ -105,3 +118,75 @@ def replay(seed: str = typer.Argument(..., help="Seed identifier to replay.")) -
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from None
     typer.echo(render_replay_explanation(replay_result.explanation))
+
+
+@invariants_app.command("list", help=LIST_INVARIANTS_OPERATION.cli_help)
+def list_invariants_command() -> None:
+    result = list_invariants(Path.cwd())
+    typer.echo("Litmus invariants")
+    typer.echo(f"Path: {result.invariants_path.relative_to(Path.cwd())}")
+    typer.echo(f"Count: {len(result.invariants)}")
+    for invariant in result.invariants:
+        location = ""
+        if invariant.method and invariant.path:
+            location = f" {invariant.method.upper()} {invariant.path}"
+        typer.echo(
+            f"- {invariant.name} [{invariant.status.value}] {invariant.invariant_type}{location}"
+        )
+
+
+@invariants_app.command("show", help=SHOW_INVARIANT_OPERATION.cli_help)
+def show_invariant_command(name: str = typer.Argument(..., help="Invariant name to inspect.")) -> None:
+    try:
+        result = show_invariant(Path.cwd(), name)
+    except LitmusUserError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
+
+    invariant = result.invariant
+    typer.echo(f"Name: {invariant.name}")
+    typer.echo(f"Status: {invariant.status.value}")
+    typer.echo(f"Type: {invariant.type.value}")
+    typer.echo(f"Source: {invariant.source}")
+    if invariant.request is not None and invariant.request.method and invariant.request.path:
+        typer.echo(f"Request: {invariant.request.method.upper()} {invariant.request.path}")
+    if invariant.response is not None and invariant.response.status_code is not None:
+        typer.echo(f"Response: {invariant.response.status_code}")
+
+
+@invariants_app.command("set-status", help=SET_INVARIANT_STATUS_OPERATION.cli_help)
+def set_invariant_status_command(
+    name: str = typer.Argument(..., help="Invariant name to update."),
+    confirmed: bool = typer.Option(False, "--confirmed", help="Mark the invariant as confirmed."),
+    suggested: bool = typer.Option(False, "--suggested", help="Mark the invariant as suggested."),
+) -> None:
+    if confirmed == suggested:
+        typer.echo("Choose exactly one status flag: --confirmed or --suggested.", err=True)
+        raise typer.Exit(code=1)
+
+    status = InvariantStatus.CONFIRMED if confirmed else InvariantStatus.SUGGESTED
+    try:
+        result = set_invariant_status(Path.cwd(), name=name, status=status)
+    except LitmusUserError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
+
+    typer.echo(f"Updated invariant {result.invariant.name} to {result.invariant.status.value}.")
+
+
+@config_app.command("set", help=CONFIG_SET_OPERATION.cli_help)
+def config_set_command(
+    key: str = typer.Argument(..., help="Config key to write."),
+    value: str = typer.Argument(..., help="Config value to write."),
+) -> None:
+    try:
+        result = set_config_value(Path.cwd(), key=key, value=value)
+    except ValueError:
+        valid_profiles = ", ".join(profile.value for profile in FaultProfile)
+        typer.echo(f"Unsupported fault profile. Use one of: {valid_profiles}.", err=True)
+        raise typer.Exit(code=1) from None
+    except LitmusUserError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from None
+
+    typer.echo(f"Set {result.key} = {result.value}")

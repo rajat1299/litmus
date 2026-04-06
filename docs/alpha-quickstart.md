@@ -7,10 +7,11 @@ The top-level `README.md` remains the aspirational product surface. Use this doc
 Current grounded alpha surface:
 
 - Python 3.11+
-- local CLI: `litmus init`, `litmus verify`, `litmus watch`, `litmus replay`
+- local CLI: `litmus init`, `litmus verify`, `litmus watch`, `litmus replay`, `litmus invariants ...`, `litmus config set ...`
 - local stdio MCP server via `litmus mcp`
 - replay over the latest replayable local run artifacts under `.litmus/runs/`
 - compatibility and degradation contract documented in `docs/alpha-compatibility.md`
+- local fault-profile controls are grounded presets: `default`, `gentle`, and `hostile`
 
 Install-channel note:
 

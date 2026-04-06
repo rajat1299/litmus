@@ -277,14 +277,14 @@ These are not databases. They are deterministic state machines that implement th
 - Faults: timeout, connection refused, 500, slow response, partial response, DNS failure
 
 **Fault injection profiles:**
-- **Gentle:** 5% failure rate, minor delays — catches basic error handling
-- **Hostile:** 30% failure rate, cascading failures — catches retry/recovery bugs
-- **Chaos:** 60% failure rate, byzantine behavior — catches edge-case timing
+- **Default:** grounded local alpha preset with 3 replay seeds per scenario and 100 property examples
+- **Gentle:** grounded lighter local preset with 1 replay seed per scenario and 25 property examples
+- **Hostile:** grounded deeper local preset with 9 replay seeds per scenario and 250 property examples
 
 **Seed count defaults:**
-- Local (`litmus verify`): 100 seeds per scenario
+- Local (`litmus verify`): 3 seeds per scenario by default
 - CI (GitHub Action): 500 seeds per scenario
-- Configurable via `litmus config set dst.seeds <N>`
+- The grounded A4 surface exposes `litmus config set fault_profile <default|gentle|hostile>` rather than raw seed-count controls
 
 **Deterministic replay:**
 Every failing seed is reproducible. `litmus replay seed:3847` replays the exact execution — same PRNG sequence, same fault schedule, same order of operations. The developer sees the full trace: which request was being processed, which await point was reached, which fault was injected, what state was corrupted.
@@ -391,13 +391,14 @@ litmus watch
 # Replay a failing DST seed with full execution trace
 litmus replay seed:3847
 
-# View/edit invariants
+# Inspect/manage invariants
 litmus invariants list
-litmus invariants edit src/services/payment_service.yaml
+litmus invariants show charge_is_idempotent_on_retry
+litmus invariants set-status charge_is_idempotent_on_retry --confirmed
 
 # Configure
-litmus config set dst.seeds 500
-litmus config set dst.fault-profile hostile   # gentle | hostile | chaos
+litmus config set fault_profile hostile       # default | gentle | hostile
+litmus config set suggested_invariants true
 litmus config set app "src.main:app"          # explicit ASGI app path
 ```
 

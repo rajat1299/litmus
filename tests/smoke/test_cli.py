@@ -23,5 +23,7 @@ def test_litmus_help_shows_core_commands() -> None:
     assert "watch" in result.stdout
     assert "mcp" in result.stdout
     assert "replay" in result.stdout
+    assert "invariants" in result.stdout
+    assert "config" in result.stdout
     assert "Run the local Litmus MCP server over stdio." in result.stdout
     assert "Replay a recorded seed from the latest replayable Litmus run." in result.stdout

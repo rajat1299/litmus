@@ -133,6 +133,82 @@ def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypa
     assert captured["boundary_usage"].unsupported_targets == ()
 
 
+def test_run_verification_uses_gentle_fault_profile_local_budgets(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("litmus.dst.engine.load_repo_config", lambda _root: RepoConfig(fault_profile="gentle"))
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr("litmus.dst.engine._collect_routes", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", lambda _routes, _invariants: [])
+
+    captured: dict[str, int] = {}
+
+    async def fake_run_replay(
+        _app,
+        _app_reference,
+        _scenarios,
+        *,
+        seeds_per_scenario: int,
+        fault_targets=None,
+        boundary_usage=None,
+        root=None,
+    ):
+        captured["seeds_per_scenario"] = seeds_per_scenario
+        return [], []
+
+    monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
+
+    def fake_run_property_checks(_app, _invariants, *, max_examples: int):
+        captured["max_examples"] = max_examples
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", fake_run_property_checks)
+
+    run_verification(tmp_path)
+
+    assert captured["seeds_per_scenario"] == 1
+    assert captured["max_examples"] == 25
+
+
+def test_run_verification_uses_hostile_fault_profile_local_budgets(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("litmus.dst.engine.load_repo_config", lambda _root: RepoConfig(fault_profile="hostile"))
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr("litmus.dst.engine._collect_routes", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", lambda _routes, _invariants: [])
+
+    captured: dict[str, int] = {}
+
+    async def fake_run_replay(
+        _app,
+        _app_reference,
+        _scenarios,
+        *,
+        seeds_per_scenario: int,
+        fault_targets=None,
+        boundary_usage=None,
+        root=None,
+    ):
+        captured["seeds_per_scenario"] = seeds_per_scenario
+        return [], []
+
+    monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
+
+    def fake_run_property_checks(_app, _invariants, *, max_examples: int):
+        captured["max_examples"] = max_examples
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", fake_run_property_checks)
+
+    run_verification(tmp_path)
+
+    assert captured["seeds_per_scenario"] == 9
+    assert captured["max_examples"] == 250
+
+
 def test_run_replay_generates_requested_seed_count_per_scenario_and_fault_plans(monkeypatch) -> None:
     scenario = Scenario(
         method="POST",

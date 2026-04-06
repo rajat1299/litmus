@@ -243,8 +243,8 @@ The core engine is ahead of the user-facing management surface. That creates fri
 **What needs to be done**
 
 - add `litmus invariants list`
-- add `litmus invariants edit` or a narrower first-wave equivalent
-- add `litmus config set ...`
+- add a narrower first-wave equivalent to direct editing via `litmus invariants show` and `litmus invariants set-status <name> --confirmed|--suggested`
+- add `litmus config set app|suggested_invariants|fault_profile`
 - expose user-facing fault profile controls with honest defaults
 
 **Borrow / adapt from Claude Code**
@@ -266,8 +266,9 @@ The core engine is ahead of the user-facing management surface. That creates fri
 
 **Exit criteria**
 
-- README/spec management commands are either implemented or explicitly removed from launch claims
+- grounded docs/spec show the bounded first-wave management surface instead of an editor workflow
 - invariant and config operations have stable structured outputs
+- fault profiles are honest bounded local-depth presets, not aspirational chaos controls
 
 ### A5. Suggested Invariant Review Workflow
 
