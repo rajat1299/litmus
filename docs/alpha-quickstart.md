@@ -19,6 +19,8 @@ Performance contract:
 - CI verification runs are budgeted within 60 seconds
 - the default local launch budget uses 3 replay seeds per scenario and 100 property examples
 - the grounded CI budget uses 500 replay seeds per scenario and 500 property examples
+- Only the default local profile is the grounded under-10-second launch path.
+- The hostile profile is a deeper local opt-in path rather than the default launch contract.
 
 Install-channel note:
 
@@ -91,6 +93,7 @@ Replay: unchanged=1 breaking=1 benign=0 improvement=0
 Properties: passed=0 failed=0 skipped=0
 Performance: elapsed=0.70s budget<=10.00s mode=local profile=default within_budget=yes
 Launch budgets: replay_seeds/scenario=3 property_examples=100
+Budget policy: launch-default under-10s path
 Confidence: 0.50
 ```
 
@@ -162,6 +165,7 @@ Expected output shape:
 ```text
 Replay: unchanged=2 breaking=0 benign=0 improvement=0
 Performance: elapsed=0.65s budget<=10.00s mode=local profile=default within_budget=yes
+Budget policy: launch-default under-10s path
 Confidence: 1.00
 ```
 

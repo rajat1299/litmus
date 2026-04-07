@@ -12,6 +12,22 @@ LOCAL_REPLAY_SEEDS_PER_SCENARIO = 3
 CI_REPLAY_SEEDS_PER_SCENARIO = 500
 
 
+def budget_policy_for_mode(
+    mode: object,
+    *,
+    fault_profile: FaultProfile | str = FaultProfile.DEFAULT,
+) -> str:
+    resolved_mode = coerce_run_mode(mode)
+    resolved_fault_profile = coerce_fault_profile(fault_profile)
+    if resolved_mode == "ci":
+        return "ci_deeper"
+    if resolved_fault_profile is FaultProfile.HOSTILE:
+        return "local_deeper_opt_in"
+    if resolved_fault_profile is FaultProfile.GENTLE:
+        return "launch_lighter"
+    return "launch_default"
+
+
 def verify_budget_ms_for_mode(mode: object) -> int:
     resolved_mode = coerce_run_mode(mode)
     if resolved_mode == "ci":

@@ -13,6 +13,7 @@ def _assert_local_launch_budget(summary: dict[str, object]) -> None:
     assert performance == {
         "mode": "local",
         "fault_profile": "default",
+        "budget_policy": "launch_default",
         "measured": True,
         "elapsed_ms": performance["elapsed_ms"],
         "budget_ms": 10_000,
@@ -49,14 +50,19 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     assert "litmus verify" in quickstart
     assert "local `litmus verify` runs are budgeted to stay within 10 seconds" in quickstart
     assert "CI verification runs are budgeted within 60 seconds" in quickstart
+    assert "Only the default local profile is the grounded under-10-second launch path." in quickstart
+    assert "The hostile profile is a deeper local opt-in path rather than the default launch contract." in quickstart
     assert "Performance: elapsed=" in quickstart
     assert "Launch budgets: replay_seeds/scenario=3 property_examples=100" in quickstart
+    assert "Budget policy: launch-default under-10s path" in quickstart
     assert "Homebrew" in quickstart
     assert "deferred" in quickstart
     assert "manual dispatch can rerun the workflow as a build-only preflight" in quickstart
     assert "Known limitations" in release_notes
     assert "Local `litmus verify` is budgeted for 10 seconds" in release_notes
     assert "CI verification is budgeted for 60 seconds" in release_notes
+    assert "Default local verify is the grounded launch path" in release_notes
+    assert "The hostile profile is an opt-in deeper local path" in release_notes
     assert "3 replay seeds per scenario and 100 property examples in local mode" in release_notes
     assert "500 replay seeds per scenario and 500 property examples in CI mode" in release_notes
     assert "Homebrew" in release_notes
@@ -67,6 +73,8 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     assert "uv run litmus verify" not in contributing
     assert "Local verify is budgeted for 10 seconds" in package_readme
     assert "CI verification is budgeted for 60 seconds" in package_readme
+    assert "Default local verify is the grounded launch path" in package_readme
+    assert "The hostile profile is an opt-in deeper local path" in package_readme
     assert "3 replay seeds per scenario and 100 property examples in local mode" in package_readme
     assert "500 replay seeds per scenario and 500 property examples in CI mode" in package_readme
 
@@ -127,6 +135,7 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     assert "Performance:" in verify_result.stdout
     assert "budget<=10.00s mode=local profile=default within_budget=yes" in verify_result.stdout
     assert "Launch budgets: replay_seeds/scenario=3 property_examples=100" in verify_result.stdout
+    assert "Budget policy: launch-default under-10s path" in verify_result.stdout
     latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
     run_payload = json.loads((demo_repo / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
     summary = run_payload["activities"][0]["summary"]

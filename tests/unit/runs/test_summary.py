@@ -119,6 +119,7 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
     assert projection.performance == {
         "mode": "local",
         "fault_profile": "default",
+        "budget_policy": "launch_default",
         "measured": True,
         "elapsed_ms": 2100,
         "budget_ms": 10000,
@@ -236,6 +237,7 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
     assert projection.performance == {
         "mode": "ci",
         "fault_profile": "default",
+        "budget_policy": "ci_deeper",
         "measured": True,
         "elapsed_ms": 12000,
         "budget_ms": 60000,
@@ -250,3 +252,34 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
     assert projection.compatibility["boundaries"]["redis"]["unsupported_details"] == [
         "Unsupported constructor or type import in loaded app modules."
     ]
+
+
+def test_verification_projection_marks_hostile_local_profile_as_opt_in_deeper_path() -> None:
+    result = VerificationResult(
+        app_reference="service.app:app",
+        started_at="2026-04-07T12:00:00+00:00",
+        completed_at="2026-04-07T12:00:04+00:00",
+        mode="local",
+        fault_profile="hostile",
+        scope_label="full repo",
+        routes=[],
+        invariants=[],
+        scenarios=[],
+        replay_results=[],
+        replay_traces=[],
+        property_results=[],
+    )
+
+    projection = VerificationProjection.from_result(result)
+
+    assert projection.performance == {
+        "mode": "local",
+        "fault_profile": "hostile",
+        "budget_policy": "local_deeper_opt_in",
+        "measured": True,
+        "elapsed_ms": 4000,
+        "budget_ms": 10000,
+        "within_budget": True,
+        "replay_seeds_per_scenario": 9,
+        "property_max_examples": 250,
+    }

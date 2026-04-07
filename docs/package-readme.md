@@ -19,6 +19,8 @@ Performance contract:
 
 - Local verify is budgeted for 10 seconds on the grounded launch fixture path.
 - CI verification is budgeted for 60 seconds.
+- Default local verify is the grounded launch path.
+- The hostile profile is an opt-in deeper local path, not the default launch contract.
 - Litmus uses 3 replay seeds per scenario and 100 property examples in local mode.
 - Litmus uses 500 replay seeds per scenario and 500 property examples in CI mode.
 

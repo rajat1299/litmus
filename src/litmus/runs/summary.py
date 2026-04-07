@@ -6,6 +6,7 @@ from typing import Any
 
 from litmus.compatibility import compatibility_report_from_result
 from litmus.performance import (
+    budget_policy_for_mode,
     coerce_fault_profile,
     coerce_run_mode,
     elapsed_ms,
@@ -21,6 +22,7 @@ from litmus.replay.differential import ReplayClassification
 class PerformanceProjection:
     mode: str
     fault_profile: str
+    budget_policy: str
     measured: bool
     elapsed_ms: int | None
     budget_ms: int
@@ -32,6 +34,7 @@ class PerformanceProjection:
         return {
             "mode": self.mode,
             "fault_profile": self.fault_profile,
+            "budget_policy": self.budget_policy,
             "measured": self.measured,
             "elapsed_ms": self.elapsed_ms,
             "budget_ms": self.budget_ms,
@@ -120,6 +123,7 @@ def performance_projection_from_result(result) -> PerformanceProjection:
     return PerformanceProjection(
         mode=mode,
         fault_profile=fault_profile.value,
+        budget_policy=budget_policy_for_mode(mode, fault_profile=fault_profile),
         measured=measured,
         elapsed_ms=duration_ms,
         budget_ms=budget_ms,

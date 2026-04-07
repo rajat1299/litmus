@@ -32,6 +32,7 @@ def render_verification_summary(result) -> str:
         "Launch budgets: "
         f"replay_seeds/scenario={projection.performance['replay_seeds_per_scenario']} "
         f"property_examples={projection.performance['property_max_examples']}",
+        _budget_policy_line(projection),
         f"Confidence: {projection.confidence:.2f}",
     ]
     coverage_lines = _boundary_coverage_lines(result)
@@ -80,6 +81,17 @@ def _performance_summary_line(projection: VerificationProjection) -> str:
         f"profile={performance['fault_profile']} "
         f"within_budget={'yes' if performance['within_budget'] else 'no'}"
     )
+
+
+def _budget_policy_line(projection: VerificationProjection) -> str:
+    policy = projection.performance["budget_policy"]
+    descriptions = {
+        "launch_default": "launch-default under-10s path",
+        "launch_lighter": "lighter local path",
+        "local_deeper_opt_in": "deeper local opt-in path",
+        "ci_deeper": "CI deeper-search path",
+    }
+    return f"Budget policy: {descriptions[policy]}"
 
 
 def _boundary_coverage_lines(result) -> list[str]:

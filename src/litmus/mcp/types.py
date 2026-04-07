@@ -111,6 +111,7 @@ class BoundaryCoverageCounts:
 class PerformanceCounts:
     mode: str
     fault_profile: str
+    budget_policy: str
     measured: bool
     elapsed_ms: int | None
     budget_ms: int
@@ -122,6 +123,7 @@ class PerformanceCounts:
         return {
             "mode": self.mode,
             "fault_profile": self.fault_profile,
+            "budget_policy": self.budget_policy,
             "measured": self.measured,
             "elapsed_ms": self.elapsed_ms,
             "budget_ms": self.budget_ms,
@@ -294,6 +296,7 @@ class PropertyCountsPayload(BaseModel):
 class PerformancePayload(BaseModel):
     mode: str
     fault_profile: str
+    budget_policy: str
     measured: bool
     elapsed_ms: int | None = None
     budget_ms: int
