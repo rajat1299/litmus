@@ -172,6 +172,21 @@ def persist_invariant_review_run(root: Path | str, run: VerificationRun) -> None
     save_verification_run(root, run, replayable=False, update_latest=False)
 
 
+def discard_invariant_review_run(root: Path | str, run_id: str) -> None:
+    manifest = run_manifest_path(root, run_id)
+    manifest.unlink(missing_ok=True)
+    run_dir = manifest.parent
+    try:
+        run_dir.rmdir()
+    except OSError:
+        return
+    runs_dir = run_dir.parent
+    try:
+        runs_dir.rmdir()
+    except OSError:
+        return
+
+
 def save_verification_run(
     root: Path | str,
     run: VerificationRun,

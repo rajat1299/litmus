@@ -8,7 +8,7 @@ from litmus.config import FaultProfile, RepoConfig, load_repo_config, write_repo
 from litmus.errors import LitmusUserError
 from litmus.invariants.models import Invariant, InvariantReview, InvariantReviewState, InvariantStatus
 from litmus.invariants.store import default_invariants_path, load_invariants, save_invariants
-from litmus.runs import build_invariant_review_run, persist_invariant_review_run
+from litmus.runs import build_invariant_review_run, discard_invariant_review_run, persist_invariant_review_run
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +153,7 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
         reason=reason,
         review_source="cli",
     )
+    persist_invariant_review_run(root, review_run)
 
     updated = target.model_copy(
         update={
@@ -167,8 +168,11 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
         }
     )
     updated_invariants = [updated if invariant.name == name else invariant for invariant in invariants]
-    save_invariants(invariants_path, updated_invariants)
-    persist_invariant_review_run(root, review_run)
+    try:
+        save_invariants(invariants_path, updated_invariants)
+    except Exception as exc:
+        _discard_review_run_after_failure(root, review_run.run_id, exc)
+        raise
     return InvariantReviewUpdateResult(invariants_path=invariants_path, invariant=updated)
 
 
@@ -185,6 +189,7 @@ def dismiss_invariant(root: Path | str, *, name: str, reason: str) -> InvariantR
         reason=reason,
         review_source="cli",
     )
+    persist_invariant_review_run(root, review_run)
 
     updated = target.model_copy(
         update={
@@ -198,8 +203,11 @@ def dismiss_invariant(root: Path | str, *, name: str, reason: str) -> InvariantR
         }
     )
     updated_invariants = [updated if invariant.name == name else invariant for invariant in invariants]
-    save_invariants(invariants_path, updated_invariants)
-    persist_invariant_review_run(root, review_run)
+    try:
+        save_invariants(invariants_path, updated_invariants)
+    except Exception as exc:
+        _discard_review_run_after_failure(root, review_run.run_id, exc)
+        raise
     return InvariantReviewUpdateResult(invariants_path=invariants_path, invariant=updated)
 
 
@@ -278,6 +286,15 @@ def _review_state_for_listing(invariant: Invariant) -> InvariantReviewState:
 
 def _review_timestamp() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _discard_review_run_after_failure(root: Path | str, run_id: str, error: Exception) -> None:
+    try:
+        discard_invariant_review_run(root, run_id)
+    except OSError as cleanup_error:
+        error.add_note(
+            f"Failed to roll back invariant review run {run_id}: {cleanup_error}"
+        )
 
 
 def _ensure_can_confirm(target: Invariant) -> None:

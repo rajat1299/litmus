@@ -9,6 +9,7 @@ from litmus.runs.models import (
 from litmus.runs.store import (
     build_invariant_review_run,
     clear_latest_replayable_run,
+    discard_invariant_review_run,
     latest_replayable_run_pointer_path,
     latest_run_pointer_path,
     load_latest_replayable_run,
@@ -32,6 +33,7 @@ __all__ = [
     "VerificationRun",
     "build_invariant_review_run",
     "clear_latest_replayable_run",
+    "discard_invariant_review_run",
     "latest_replayable_run_pointer_path",
     "latest_run_pointer_path",
     "load_latest_replayable_run",
