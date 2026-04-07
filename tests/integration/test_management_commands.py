@@ -67,6 +67,58 @@ def test_litmus_invariants_set_status_updates_curated_invariant_file(tmp_path: P
 
     invariants = load_invariants(invariants_path)
     assert invariants[1].status.value == "confirmed"
+    assert invariants[1].review is not None
+    assert invariants[1].review.state is InvariantReviewState.PROMOTED
+
+
+def test_litmus_invariants_set_status_to_suggested_clears_promotion_review_metadata(tmp_path: Path) -> None:
+    invariants_path = _write_invariants_fixture(tmp_path)
+
+    accept_result = subprocess.run(
+        [
+            "litmus",
+            "invariants",
+            "accept",
+            "charge_is_idempotent_on_retry",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert accept_result.returncode == 0, accept_result.stderr
+
+    demote_result = subprocess.run(
+        [
+            "litmus",
+            "invariants",
+            "set-status",
+            "charge_is_idempotent_on_retry",
+            "--suggested",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert demote_result.returncode == 0, demote_result.stderr
+    invariants = load_invariants(invariants_path)
+    updated = next(invariant for invariant in invariants if invariant.name == "charge_is_idempotent_on_retry")
+    assert updated.status is InvariantStatus.SUGGESTED
+    assert updated.review is None
+
+    review_list_result = subprocess.run(
+        ["litmus", "invariants", "review", "list"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert review_list_result.returncode == 0, review_list_result.stderr
+    assert "Count: 1" in review_list_result.stdout
+    assert "charge_is_idempotent_on_retry [suggested] [pending]" in review_list_result.stdout
 
 
 def test_litmus_invariants_review_list_defaults_to_pending_items(tmp_path: Path) -> None:

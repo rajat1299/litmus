@@ -129,11 +129,12 @@ def collect_verification_inputs(
     app_reference = discover_app_reference(repo_root)
     discovered_routes = _collect_routes(repo_root)
     discovered_invariants = mine_invariants_from_tests(_collect_test_files(repo_root))
+    curated_promoted_invariants = _load_curated_promoted_invariants(repo_root, discovered_routes)
     curated_suggested_invariants = _load_curated_suggested_invariants(repo_root, discovered_routes)
     routes, scoped_invariants = apply_verification_scope(
         repo_root,
         discovered_routes,
-        [*discovered_invariants, *curated_suggested_invariants],
+        [*discovered_invariants, *curated_promoted_invariants, *curated_suggested_invariants],
         active_scope,
     )
     confirmed_invariants = [
@@ -181,16 +182,37 @@ def _collect_suggested_invariants(
 
 
 def _load_curated_suggested_invariants(root: Path | str, routes: list[RouteDefinition]) -> list[Invariant]:
+    return _load_curated_invariants_for_routes(
+        root,
+        routes,
+        predicate=lambda invariant: invariant.status is InvariantStatus.SUGGESTED,
+    )
+
+
+def _load_curated_promoted_invariants(root: Path | str, routes: list[RouteDefinition]) -> list[Invariant]:
+    return _load_curated_invariants_for_routes(
+        root,
+        routes,
+        predicate=lambda invariant: invariant.is_promoted_confirmation(),
+    )
+
+
+def _load_curated_invariants_for_routes(
+    root: Path | str,
+    routes: list[RouteDefinition],
+    *,
+    predicate,
+) -> list[Invariant]:
     invariants_path = default_invariants_path(root)
     if not invariants_path.exists():
         return []
 
     route_keys = {(route.method.upper(), route.path) for route in routes}
-    curated_suggestions: list[Invariant] = []
+    curated_invariants: list[Invariant] = []
     seen_keys: set[tuple[str, str, str]] = set()
 
     for invariant in load_invariants(invariants_path):
-        if invariant.status is not InvariantStatus.SUGGESTED:
+        if not predicate(invariant):
             continue
         request = invariant.request
         if request is None or request.method is None or request.path is None:
@@ -208,9 +230,11 @@ def _load_curated_suggested_invariants(root: Path | str, routes: list[RouteDefin
         if identity in seen_keys:
             continue
         seen_keys.add(identity)
-        curated_suggestions.append(invariant.model_copy(update={"request": request.model_copy(update={"method": route_key[0]})}))
+        curated_invariants.append(
+            invariant.model_copy(update={"request": request.model_copy(update={"method": route_key[0]})})
+        )
 
-    return curated_suggestions
+    return curated_invariants
 
 
 def _collect_routes(root: Path) -> list[RouteDefinition]:

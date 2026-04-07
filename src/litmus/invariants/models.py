@@ -69,3 +69,10 @@ class Invariant(BaseModel):
             and self.review is not None
             and self.review.state is InvariantReviewState.DISMISSED
         )
+
+    def is_promoted_confirmation(self) -> bool:
+        return (
+            self.status is InvariantStatus.CONFIRMED
+            and self.review is not None
+            and self.review.state is InvariantReviewState.PROMOTED
+        )

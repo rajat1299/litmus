@@ -887,6 +887,79 @@ def test_run_verification_loads_curated_suggested_invariants_without_reimporting
     assert [invariant.name for invariant in captured["scenario_invariants"]] == ["charge_returns_200"]
 
 
+def test_run_verification_loads_promoted_curated_confirmed_invariants_into_active_inputs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    promoted_property = Invariant(
+        name="refund_is_idempotent",
+        source="manual:suggested",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.PROPERTY,
+        request=RequestExample(method="POST", path="/payments/refund", json={"refund_id": "r-123"}),
+        reasoning="Accepted as a confirmed retry contract.",
+        review=InvariantReview(
+            state=InvariantReviewState.PROMOTED,
+            reason="Reviewed and accepted.",
+            reviewed_at="2026-04-06T12:00:00Z",
+            review_source="cli",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_repo_config",
+        lambda _root: RepoConfig(app="service.app:app", suggested_invariants=True),
+    )
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="POST",
+                path="/payments/refund",
+                handler_name="refund",
+                file_path="service/app.py",
+            )
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+    monkeypatch.setattr(
+        "litmus.dst.engine.default_invariants_path",
+        lambda _root: tmp_path / ".litmus" / "invariants.yaml",
+    )
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_invariants",
+        lambda _path: [promoted_property],
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_build_scenarios(_routes, invariants):
+        captured["scenario_invariants"] = list(invariants)
+        return []
+
+    def fake_run_property_checks(_app, invariants, *, max_examples: int):
+        captured["property_invariants"] = list(invariants)
+        captured["max_examples"] = max_examples
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", fake_build_scenarios)
+    monkeypatch.setattr("litmus.dst.engine._run_replay", lambda *_args, **_kwargs: asyncio.sleep(0, result=([], [])))
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", fake_run_property_checks)
+
+    invariants_path = tmp_path / ".litmus" / "invariants.yaml"
+    invariants_path.parent.mkdir(parents=True, exist_ok=True)
+    invariants_path.write_text("[]\n", encoding="utf-8")
+
+    result = run_verification(tmp_path)
+
+    assert [invariant.name for invariant in result.invariants] == ["refund_is_idempotent"]
+    assert [invariant.name for invariant in captured["scenario_invariants"]] == ["refund_is_idempotent"]
+    assert [invariant.name for invariant in captured["property_invariants"]] == ["refund_is_idempotent"]
+
+
 def test_run_verification_keeps_dismissed_curated_route_gap_suggestions_out_of_active_results_but_still_suppresses_route_gaps(
     monkeypatch,
     tmp_path: Path,

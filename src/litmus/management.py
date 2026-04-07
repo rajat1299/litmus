@@ -125,7 +125,12 @@ def set_invariant_status(
     invariants_path = default_invariants_path(root)
     invariants = _load_curated_invariants(invariants_path)
     target = _find_invariant(invariants, name=name, invariants_path=invariants_path)
-    updated = target.model_copy(update={"status": status})
+    updated = target.model_copy(
+        update={
+            "status": status,
+            "review": _normalized_review_for_status(target, status=status),
+        }
+    )
     updated_invariants = [updated if invariant.name == name else invariant for invariant in invariants]
     save_invariants(invariants_path, updated_invariants)
     return InvariantStatusUpdateResult(invariants_path=invariants_path, invariant=updated)
@@ -251,3 +256,20 @@ def _review_state_for_listing(invariant: Invariant) -> InvariantReviewState:
 
 def _review_timestamp() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _normalized_review_for_status(
+    target: Invariant,
+    *,
+    status: InvariantStatus,
+) -> InvariantReview | None:
+    if status is InvariantStatus.SUGGESTED:
+        return None
+    if target.is_promoted_confirmation():
+        return target.review
+    return InvariantReview(
+        state=InvariantReviewState.PROMOTED,
+        reason=None if target.review is None else target.review.reason,
+        reviewed_at=_review_timestamp(),
+        review_source="cli",
+    )
