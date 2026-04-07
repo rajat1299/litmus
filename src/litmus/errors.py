@@ -19,3 +19,7 @@ class VerificationModeError(LitmusUserError, ValueError):
 
 class ReplayLookupError(LitmusUserError, LookupError):
     """A requested replay trace could not be found in the run store."""
+
+
+class ConfigParseError(LitmusUserError, ValueError):
+    """A persisted Litmus config value could not be parsed safely."""

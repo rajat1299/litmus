@@ -85,35 +85,40 @@ def set_invariant_status(
 def set_config_value(root: Path | str, *, key: str, value: str) -> ConfigSetResult:
     repo_root = Path(root)
     config_path = repo_root / "litmus.yaml"
-    current = load_repo_config(repo_root)
-
     if key == "app":
-        next_config = RepoConfig(
-            app=value,
-            suggested_invariants=current.suggested_invariants,
-            fault_profile=current.fault_profile,
-        )
-        display_value = value
+        overrides = {"app": value}
     elif key == "suggested_invariants":
-        parsed_value = _parse_bool(value)
-        next_config = RepoConfig(
-            app=current.app,
-            suggested_invariants=parsed_value,
-            fault_profile=current.fault_profile,
-        )
-        display_value = "true" if parsed_value else "false"
+        overrides = {"suggested_invariants": value}
     elif key == "fault_profile":
-        parsed_profile = FaultProfile(value.strip().lower())
-        next_config = RepoConfig(
-            app=current.app,
-            suggested_invariants=current.suggested_invariants,
-            fault_profile=parsed_profile,
-        )
-        display_value = parsed_profile.value
+        overrides = {"fault_profile": value}
     else:
         raise LitmusUserError(
             "Unsupported config key. Use one of: app, suggested_invariants, fault_profile."
         )
+
+    current = load_repo_config(repo_root, overrides=overrides)
+
+    if key == "app":
+        next_config = RepoConfig(
+            app=current.app,
+            suggested_invariants=current.suggested_invariants,
+            fault_profile=current.fault_profile,
+        )
+        display_value = current.app or value
+    elif key == "suggested_invariants":
+        next_config = RepoConfig(
+            app=current.app,
+            suggested_invariants=current.suggested_invariants,
+            fault_profile=current.fault_profile,
+        )
+        display_value = "true" if current.suggested_invariants else "false"
+    else:
+        next_config = RepoConfig(
+            app=current.app,
+            suggested_invariants=current.suggested_invariants,
+            fault_profile=current.fault_profile,
+        )
+        display_value = current.fault_profile.value
 
     write_repo_config(config_path, next_config, include_defaults=True)
     return ConfigSetResult(config_path=config_path, key=key, value=display_value)
@@ -130,12 +135,3 @@ def _find_invariant(invariants: list[Invariant], *, name: str, invariants_path: 
         if invariant.name == name:
             return invariant
     raise LitmusUserError(f"Invariant '{name}' was not found in {invariants_path}.")
-
-
-def _parse_bool(value: str) -> bool:
-    normalized = value.strip().lower()
-    if normalized in {"true", "1", "yes", "on"}:
-        return True
-    if normalized in {"false", "0", "no", "off"}:
-        return False
-    raise LitmusUserError("Boolean config values must be one of: true, false, 1, 0, yes, no, on, off.")

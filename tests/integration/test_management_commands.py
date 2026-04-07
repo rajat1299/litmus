@@ -109,6 +109,25 @@ def test_litmus_config_set_writes_explicit_litmus_yaml_values(tmp_path: Path) ->
     assert "fault_profile: hostile" in config_text
 
 
+def test_litmus_config_set_can_repair_invalid_fault_profile_value(tmp_path: Path) -> None:
+    (tmp_path / "litmus.yaml").write_text(
+        'app: "service.main:app"\nfault_profile: chaos\n',
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "config", "set", "fault_profile", "gentle"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Set fault_profile = gentle" in result.stdout
+    assert load_repo_config(tmp_path).fault_profile is FaultProfile.GENTLE
+
+
 def _write_invariants_fixture(tmp_path: Path) -> Path:
     invariants_path = tmp_path / ".litmus" / "invariants.yaml"
     invariants_path.parent.mkdir(parents=True, exist_ok=True)

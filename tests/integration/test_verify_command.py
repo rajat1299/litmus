@@ -228,6 +228,30 @@ def test_litmus_verify_reports_app_load_error_cleanly(tmp_path: Path) -> None:
     assert "Traceback" not in result.stderr
 
 
+def test_litmus_verify_reports_invalid_fault_profile_cleanly(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    service_dir.mkdir()
+
+    (repo_root / "litmus.yaml").write_text(
+        'app: "service.app:app"\nfault_profile: chaos\n',
+        encoding="utf-8",
+    )
+    (service_dir / "app.py").write_text("app = object()\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "Invalid Litmus config field 'fault_profile'" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_litmus_verify_reports_scope_error_cleanly(tmp_path: Path) -> None:
     result = subprocess.run(
         ["litmus", "verify", "missing.py"],
