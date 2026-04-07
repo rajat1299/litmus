@@ -11,6 +11,7 @@ __pycache__/
 .hypothesis/
 .litmus/
 .desloppify/
+.worktrees/
 .env
 .env.*
 !.env.example
