@@ -5,6 +5,7 @@ import textwrap
 from pathlib import Path
 
 from litmus.config import FaultProfile, load_repo_config
+from litmus.invariants.models import InvariantReviewState, InvariantStatus
 from litmus.invariants.store import load_invariants
 
 
@@ -66,6 +67,116 @@ def test_litmus_invariants_set_status_updates_curated_invariant_file(tmp_path: P
 
     invariants = load_invariants(invariants_path)
     assert invariants[1].status.value == "confirmed"
+
+
+def test_litmus_invariants_review_list_defaults_to_pending_items(tmp_path: Path) -> None:
+    _write_invariants_fixture(tmp_path)
+
+    result = subprocess.run(
+        ["litmus", "invariants", "review", "list"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Litmus invariant review" in result.stdout
+    assert "Filter: pending" in result.stdout
+    assert "Count: 1" in result.stdout
+    assert "charge_is_idempotent_on_retry [suggested] [pending]" in result.stdout
+    assert "refund_review_rejected" not in result.stdout
+
+
+def test_litmus_invariants_accept_promotes_suggested_invariant_with_review_metadata(tmp_path: Path) -> None:
+    invariants_path = _write_invariants_fixture(tmp_path)
+
+    result = subprocess.run(
+        [
+            "litmus",
+            "invariants",
+            "accept",
+            "charge_is_idempotent_on_retry",
+            "--reason",
+            "Matches the intended retry contract.",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Accepted invariant charge_is_idempotent_on_retry as confirmed." in result.stdout
+
+    invariants = load_invariants(invariants_path)
+    promoted = next(invariant for invariant in invariants if invariant.name == "charge_is_idempotent_on_retry")
+    assert promoted.status is InvariantStatus.CONFIRMED
+    assert promoted.review is not None
+    assert promoted.review.state is InvariantReviewState.PROMOTED
+    assert promoted.review.reason == "Matches the intended retry contract."
+    assert promoted.review.review_source == "cli"
+
+
+def test_litmus_invariants_dismiss_marks_suggestion_review_state_and_hides_it_from_default_list(tmp_path: Path) -> None:
+    invariants_path = _write_invariants_fixture(tmp_path)
+
+    dismiss_result = subprocess.run(
+        [
+            "litmus",
+            "invariants",
+            "dismiss",
+            "charge_is_idempotent_on_retry",
+            "--reason",
+            "Retry behavior is already enforced elsewhere.",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert dismiss_result.returncode == 0, dismiss_result.stderr
+    assert "Dismissed suggested invariant charge_is_idempotent_on_retry." in dismiss_result.stdout
+
+    invariants = load_invariants(invariants_path)
+    dismissed = next(invariant for invariant in invariants if invariant.name == "charge_is_idempotent_on_retry")
+    assert dismissed.status is InvariantStatus.SUGGESTED
+    assert dismissed.review is not None
+    assert dismissed.review.state is InvariantReviewState.DISMISSED
+    assert dismissed.review.reason == "Retry behavior is already enforced elsewhere."
+    assert dismissed.review.review_source == "cli"
+
+    list_result = subprocess.run(
+        ["litmus", "invariants", "list"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert list_result.returncode == 0, list_result.stderr
+    assert "charge_is_idempotent_on_retry" not in list_result.stdout
+    assert "refund_review_rejected" not in list_result.stdout
+
+
+def test_litmus_invariants_show_surfaces_review_metadata(tmp_path: Path) -> None:
+    _write_invariants_fixture(tmp_path)
+
+    result = subprocess.run(
+        ["litmus", "invariants", "show", "refund_review_rejected"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Name: refund_review_rejected" in result.stdout
+    assert "Status: suggested" in result.stdout
+    assert "Review state: dismissed" in result.stdout
+    assert "Review reason: Refunds are intentionally operator-only." in result.stdout
+    assert "Review source: cli" in result.stdout
 
 
 def test_litmus_config_set_writes_explicit_litmus_yaml_values(tmp_path: Path) -> None:
@@ -149,6 +260,21 @@ def _write_invariants_fixture(tmp_path: Path) -> Path:
               source: llm:diff_analysis
               status: suggested
               type: property
+              request:
+                method: POST
+                path: /payments/charge
+            - name: refund_review_rejected
+              source: llm:code_context
+              status: suggested
+              type: state_transition
+              request:
+                method: POST
+                path: /payments/refund
+              review:
+                state: dismissed
+                reason: Refunds are intentionally operator-only.
+                reviewed_at: "2026-04-06T12:00:00Z"
+                review_source: cli
             """
         ).strip()
         + "\n",

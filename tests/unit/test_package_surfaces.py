@@ -9,12 +9,15 @@ import litmus
 from typer.main import get_command
 
 from litmus.cli import (
+    accept_invariant_command,
     app,
     config_set_command,
+    dismiss_invariant_command,
     init,
     list_invariants_command,
     mcp,
     replay,
+    review_list_invariants_command,
     set_invariant_status_command,
     show_invariant_command,
     verify,
@@ -23,11 +26,15 @@ from litmus.cli import (
 from litmus.surface import (
     CONFIG_GROUP_HELP,
     CONFIG_SET_OPERATION,
+    ACCEPT_INVARIANT_OPERATION,
+    DISMISS_INVARIANT_OPERATION,
     INIT_OPERATION,
     INVARIANTS_GROUP_HELP,
     LIST_INVARIANTS_OPERATION,
     MCP_OPERATION,
     REPLAY_OPERATION,
+    REVIEW_INVARIANTS_GROUP_HELP,
+    REVIEW_LIST_INVARIANTS_OPERATION,
     SET_INVARIANT_STATUS_OPERATION,
     SHOW_INVARIANT_OPERATION,
     VERIFY_OPERATION,
@@ -118,6 +125,19 @@ def test_cli_command_help_comes_from_surface_contract_without_duplicate_docstrin
     assert command_group.commands["config"].help == CONFIG_GROUP_HELP
     assert command_group.commands["invariants"].commands["list"].help == LIST_INVARIANTS_OPERATION.cli_help
     assert command_group.commands["invariants"].commands["show"].help == SHOW_INVARIANT_OPERATION.cli_help
+    assert command_group.commands["invariants"].commands["review"].help == REVIEW_INVARIANTS_GROUP_HELP
+    assert (
+        command_group.commands["invariants"].commands["review"].commands["list"].help
+        == REVIEW_LIST_INVARIANTS_OPERATION.cli_help
+    )
+    assert (
+        command_group.commands["invariants"].commands["accept"].help
+        == ACCEPT_INVARIANT_OPERATION.cli_help
+    )
+    assert (
+        command_group.commands["invariants"].commands["dismiss"].help
+        == DISMISS_INVARIANT_OPERATION.cli_help
+    )
     assert (
         command_group.commands["invariants"].commands["set-status"].help
         == SET_INVARIANT_STATUS_OPERATION.cli_help
@@ -130,6 +150,9 @@ def test_cli_command_help_comes_from_surface_contract_without_duplicate_docstrin
     assert mcp.__doc__ is None
     assert replay.__doc__ is None
     assert list_invariants_command.__doc__ is None
+    assert review_list_invariants_command.__doc__ is None
+    assert accept_invariant_command.__doc__ is None
+    assert dismiss_invariant_command.__doc__ is None
     assert show_invariant_command.__doc__ is None
     assert set_invariant_status_command.__doc__ is None
     assert config_set_command.__doc__ is None

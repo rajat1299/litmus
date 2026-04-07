@@ -52,8 +52,25 @@ LIST_INVARIANTS_OPERATION = OperationSurface(
     mcp_description="List confirmed and suggested invariants visible in the selected grounded verification scope.",
 )
 
+REVIEW_INVARIANTS_GROUP_HELP = "Review pending, dismissed, and promoted suggested invariant decisions."
+
+REVIEW_LIST_INVARIANTS_OPERATION = OperationSurface(
+    cli_help="List suggested invariant review records from the local invariant store.",
+    mcp_description="",
+)
+
 SHOW_INVARIANT_OPERATION = OperationSurface(
     cli_help="Show one curated Litmus invariant from the local invariant store.",
+    mcp_description="",
+)
+
+ACCEPT_INVARIANT_OPERATION = OperationSurface(
+    cli_help="Accept one suggested invariant and promote it to confirmed.",
+    mcp_description="",
+)
+
+DISMISS_INVARIANT_OPERATION = OperationSurface(
+    cli_help="Dismiss one suggested invariant with a required review reason.",
     mcp_description="",
 )
 
