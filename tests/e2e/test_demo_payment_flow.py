@@ -60,6 +60,22 @@ async def charge(payload: dict[str, Any] | None) -> dict[str, Any]:
 """
 
 
+def _assert_local_launch_budget(summary: dict[str, object]) -> None:
+    performance = summary["performance"]
+    assert performance == {
+        "mode": "local",
+        "fault_profile": "default",
+        "measured": True,
+        "elapsed_ms": performance["elapsed_ms"],
+        "budget_ms": 10_000,
+        "within_budget": True,
+        "replay_seeds_per_scenario": 3,
+        "property_max_examples": 100,
+    }
+    assert isinstance(performance["elapsed_ms"], int)
+    assert 0 <= performance["elapsed_ms"] <= performance["budget_ms"]
+
+
 def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> None:
     source_repo = Path(__file__).resolve().parents[2] / "examples" / "payment_service"
     demo_repo = tmp_path / "payment_service"
@@ -80,32 +96,35 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert verify_failure.returncode == 1, verify_failure.stdout
     assert "Litmus verify" in verify_failure.stdout
     assert "App: app:app" in verify_failure.stdout
+    assert "Performance:" in verify_failure.stdout
+    assert "budget<=10.00s mode=local profile=default within_budget=yes" in verify_failure.stdout
+    assert "Launch budgets: replay_seeds/scenario=3 property_examples=100" in verify_failure.stdout
 
     latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
     run_payload = json.loads(
         (demo_repo / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8")
     )
-    assert run_payload["activities"][0]["summary"] == {
-        "routes": 1,
-        "invariants": {
-            "total": 2,
-            "confirmed": 2,
-            "suggested": 0,
-        },
-        "scenarios": 2,
-        "replay": {
-            "unchanged": 1,
-            "breaking_change": 1,
-            "benign_change": 0,
-            "improvement": 0,
-        },
-        "properties": {
-            "passed": 0,
-            "failed": 0,
-            "skipped": 0,
-        },
-        "confidence": 0.5,
+    summary = run_payload["activities"][0]["summary"]
+    assert summary["routes"] == 1
+    assert summary["invariants"] == {
+        "total": 2,
+        "confirmed": 2,
+        "suggested": 0,
     }
+    assert summary["scenarios"] == 2
+    assert summary["replay"] == {
+        "unchanged": 1,
+        "breaking_change": 1,
+        "benign_change": 0,
+        "improvement": 0,
+    }
+    assert summary["properties"] == {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+    assert summary["confidence"] == 0.5
+    _assert_local_launch_budget(summary)
     assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
     assert not (demo_repo / ".litmus" / "replay-traces.json").exists()
 
@@ -136,16 +155,20 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
 
     assert verify_fixed.returncode == 0, verify_fixed.stderr
     assert "Litmus verify" in verify_fixed.stdout
+    assert "Performance:" in verify_fixed.stdout
+    assert "budget<=10.00s mode=local profile=default within_budget=yes" in verify_fixed.stdout
     latest_fixed_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))[
         "run_id"
     ]
     fixed_run_payload = json.loads(
         (demo_repo / ".litmus" / "runs" / latest_fixed_run_id / "run.json").read_text(encoding="utf-8")
     )
-    assert fixed_run_payload["activities"][0]["summary"]["replay"] == {
+    fixed_summary = fixed_run_payload["activities"][0]["summary"]
+    assert fixed_summary["replay"] == {
         "unchanged": 2,
         "breaking_change": 0,
         "benign_change": 0,
         "improvement": 0,
     }
-    assert fixed_run_payload["activities"][0]["summary"]["confidence"] == 1.0
+    assert fixed_summary["confidence"] == 1.0
+    _assert_local_launch_budget(fixed_summary)
