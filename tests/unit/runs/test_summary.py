@@ -45,6 +45,8 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
     )
     result = VerificationResult(
         app_reference="service.app:app",
+        started_at="2026-04-07T12:00:00+00:00",
+        completed_at="2026-04-07T12:00:02.100000+00:00",
         scope_label="full repo",
         routes=[
             RouteDefinition(
@@ -114,6 +116,15 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
     assert projection.scope_label == "full repo"
     assert projection.routes == 1
     assert projection.scenarios == 1
+    assert projection.performance == {
+        "mode": "local",
+        "fault_profile": "default",
+        "elapsed_ms": 2100,
+        "budget_ms": 10000,
+        "within_budget": True,
+        "replay_seeds_per_scenario": 3,
+        "property_max_examples": 100,
+    }
     assert projection.invariants == {
         "total": 2,
         "confirmed": 1,
@@ -168,6 +179,9 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
     )
     result = VerificationResult(
         app_reference="service.app:app",
+        started_at="2026-04-07T12:00:00+00:00",
+        completed_at="2026-04-07T12:00:12+00:00",
+        mode="ci",
         scope_label="full repo",
         routes=[],
         invariants=[],
@@ -218,6 +232,15 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
 
     projection = VerificationProjection.from_result(result)
 
+    assert projection.performance == {
+        "mode": "ci",
+        "fault_profile": "default",
+        "elapsed_ms": 12000,
+        "budget_ms": 60000,
+        "within_budget": True,
+        "replay_seeds_per_scenario": 500,
+        "property_max_examples": 500,
+    }
     assert projection.compatibility["boundaries"]["redis"]["status"] == "partial"
     assert projection.compatibility["boundaries"]["redis"]["supported_shapes"] == [
         "redis.asyncio.Redis.from_url"

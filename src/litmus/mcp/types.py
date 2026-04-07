@@ -108,6 +108,28 @@ class BoundaryCoverageCounts:
 
 
 @dataclass(slots=True)
+class PerformanceCounts:
+    mode: str
+    fault_profile: str
+    elapsed_ms: int
+    budget_ms: int
+    within_budget: bool
+    replay_seeds_per_scenario: int
+    property_max_examples: int
+
+    def to_dict(self) -> dict[str, str | int | bool]:
+        return {
+            "mode": self.mode,
+            "fault_profile": self.fault_profile,
+            "elapsed_ms": self.elapsed_ms,
+            "budget_ms": self.budget_ms,
+            "within_budget": self.within_budget,
+            "replay_seeds_per_scenario": self.replay_seeds_per_scenario,
+            "property_max_examples": self.property_max_examples,
+        }
+
+
+@dataclass(slots=True)
 class InvariantView:
     name: str
     source: str
@@ -166,6 +188,7 @@ class VerifyOperationResult:
     scenarios: int
     replay: ReplayCounts
     properties: PropertyCounts
+    performance: PerformanceCounts
     boundary_coverage: dict[str, BoundaryCoverageCounts] = field(default_factory=dict)
     compatibility: CompatibilityReport = field(
         default_factory=lambda: CompatibilityReport.from_dict({})
@@ -182,6 +205,7 @@ class VerifyOperationResult:
             "scenarios": self.scenarios,
             "replay": self.replay.to_dict(),
             "properties": self.properties.to_dict(),
+            "performance": self.performance.to_dict(),
             "boundary_coverage": {
                 boundary: coverage.to_dict()
                 for boundary, coverage in self.boundary_coverage.items()
@@ -263,6 +287,16 @@ class PropertyCountsPayload(BaseModel):
     passed: int
     failed: int
     skipped: int
+
+
+class PerformancePayload(BaseModel):
+    mode: str
+    fault_profile: str
+    elapsed_ms: int
+    budget_ms: int
+    within_budget: bool
+    replay_seeds_per_scenario: int
+    property_max_examples: int
 
 
 class BoundaryCoveragePayload(BaseModel):
@@ -372,6 +406,7 @@ class VerifyOperationPayload(BaseModel):
     scenarios: int
     replay: ReplayCountsPayload
     properties: PropertyCountsPayload
+    performance: PerformancePayload
     boundary_coverage: dict[str, BoundaryCoveragePayload]
     compatibility: CompatibilityPayload
     replay_seeds: list[str]

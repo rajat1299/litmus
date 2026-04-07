@@ -114,7 +114,8 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
     assert result.returncode == 0, result.stderr
     assert "Litmus verify" in result.stdout
     assert "App: service.app:app" in result.stdout
-    assert _latest_verify_summary(repo_root) == {
+    summary = _latest_verify_summary(repo_root)
+    assert summary == {
         "routes": 1,
         "invariants": {
             "total": 2,
@@ -134,8 +135,14 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
             "skipped": 0,
         },
         "compatibility": _expected_not_detected_compatibility(),
+        "performance": summary["performance"],
         "confidence": 1.0,
     }
+    assert summary["performance"]["mode"] == "local"
+    assert summary["performance"]["budget_ms"] == 10000
+    assert summary["performance"]["within_budget"] is True
+    assert summary["performance"]["replay_seeds_per_scenario"] == 3
+    assert summary["performance"]["property_max_examples"] == 100
 
 
 def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) -> None:
@@ -183,7 +190,8 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
 
     assert result.returncode == 0, result.stderr
     assert "Litmus verify" in result.stdout
-    assert _latest_verify_summary(repo_root) == {
+    summary = _latest_verify_summary(repo_root)
+    assert summary == {
         "routes": 1,
         "invariants": {
             "total": 0,
@@ -203,8 +211,12 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
             "skipped": 0,
         },
         "compatibility": _expected_not_detected_compatibility(),
+        "performance": summary["performance"],
         "confidence": 0.0,
     }
+    assert summary["performance"]["mode"] == "local"
+    assert summary["performance"]["budget_ms"] == 10000
+    assert summary["performance"]["within_budget"] is True
 
 
 def test_litmus_verify_reports_app_load_error_cleanly(tmp_path: Path) -> None:

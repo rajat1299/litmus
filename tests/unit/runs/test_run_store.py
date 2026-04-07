@@ -21,6 +21,7 @@ from litmus.runs.store import (
     load_latest_verification_run,
     load_verification_run,
     record_invariant_review_run,
+    record_verification_run,
     replay_record_for_seed,
     save_verification_run,
 )
@@ -229,4 +230,41 @@ def test_record_invariant_review_run_persists_manifest_without_updating_latest_p
         "decision": "dismissed",
         "review_source": "cli",
         "reason": "Retry behavior is already enforced elsewhere.",
+    }
+
+
+def test_record_verification_run_uses_measured_result_timing_in_summary(tmp_path) -> None:
+    result = type(
+        "Result",
+        (),
+        {
+            "app_reference": "service.app:app",
+            "scope_label": "full repo",
+            "started_at": "2026-04-07T12:00:00+00:00",
+            "completed_at": "2026-04-07T12:00:02.500000+00:00",
+            "mode": "local",
+            "fault_profile": "default",
+            "replay_seeds_per_scenario": 3,
+            "property_max_examples": 100,
+            "routes": [],
+            "invariants": [],
+            "scenarios": [],
+            "replay_results": [],
+            "replay_traces": [],
+            "property_results": [],
+        },
+    )()
+
+    run = record_verification_run(tmp_path, result, mode=RunMode.LOCAL)
+
+    assert run.started_at == "2026-04-07T12:00:00+00:00"
+    assert run.completed_at == "2026-04-07T12:00:02.500000+00:00"
+    assert run.activities[0].summary["performance"] == {
+        "mode": "local",
+        "fault_profile": "default",
+        "elapsed_ms": 2500,
+        "budget_ms": 10000,
+        "within_budget": True,
+        "replay_seeds_per_scenario": 3,
+        "property_max_examples": 100,
     }

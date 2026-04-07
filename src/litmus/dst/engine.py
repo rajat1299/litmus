@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import ast
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 import sys
 
@@ -27,6 +28,7 @@ from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, 
 from litmus.invariants.suggested import suggest_route_gap_invariants
 from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
+from litmus.performance import property_max_examples_for_mode, replay_seed_count_for_mode
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
 from litmus.replay.fidelity import normalize_execution_transcript
 from litmus.replay.trace import ReplayTraceRecord
@@ -52,6 +54,12 @@ class VerificationResult:
     replay_results: list[DifferentialReplayResult]
     replay_traces: list[ReplayTraceRecord]
     property_results: list[PropertyCheckResult]
+    started_at: str | None = None
+    completed_at: str | None = None
+    mode: RunMode | str = RunMode.LOCAL
+    fault_profile: FaultProfile | str = FaultProfile.DEFAULT
+    replay_seeds_per_scenario: int | None = None
+    property_max_examples: int | None = None
     scope_label: str = "full repo"
 
 
@@ -78,8 +86,17 @@ def run_verification(
     *,
     scope: VerifyScope | None = None,
 ) -> VerificationResult:
+    started_at = datetime.now(UTC).isoformat()
     inputs = collect_verification_inputs(root, scope=scope)
     verification_mode = _coerce_run_mode(mode)
+    replay_seed_budget = replay_seed_count_for_mode(
+        verification_mode,
+        fault_profile=inputs.config.fault_profile,
+    )
+    property_example_budget = property_max_examples_for_mode(
+        verification_mode,
+        fault_profile=inputs.config.fault_profile,
+    )
     with patched_supported_boundaries(Path(root)):
         app = load_asgi_app(inputs.app_reference, Path(root))
         boundary_usage = _boundary_usage_for_loaded_app(inputs.app_reference, Path(root))
@@ -89,10 +106,7 @@ def run_verification(
                 app,
                 inputs.app_reference,
                 inputs.scenarios,
-                seeds_per_scenario=_replay_seed_count_for_mode(
-                    verification_mode,
-                    fault_profile=inputs.config.fault_profile,
-                ),
+                seeds_per_scenario=replay_seed_budget,
                 fault_targets=active_fault_targets,
                 boundary_usage=boundary_usage,
                 root=Path(root),
@@ -101,11 +115,9 @@ def run_verification(
         property_results = _run_property_checks(
             app,
             inputs.confirmed_invariants,
-            max_examples=_property_max_examples_for_mode(
-                verification_mode,
-                fault_profile=inputs.config.fault_profile,
-            ),
+            max_examples=property_example_budget,
         )
+    completed_at = datetime.now(UTC).isoformat()
     return VerificationResult(
         scope_label=inputs.scope_label,
         app_reference=inputs.app_reference,
@@ -115,6 +127,12 @@ def run_verification(
         replay_results=replay_results,
         replay_traces=replay_traces,
         property_results=property_results,
+        started_at=started_at,
+        completed_at=completed_at,
+        mode=verification_mode,
+        fault_profile=inputs.config.fault_profile,
+        replay_seeds_per_scenario=replay_seed_budget,
+        property_max_examples=property_example_budget,
     )
 
 
@@ -253,13 +271,7 @@ def _property_max_examples_for_mode(
     *,
     fault_profile: FaultProfile = FaultProfile.DEFAULT,
 ) -> int:
-    if mode is RunMode.CI:
-        return CI_PROPERTY_MAX_EXAMPLES
-    if fault_profile == FaultProfile.GENTLE:
-        return 25
-    if fault_profile == FaultProfile.HOSTILE:
-        return 250
-    return LOCAL_PROPERTY_MAX_EXAMPLES
+    return property_max_examples_for_mode(mode, fault_profile=fault_profile)
 
 
 def _replay_seed_count_for_mode(
@@ -267,13 +279,7 @@ def _replay_seed_count_for_mode(
     *,
     fault_profile: FaultProfile = FaultProfile.DEFAULT,
 ) -> int:
-    if mode is RunMode.CI:
-        return CI_REPLAY_SEEDS_PER_SCENARIO
-    if fault_profile == FaultProfile.GENTLE:
-        return 1
-    if fault_profile == FaultProfile.HOSTILE:
-        return 9
-    return LOCAL_REPLAY_SEEDS_PER_SCENARIO
+    return replay_seed_count_for_mode(mode, fault_profile=fault_profile)
 
 
 async def _run_replay(

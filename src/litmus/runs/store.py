@@ -45,7 +45,8 @@ def record_verification_run(
     mode: RunMode,
     activity_type: ActivityType = ActivityType.VERIFY,
 ) -> VerificationRun:
-    timestamp = _timestamp()
+    started_at = getattr(result, "started_at", None) or _timestamp()
+    completed_at = getattr(result, "completed_at", None) or started_at
     run = VerificationRun(
         run_id=_run_id(),
         mode=mode,
@@ -53,15 +54,15 @@ def record_verification_run(
         repo_root=str(Path(root)),
         app_reference=result.app_reference,
         scope_label=result.scope_label,
-        started_at=timestamp,
-        completed_at=timestamp,
+        started_at=started_at,
+        completed_at=completed_at,
         activities=[
             VerificationActivity(
                 activity_id=_activity_id(activity_type),
                 type=activity_type,
                 status=ActivityStatus.COMPLETED,
-                started_at=timestamp,
-                completed_at=timestamp,
+                started_at=started_at,
+                completed_at=completed_at,
                 summary=summarize_verification_result(result),
             )
         ],

@@ -28,6 +28,15 @@ def render_verification_summary(result) -> str:
         f"passed={projection.properties['passed']} "
         f"failed={projection.properties['failed']} "
         f"skipped={projection.properties['skipped']}",
+        "Performance: "
+        f"elapsed={projection.performance['elapsed_ms'] / 1000:.2f}s "
+        f"budget<={projection.performance['budget_ms'] / 1000:.2f}s "
+        f"mode={projection.performance['mode']} "
+        f"profile={projection.performance['fault_profile']} "
+        f"within_budget={'yes' if projection.performance['within_budget'] else 'no'}",
+        "Launch budgets: "
+        f"replay_seeds/scenario={projection.performance['replay_seeds_per_scenario']} "
+        f"property_examples={projection.performance['property_max_examples']}",
         f"Confidence: {projection.confidence:.2f}",
     ]
     coverage_lines = _boundary_coverage_lines(result)

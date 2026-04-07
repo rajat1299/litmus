@@ -66,6 +66,9 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.scenarios == 1
     assert result.replay.breaking == 0
     assert result.replay_seeds == ["seed:1"]
+    assert result.performance.mode == "mcp"
+    assert result.performance.budget_ms == 10000
+    assert result.performance.within_budget is True
     assert result.compatibility.matrix["python"] == "3.11+"
     assert result.compatibility.matrix["http"]["package"] == "httpx/aiohttp"
     assert result.compatibility.boundaries["http"].status == "not_detected"
@@ -85,6 +88,9 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.compatibility.boundaries.redis.status == "not_detected"
     assert payload.compatibility.boundaries.redis.unsupported_details == []
     assert payload.invariants.pending_review == 0
+    assert payload.performance.mode == "mcp"
+    assert payload.performance.replay_seeds_per_scenario == 3
+    assert payload.performance.property_max_examples == 100
 
     compatibility_property = schema["properties"]["compatibility"]
     assert "$ref" in compatibility_property
@@ -150,6 +156,12 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
     class _DummyResult:
         app_reference = "service.app:app"
         scope_label = "full repo"
+        started_at = "2026-04-07T12:00:00+00:00"
+        completed_at = "2026-04-07T12:00:00+00:00"
+        mode = "ci"
+        fault_profile = "default"
+        replay_seeds_per_scenario = 500
+        property_max_examples = 500
         routes = []
         invariants = []
         scenarios = []
@@ -174,6 +186,8 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
 
     assert result.run_id == "run-123"
     assert captured["mode"] is RunMode.CI
+    assert result.performance.mode == "ci"
+    assert result.performance.budget_ms == 60000
 
 
 def test_run_list_invariants_operation_returns_visible_invariants(tmp_path: Path) -> None:

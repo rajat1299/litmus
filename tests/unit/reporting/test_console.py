@@ -43,6 +43,8 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
     )
     result = VerificationResult(
         app_reference="service.app:app",
+        started_at="2026-04-07T12:00:00+00:00",
+        completed_at="2026-04-07T12:00:02.100000+00:00",
         routes=[
             RouteDefinition(
                 method="POST",
@@ -116,6 +118,8 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
             "Scenarios: 1",
             "Replay: unchanged=1 breaking=1 benign=0 improvement=0",
             "Properties: passed=1 failed=0 skipped=1",
+            "Performance: elapsed=2.10s budget<=10.00s mode=local profile=default within_budget=yes",
+            "Launch budgets: replay_seeds/scenario=3 property_examples=100",
             "Confidence: 0.67",
             "DST coverage:",
             "- http: detected, intercepted, simulated, faulted",
