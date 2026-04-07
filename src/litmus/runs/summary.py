@@ -21,9 +21,10 @@ from litmus.replay.differential import ReplayClassification
 class PerformanceProjection:
     mode: str
     fault_profile: str
-    elapsed_ms: int
+    measured: bool
+    elapsed_ms: int | None
     budget_ms: int
-    within_budget: bool
+    within_budget: bool | None
     replay_seeds_per_scenario: int
     property_max_examples: int
 
@@ -31,6 +32,7 @@ class PerformanceProjection:
         return {
             "mode": self.mode,
             "fault_profile": self.fault_profile,
+            "measured": self.measured,
             "elapsed_ms": self.elapsed_ms,
             "budget_ms": self.budget_ms,
             "within_budget": self.within_budget,
@@ -114,12 +116,14 @@ def performance_projection_from_result(result) -> PerformanceProjection:
         getattr(result, "completed_at", None),
     )
     budget_ms = verify_budget_ms_for_mode(mode)
+    measured = duration_ms is not None
     return PerformanceProjection(
         mode=mode,
         fault_profile=fault_profile.value,
+        measured=measured,
         elapsed_ms=duration_ms,
         budget_ms=budget_ms,
-        within_budget=duration_ms <= budget_ms,
+        within_budget=None if duration_ms is None else duration_ms <= budget_ms,
         replay_seeds_per_scenario=replay_seeds_per_scenario,
         property_max_examples=property_max_examples,
     )

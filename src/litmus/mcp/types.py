@@ -111,16 +111,18 @@ class BoundaryCoverageCounts:
 class PerformanceCounts:
     mode: str
     fault_profile: str
-    elapsed_ms: int
+    measured: bool
+    elapsed_ms: int | None
     budget_ms: int
-    within_budget: bool
+    within_budget: bool | None
     replay_seeds_per_scenario: int
     property_max_examples: int
 
-    def to_dict(self) -> dict[str, str | int | bool]:
+    def to_dict(self) -> dict[str, str | int | bool | None]:
         return {
             "mode": self.mode,
             "fault_profile": self.fault_profile,
+            "measured": self.measured,
             "elapsed_ms": self.elapsed_ms,
             "budget_ms": self.budget_ms,
             "within_budget": self.within_budget,
@@ -292,9 +294,10 @@ class PropertyCountsPayload(BaseModel):
 class PerformancePayload(BaseModel):
     mode: str
     fault_profile: str
-    elapsed_ms: int
+    measured: bool
+    elapsed_ms: int | None = None
     budget_ms: int
-    within_budget: bool
+    within_budget: bool | None = None
     replay_seeds_per_scenario: int
     property_max_examples: int
 

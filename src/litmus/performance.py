@@ -51,9 +51,9 @@ def replay_seed_count_for_mode(
     return LOCAL_REPLAY_SEEDS_PER_SCENARIO
 
 
-def elapsed_ms(started_at: str | None, completed_at: str | None) -> int:
+def elapsed_ms(started_at: str | None, completed_at: str | None) -> int | None:
     if started_at is None or completed_at is None:
-        return 0
+        return None
     started = datetime.fromisoformat(started_at)
     completed = datetime.fromisoformat(completed_at)
     return max(0, int((completed - started).total_seconds() * 1000))

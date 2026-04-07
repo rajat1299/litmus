@@ -67,6 +67,7 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.replay.breaking == 0
     assert result.replay_seeds == ["seed:1"]
     assert result.performance.mode == "mcp"
+    assert result.performance.measured is True
     assert result.performance.budget_ms == 10000
     assert result.performance.within_budget is True
     assert result.compatibility.matrix["python"] == "3.11+"
@@ -89,6 +90,7 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.compatibility.boundaries.redis.unsupported_details == []
     assert payload.invariants.pending_review == 0
     assert payload.performance.mode == "mcp"
+    assert payload.performance.measured is True
     assert payload.performance.replay_seeds_per_scenario == 3
     assert payload.performance.property_max_examples == 100
 
@@ -187,6 +189,7 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
     assert result.run_id == "run-123"
     assert captured["mode"] is RunMode.CI
     assert result.performance.mode == "ci"
+    assert result.performance.measured is True
     assert result.performance.budget_ms == 60000
 
 

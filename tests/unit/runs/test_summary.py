@@ -119,6 +119,7 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
     assert projection.performance == {
         "mode": "local",
         "fault_profile": "default",
+        "measured": True,
         "elapsed_ms": 2100,
         "budget_ms": 10000,
         "within_budget": True,
@@ -235,6 +236,7 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
     assert projection.performance == {
         "mode": "ci",
         "fault_profile": "default",
+        "measured": True,
         "elapsed_ms": 12000,
         "budget_ms": 60000,
         "within_budget": True,

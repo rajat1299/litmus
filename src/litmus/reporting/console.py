@@ -28,12 +28,7 @@ def render_verification_summary(result) -> str:
         f"passed={projection.properties['passed']} "
         f"failed={projection.properties['failed']} "
         f"skipped={projection.properties['skipped']}",
-        "Performance: "
-        f"elapsed={projection.performance['elapsed_ms'] / 1000:.2f}s "
-        f"budget<={projection.performance['budget_ms'] / 1000:.2f}s "
-        f"mode={projection.performance['mode']} "
-        f"profile={projection.performance['fault_profile']} "
-        f"within_budget={'yes' if projection.performance['within_budget'] else 'no'}",
+        _performance_summary_line(projection),
         "Launch budgets: "
         f"replay_seeds/scenario={projection.performance['replay_seeds_per_scenario']} "
         f"property_examples={projection.performance['property_max_examples']}",
@@ -64,6 +59,27 @@ def _pending_review_lines(result) -> list[str]:
             continue
         lines.append(f"- {invariant.name}: {invariant.reasoning}")
     return lines
+
+
+def _performance_summary_line(projection: VerificationProjection) -> str:
+    performance = projection.performance
+    if not performance["measured"]:
+        return (
+            "Performance: "
+            f"elapsed=unmeasured "
+            f"budget<={performance['budget_ms'] / 1000:.2f}s "
+            f"mode={performance['mode']} "
+            f"profile={performance['fault_profile']} "
+            "within_budget=unknown"
+        )
+    return (
+        "Performance: "
+        f"elapsed={performance['elapsed_ms'] / 1000:.2f}s "
+        f"budget<={performance['budget_ms'] / 1000:.2f}s "
+        f"mode={performance['mode']} "
+        f"profile={performance['fault_profile']} "
+        f"within_budget={'yes' if performance['within_budget'] else 'no'}"
+    )
 
 
 def _boundary_coverage_lines(result) -> list[str]:

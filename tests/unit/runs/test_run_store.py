@@ -262,9 +262,44 @@ def test_record_verification_run_uses_measured_result_timing_in_summary(tmp_path
     assert run.activities[0].summary["performance"] == {
         "mode": "local",
         "fault_profile": "default",
+        "measured": True,
         "elapsed_ms": 2500,
         "budget_ms": 10000,
         "within_budget": True,
+        "replay_seeds_per_scenario": 3,
+        "property_max_examples": 100,
+    }
+
+
+def test_record_verification_run_marks_summary_performance_unmeasured_without_result_timestamps(tmp_path) -> None:
+    result = type(
+        "Result",
+        (),
+        {
+            "app_reference": "service.app:app",
+            "scope_label": "full repo",
+            "mode": "local",
+            "fault_profile": "default",
+            "replay_seeds_per_scenario": 3,
+            "property_max_examples": 100,
+            "routes": [],
+            "invariants": [],
+            "scenarios": [],
+            "replay_results": [],
+            "replay_traces": [],
+            "property_results": [],
+        },
+    )()
+
+    run = record_verification_run(tmp_path, result, mode=RunMode.LOCAL)
+
+    assert run.activities[0].summary["performance"] == {
+        "mode": "local",
+        "fault_profile": "default",
+        "measured": False,
+        "elapsed_ms": None,
+        "budget_ms": 10000,
+        "within_budget": None,
         "replay_seeds_per_scenario": 3,
         "property_max_examples": 100,
     }
