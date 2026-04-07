@@ -89,6 +89,8 @@ def _budget_policy_line(projection: VerificationProjection) -> str:
         "launch_default": "launch-default under-10s path",
         "launch_lighter": "lighter local path",
         "local_deeper_opt_in": "deeper local opt-in path",
+        "mcp_local_agent": "local MCP/agent path",
+        "watch_local_iteration": "local watch iteration path",
         "ci_deeper": "CI deeper-search path",
     }
     return f"Budget policy: {descriptions[policy]}"

@@ -21,6 +21,10 @@ def budget_policy_for_mode(
     resolved_fault_profile = coerce_fault_profile(fault_profile)
     if resolved_mode == "ci":
         return "ci_deeper"
+    if resolved_mode == "mcp":
+        return "mcp_local_agent"
+    if resolved_mode == "watch":
+        return "watch_local_iteration"
     if resolved_fault_profile is FaultProfile.HOSTILE:
         return "local_deeper_opt_in"
     if resolved_fault_profile is FaultProfile.GENTLE:

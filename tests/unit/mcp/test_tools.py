@@ -67,7 +67,7 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.replay.breaking == 0
     assert result.replay_seeds == ["seed:1"]
     assert result.performance.mode == "mcp"
-    assert result.performance.budget_policy == "launch_default"
+    assert result.performance.budget_policy == "mcp_local_agent"
     assert result.performance.measured is True
     assert result.performance.budget_ms == 10000
     assert result.performance.within_budget is True
@@ -91,7 +91,7 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.compatibility.boundaries.redis.unsupported_details == []
     assert payload.invariants.pending_review == 0
     assert payload.performance.mode == "mcp"
-    assert payload.performance.budget_policy == "launch_default"
+    assert payload.performance.budget_policy == "mcp_local_agent"
     assert payload.performance.measured is True
     assert payload.performance.replay_seeds_per_scenario == 3
     assert payload.performance.property_max_examples == 100
