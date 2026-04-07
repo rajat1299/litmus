@@ -125,6 +125,8 @@ def set_invariant_status(
     invariants_path = default_invariants_path(root)
     invariants = _load_curated_invariants(invariants_path)
     target = _find_invariant(invariants, name=name, invariants_path=invariants_path)
+    if status is InvariantStatus.CONFIRMED:
+        _ensure_can_confirm(target)
     updated = target.model_copy(
         update={
             "status": status,
@@ -142,6 +144,7 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
     target = _find_invariant(invariants, name=name, invariants_path=invariants_path)
     if target.status is not InvariantStatus.SUGGESTED:
         raise LitmusUserError(f"Invariant '{name}' is not suggested and cannot be accepted.")
+    _ensure_can_confirm(target)
 
     updated = target.model_copy(
         update={
@@ -256,6 +259,14 @@ def _review_state_for_listing(invariant: Invariant) -> InvariantReviewState:
 
 def _review_timestamp() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _ensure_can_confirm(target: Invariant) -> None:
+    if target.source == "suggested:route_gap":
+        raise LitmusUserError(
+            "Route-gap warning invariants cannot be promoted to confirmed. "
+            "Add or mine a real baseline instead."
+        )
 
 
 def _normalized_review_for_status(

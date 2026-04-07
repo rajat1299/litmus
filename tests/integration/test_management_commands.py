@@ -170,6 +170,101 @@ def test_litmus_invariants_accept_promotes_suggested_invariant_with_review_metad
     assert promoted.review.review_source == "cli"
 
 
+def test_litmus_invariants_accept_rejects_generic_route_gap_warnings(tmp_path: Path) -> None:
+    invariants_path = _write_invariants_fixture(tmp_path)
+    invariants_path.write_text(
+        invariants_path.read_text(encoding="utf-8")
+        + textwrap.dedent(
+            """
+            - name: refund_post_payments_refund_needs_confirmed_anchor
+              source: suggested:route_gap
+              status: suggested
+              type: differential
+              request:
+                method: POST
+                path: /payments/refund
+              reasoning: POST /payments/refund is selected for verification without a confirmed mined invariant anchor.
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "litmus",
+            "invariants",
+            "accept",
+            "refund_post_payments_refund_needs_confirmed_anchor",
+            "--reason",
+            "This should become a real baseline instead.",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert (
+        "Route-gap warning invariants cannot be promoted to confirmed. "
+        "Add or mine a real baseline instead."
+    ) in result.stderr
+
+    invariants = load_invariants(invariants_path)
+    route_gap = next(
+        invariant for invariant in invariants if invariant.name == "refund_post_payments_refund_needs_confirmed_anchor"
+    )
+    assert route_gap.status is InvariantStatus.SUGGESTED
+    assert route_gap.review is None
+
+
+def test_litmus_invariants_set_status_rejects_confirming_generic_route_gap_warnings(tmp_path: Path) -> None:
+    invariants_path = _write_invariants_fixture(tmp_path)
+    invariants_path.write_text(
+        invariants_path.read_text(encoding="utf-8")
+        + textwrap.dedent(
+            """
+            - name: refund_post_payments_refund_needs_confirmed_anchor
+              source: suggested:route_gap
+              status: suggested
+              type: differential
+              request:
+                method: POST
+                path: /payments/refund
+              reasoning: POST /payments/refund is selected for verification without a confirmed mined invariant anchor.
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "litmus",
+            "invariants",
+            "set-status",
+            "refund_post_payments_refund_needs_confirmed_anchor",
+            "--confirmed",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert (
+        "Route-gap warning invariants cannot be promoted to confirmed. "
+        "Add or mine a real baseline instead."
+    ) in result.stderr
+
+    invariants = load_invariants(invariants_path)
+    route_gap = next(
+        invariant for invariant in invariants if invariant.name == "refund_post_payments_refund_needs_confirmed_anchor"
+    )
+    assert route_gap.status is InvariantStatus.SUGGESTED
+    assert route_gap.review is None
+
+
 def test_litmus_invariants_dismiss_marks_suggestion_review_state_and_hides_it_from_default_list(tmp_path: Path) -> None:
     invariants_path = _write_invariants_fixture(tmp_path)
 
