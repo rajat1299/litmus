@@ -877,21 +877,23 @@ def test_run_verification_loads_curated_suggested_invariants_without_reimporting
     assert [invariant.name for invariant in result.invariants] == [
         "charge_returns_200",
         "refund_needs_review",
+        "refund_post_payments_refund_needs_confirmed_anchor",
     ]
     assert [invariant.status for invariant in result.invariants] == [
         InvariantStatus.CONFIRMED,
+        InvariantStatus.SUGGESTED,
         InvariantStatus.SUGGESTED,
     ]
     assert [invariant.name for invariant in captured["scenario_invariants"]] == ["charge_returns_200"]
 
 
-def test_run_verification_keeps_dismissed_curated_suggestions_out_of_active_results_but_still_suppresses_route_gaps(
+def test_run_verification_keeps_dismissed_curated_route_gap_suggestions_out_of_active_results_but_still_suppresses_route_gaps(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
     dismissed_suggested = Invariant(
-        name="refund_reviewed_and_dismissed",
-        source="manual:suggested",
+        name="refund_post_payments_refund_needs_confirmed_anchor",
+        source="suggested:route_gap",
         status=InvariantStatus.SUGGESTED,
         type=InvariantType.DIFFERENTIAL,
         request=RequestExample(method="POST", path="/payments/refund"),

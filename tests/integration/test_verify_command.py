@@ -565,7 +565,57 @@ def test_litmus_verify_reports_suggested_route_gaps_separately_from_confirmed_co
     ) in result.stdout
 
 
-def test_litmus_verify_surfaces_curated_suggested_invariants_without_duplicate_generated_route_gaps(
+def test_litmus_verify_surfaces_curated_route_gap_suggestions_without_duplicate_generated_route_gaps(
+    tmp_path: Path,
+) -> None:
+    repo_root = _build_curated_suggestions_repo(tmp_path)
+    suggestions_file = repo_root / ".litmus" / "invariants.yaml"
+    suggestions_file.write_text(
+        textwrap.dedent(
+            """
+            - name: charge_returns_200_from_store
+              source: manual:confirmed
+              status: confirmed
+              type: differential
+              request:
+                method: POST
+                path: /payments/charge
+              response:
+                status_code: 200
+            - name: refund_post_payments_refund_needs_confirmed_anchor
+              source: suggested:route_gap
+              status: suggested
+              type: differential
+              request:
+                method: POST
+                path: /payments/refund
+              reasoning: POST /payments/refund is selected for verification without a confirmed mined invariant anchor.
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    summary = _latest_verify_summary(repo_root)
+    assert summary["invariants"] == {"total": 2, "confirmed": 1, "suggested": 1}
+    assert summary["scenarios"] == 1
+    assert (
+        "refund_post_payments_refund_needs_confirmed_anchor: "
+        "POST /payments/refund is selected for verification without a confirmed mined invariant anchor."
+    ) in result.stdout
+    assert "charge_returns_200_from_store" not in result.stdout
+
+
+def test_litmus_verify_keeps_manual_suggested_invariants_separate_from_generated_route_gap_warnings(
     tmp_path: Path,
 ) -> None:
     repo_root = _build_curated_suggestions_repo(tmp_path)
@@ -580,11 +630,13 @@ def test_litmus_verify_surfaces_curated_suggested_invariants_without_duplicate_g
 
     assert result.returncode == 0, result.stderr
     summary = _latest_verify_summary(repo_root)
-    assert summary["invariants"] == {"total": 2, "confirmed": 1, "suggested": 1}
+    assert summary["invariants"] == {"total": 3, "confirmed": 1, "suggested": 2}
     assert summary["scenarios"] == 1
     assert "refund_needs_review: Review refund behavior before trusting this endpoint." in result.stdout
-    assert "charge_returns_200_from_store" not in result.stdout
-    assert "refund_post_payments_refund_needs_confirmed_anchor" not in result.stdout
+    assert (
+        "refund_post_payments_refund_needs_confirmed_anchor: "
+        "POST /payments/refund is selected for verification without a confirmed mined invariant anchor."
+    ) in result.stdout
 
 
 def test_litmus_verify_scopes_to_curated_suggestions_file(tmp_path: Path) -> None:

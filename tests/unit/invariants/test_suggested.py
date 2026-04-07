@@ -58,11 +58,11 @@ def test_suggest_route_gap_invariants_suggests_only_selected_endpoints_without_c
     )
 
 
-def test_suggest_route_gap_invariants_skips_routes_with_existing_suggested_entries() -> None:
+def test_suggest_route_gap_invariants_skips_routes_with_existing_route_gap_entries() -> None:
     existing = [
         Invariant(
-            name="refund_needs_review",
-            source="manual:suggested",
+            name="refund_post_payments_refund_needs_confirmed_anchor",
+            source="suggested:route_gap",
             status=InvariantStatus.SUGGESTED,
             type=InvariantType.DIFFERENTIAL,
             request=RequestExample(method="POST", path="/payments/refund"),
@@ -88,8 +88,8 @@ def test_suggest_route_gap_invariants_skips_routes_with_existing_suggested_entri
 def test_suggest_route_gap_invariants_treats_dismissed_suggestions_as_reviewed_suppressions() -> None:
     existing = [
         Invariant(
-            name="refund_needs_review",
-            source="manual:suggested",
+            name="refund_post_payments_refund_needs_confirmed_anchor",
+            source="suggested:route_gap",
             status=InvariantStatus.SUGGESTED,
             type=InvariantType.DIFFERENTIAL,
             request=RequestExample(method="POST", path="/payments/refund"),
@@ -116,3 +116,67 @@ def test_suggest_route_gap_invariants_treats_dismissed_suggestions_as_reviewed_s
     )
 
     assert suggestions == []
+
+
+def test_suggest_route_gap_invariants_does_not_treat_unrelated_pending_suggestions_as_anchor_suppressions() -> None:
+    existing = [
+        Invariant(
+            name="refund_is_idempotent",
+            source="manual:suggested",
+            status=InvariantStatus.SUGGESTED,
+            type=InvariantType.PROPERTY,
+            request=RequestExample(method="POST", path="/payments/refund"),
+        )
+    ]
+    endpoints = [
+        RouteDefinition(
+            method="POST",
+            path="/payments/refund",
+            handler_name="refund",
+            file_path="service/api.py",
+        )
+    ]
+
+    suggestions = suggest_route_gap_invariants(
+        endpoints=endpoints,
+        existing_invariants=existing,
+    )
+
+    assert [suggestion.name for suggestion in suggestions] == [
+        "refund_post_payments_refund_needs_confirmed_anchor"
+    ]
+
+
+def test_suggest_route_gap_invariants_does_not_treat_dismissed_unrelated_suggestions_as_anchor_suppressions() -> None:
+    existing = [
+        Invariant(
+            name="refund_is_idempotent",
+            source="manual:suggested",
+            status=InvariantStatus.SUGGESTED,
+            type=InvariantType.PROPERTY,
+            request=RequestExample(method="POST", path="/payments/refund"),
+            review=InvariantReview(
+                state=InvariantReviewState.DISMISSED,
+                reason="Not the right property to keep.",
+                reviewed_at="2026-04-06T12:00:00Z",
+                review_source="cli",
+            ),
+        )
+    ]
+    endpoints = [
+        RouteDefinition(
+            method="POST",
+            path="/payments/refund",
+            handler_name="refund",
+            file_path="service/api.py",
+        )
+    ]
+
+    suggestions = suggest_route_gap_invariants(
+        endpoints=endpoints,
+        existing_invariants=existing,
+    )
+
+    assert [suggestion.name for suggestion in suggestions] == [
+        "refund_post_payments_refund_needs_confirmed_anchor"
+    ]

@@ -11,15 +11,15 @@ def suggest_route_gap_invariants(
     existing_invariants: list[Invariant],
 ) -> list[Invariant]:
     anchored_routes: set[tuple[str, str]] = set()
-    existing_suggested_routes: set[tuple[str, str]] = set()
+    existing_route_gap_suppressions: set[tuple[str, str]] = set()
     for invariant in existing_invariants:
         route_key = _route_key(invariant)
         if route_key is None:
             continue
         if invariant.status is InvariantStatus.CONFIRMED:
             anchored_routes.add(route_key)
-        elif invariant.status is InvariantStatus.SUGGESTED:
-            existing_suggested_routes.add(route_key)
+        elif invariant.status is InvariantStatus.SUGGESTED and _is_route_gap_suppression(invariant):
+            existing_route_gap_suppressions.add(route_key)
 
     suggestions: list[Invariant] = []
     seen_routes: set[tuple[str, str]] = set()
@@ -28,7 +28,7 @@ def suggest_route_gap_invariants(
         if route_key in seen_routes:
             continue
         seen_routes.add(route_key)
-        if route_key in anchored_routes or route_key in existing_suggested_routes:
+        if route_key in anchored_routes or route_key in existing_route_gap_suppressions:
             continue
         suggestions.append(
             Invariant(
@@ -52,6 +52,10 @@ def _route_key(invariant: Invariant) -> tuple[str, str] | None:
     if request is None or request.method is None or request.path is None:
         return None
     return request.method.upper(), request.path
+
+
+def _is_route_gap_suppression(invariant: Invariant) -> bool:
+    return invariant.source == "suggested:route_gap"
 
 
 def _route_gap_name(endpoint: RouteDefinition) -> str:
