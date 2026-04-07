@@ -309,12 +309,16 @@ def _rollback_review_update(
     review_run_id: str,
     error: Exception,
 ) -> None:
+    restored = True
     try:
         invariant_store.save_invariants(invariants_path, prior_invariants)
     except OSError as restore_error:
+        restored = False
         error.add_note(
             f"Failed to restore curated invariants after review update error: {restore_error}"
         )
+    if not restored:
+        return
     try:
         discard_invariant_review_run(root, review_run_id)
     except OSError as cleanup_error:

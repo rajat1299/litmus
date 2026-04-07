@@ -12,7 +12,7 @@ from litmus.invariants.models import (
 )
 from litmus.invariants.store import load_invariants, save_invariants
 from litmus.management import accept_invariant, dismiss_invariant
-from litmus.runs.store import runs_root
+from litmus.runs.store import run_manifest_path, runs_root
 
 
 def test_accept_invariant_does_not_persist_review_run_when_invariant_write_fails(
@@ -115,6 +115,31 @@ def test_accept_invariant_rolls_back_curated_store_when_invariant_write_raises_a
     assert not runs_root(tmp_path).exists()
 
 
+def test_accept_invariant_keeps_review_manifest_when_restore_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    invariants_path = tmp_path / ".litmus" / "invariants.yaml"
+    save_invariants(invariants_path, [_suggested_invariant()])
+
+    monkeypatch.setattr("litmus.management.save_invariants", _write_then_raise)
+    monkeypatch.setattr("litmus.management.invariant_store.save_invariants", _raise_restore_failure)
+
+    with pytest.raises(OSError, match="disk full after write") as exc_info:
+        accept_invariant(tmp_path, name="charge_is_idempotent_on_retry", reason="Looks good.")
+
+    invariants = load_invariants(invariants_path)
+    assert invariants[0].status is InvariantStatus.CONFIRMED
+    assert invariants[0].review is not None
+    assert invariants[0].review.review_run_id is not None
+    assert runs_root(tmp_path).exists()
+    assert run_manifest_path(tmp_path, invariants[0].review.review_run_id).exists()
+    assert any(
+        "Failed to restore curated invariants after review update error" in note
+        for note in exc_info.value.__notes__
+    )
+
+
 def test_dismiss_invariant_does_not_update_curated_store_when_review_manifest_persist_fails(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -159,6 +184,35 @@ def test_dismiss_invariant_rolls_back_curated_store_when_invariant_write_raises_
     assert not runs_root(tmp_path).exists()
 
 
+def test_dismiss_invariant_keeps_review_manifest_when_restore_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    invariants_path = tmp_path / ".litmus" / "invariants.yaml"
+    save_invariants(invariants_path, [_suggested_invariant()])
+
+    monkeypatch.setattr("litmus.management.save_invariants", _write_then_raise)
+    monkeypatch.setattr("litmus.management.invariant_store.save_invariants", _raise_restore_failure)
+
+    with pytest.raises(OSError, match="disk full after write") as exc_info:
+        dismiss_invariant(
+            tmp_path,
+            name="charge_is_idempotent_on_retry",
+            reason="Retry behavior is already enforced elsewhere.",
+        )
+
+    invariants = load_invariants(invariants_path)
+    assert invariants[0].status is InvariantStatus.SUGGESTED
+    assert invariants[0].review is not None
+    assert invariants[0].review.review_run_id is not None
+    assert runs_root(tmp_path).exists()
+    assert run_manifest_path(tmp_path, invariants[0].review.review_run_id).exists()
+    assert any(
+        "Failed to restore curated invariants after review update error" in note
+        for note in exc_info.value.__notes__
+    )
+
+
 def _suggested_invariant() -> Invariant:
     return Invariant(
         name="charge_is_idempotent_on_retry",
@@ -177,3 +231,7 @@ def _raise_disk_full(*_args, **_kwargs) -> None:
 def _write_then_raise(*args, **kwargs) -> None:
     save_invariants(*args, **kwargs)
     raise OSError("disk full after write")
+
+
+def _raise_restore_failure(*_args, **_kwargs) -> None:
+    raise OSError("restore failed")
