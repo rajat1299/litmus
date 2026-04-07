@@ -17,6 +17,12 @@ class InvariantType(str, Enum):
     STATE_TRANSITION = "state_transition"
 
 
+class InvariantReviewState(str, Enum):
+    PENDING = "pending"
+    DISMISSED = "dismissed"
+    PROMOTED = "promoted"
+
+
 class RequestExample(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -32,6 +38,14 @@ class ResponseExample(BaseModel):
     body: dict[str, Any] | None = Field(default=None, alias="json")
 
 
+class InvariantReview(BaseModel):
+    state: InvariantReviewState
+    reason: str | None = None
+    reviewed_at: str | None = None
+    review_source: str | None = None
+    review_run_id: str | None = None
+
+
 class Invariant(BaseModel):
     name: str
     source: str
@@ -40,3 +54,18 @@ class Invariant(BaseModel):
     reasoning: str | None = None
     request: RequestExample | None = None
     response: ResponseExample | None = None
+    review: InvariantReview | None = None
+
+    def is_pending_suggestion(self) -> bool:
+        if self.status is not InvariantStatus.SUGGESTED:
+            return False
+        if self.review is None:
+            return True
+        return self.review.state is InvariantReviewState.PENDING
+
+    def is_dismissed_suggestion(self) -> bool:
+        return (
+            self.status is InvariantStatus.SUGGESTED
+            and self.review is not None
+            and self.review.state is InvariantReviewState.DISMISSED
+        )

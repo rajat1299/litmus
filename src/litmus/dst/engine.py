@@ -139,13 +139,16 @@ def collect_verification_inputs(
     confirmed_invariants = [
         invariant for invariant in scoped_invariants if invariant.status is InvariantStatus.CONFIRMED
     ]
-    curated_suggested_invariants = [
+    all_curated_suggested_invariants = [
         invariant for invariant in scoped_invariants if invariant.status is InvariantStatus.SUGGESTED
+    ]
+    curated_suggested_invariants = [
+        invariant for invariant in all_curated_suggested_invariants if invariant.is_pending_suggestion()
     ]
     suggested_invariants = _collect_suggested_invariants(
         routes=routes,
         confirmed_invariants=confirmed_invariants,
-        curated_suggested_invariants=curated_suggested_invariants,
+        curated_suggested_invariants=all_curated_suggested_invariants,
         enabled=config.suggested_invariants,
     )
     invariants = [*confirmed_invariants, *curated_suggested_invariants, *suggested_invariants]

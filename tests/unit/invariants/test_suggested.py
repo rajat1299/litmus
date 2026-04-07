@@ -3,6 +3,8 @@ from __future__ import annotations
 from litmus.discovery.routes import RouteDefinition
 from litmus.invariants.models import (
     Invariant,
+    InvariantReview,
+    InvariantReviewState,
     InvariantStatus,
     InvariantType,
     RequestExample,
@@ -64,6 +66,39 @@ def test_suggest_route_gap_invariants_skips_routes_with_existing_suggested_entri
             status=InvariantStatus.SUGGESTED,
             type=InvariantType.DIFFERENTIAL,
             request=RequestExample(method="POST", path="/payments/refund"),
+        )
+    ]
+    endpoints = [
+        RouteDefinition(
+            method="POST",
+            path="/payments/refund",
+            handler_name="refund",
+            file_path="service/api.py",
+        )
+    ]
+
+    suggestions = suggest_route_gap_invariants(
+        endpoints=endpoints,
+        existing_invariants=existing,
+    )
+
+    assert suggestions == []
+
+
+def test_suggest_route_gap_invariants_treats_dismissed_suggestions_as_reviewed_suppressions() -> None:
+    existing = [
+        Invariant(
+            name="refund_needs_review",
+            source="manual:suggested",
+            status=InvariantStatus.SUGGESTED,
+            type=InvariantType.DIFFERENTIAL,
+            request=RequestExample(method="POST", path="/payments/refund"),
+            review=InvariantReview(
+                state=InvariantReviewState.DISMISSED,
+                reason="Refund path is intentionally admin-only.",
+                reviewed_at="2026-04-06T12:00:00Z",
+                review_source="cli",
+            ),
         )
     ]
     endpoints = [

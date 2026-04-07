@@ -1,6 +1,8 @@
 from litmus.invariants.mined import mine_invariants_from_tests
 from litmus.invariants.models import (
     Invariant,
+    InvariantReview,
+    InvariantReviewState,
     InvariantStatus,
     InvariantType,
     RequestExample,
@@ -11,6 +13,8 @@ from litmus.invariants.suggested import suggest_route_gap_invariants
 
 __all__ = [
     "Invariant",
+    "InvariantReview",
+    "InvariantReviewState",
     "InvariantStatus",
     "InvariantType",
     "RequestExample",
