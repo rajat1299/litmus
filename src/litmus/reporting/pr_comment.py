@@ -60,16 +60,32 @@ def render_pr_comment(result) -> str:
     else:
         lines.append("- No failing seeds recorded.")
 
-    lines.extend(
-        [
-            "",
-            "### What Went Wrong",
-        ]
-    )
+    pending_review_lines = _pending_review_lines(result)
+    if pending_review_lines:
+        lines.extend(
+            [
+                "",
+                "### Pending Invariant Review",
+                *pending_review_lines,
+            ]
+        )
+
     explanation_lines = _explanation_lines(result)
     if explanation_lines:
-        lines.extend(explanation_lines)
-    else:
+        lines.extend(
+            [
+                "",
+                "### What Went Wrong",
+                *explanation_lines,
+            ]
+        )
+    elif not pending_review_lines:
+        lines.extend(
+            [
+                "",
+                "### What Went Wrong",
+            ]
+        )
         lines.append("- No breaking replay or property failures detected.")
 
     return "\n".join(lines)
@@ -144,12 +160,15 @@ def _explanation_lines(result) -> list[str]:
             continue
         lines.append(_property_explanation(property_result))
 
-    for invariant in result.invariants:
-        if invariant.status.value != "suggested":
-            continue
-        lines.append(_suggested_invariant_explanation(invariant))
-
     return lines
+
+
+def _pending_review_lines(result) -> list[str]:
+    return [
+        _suggested_invariant_explanation(invariant)
+        for invariant in result.invariants
+        if invariant.is_pending_suggestion()
+    ]
 
 
 def _replay_explanation(replay_result) -> str:
@@ -191,13 +210,13 @@ def _suggested_invariant_explanation(invariant) -> str:
     request = invariant.request
     if request is None or request.method is None or request.path is None:
         if invariant.reasoning is None:
-            return f"- Suggested invariant `{invariant.name}` needs review."
-        return f"- Suggested invariant `{invariant.name}` needs review: {invariant.reasoning}"
+            return f"- Pending review for suggested invariant `{invariant.name}`."
+        return f"- Pending review for suggested invariant `{invariant.name}`: {invariant.reasoning}"
 
     endpoint = f"{request.method.upper()} {request.path}"
     if invariant.reasoning is None:
-        return f"- Suggested invariant `{invariant.name}` for `{endpoint}` needs review."
-    return f"- Suggested invariant `{invariant.name}` for `{endpoint}`: {invariant.reasoning}"
+        return f"- Pending review for suggested invariant `{invariant.name}` on `{endpoint}`."
+    return f"- Pending review for suggested invariant `{invariant.name}` on `{endpoint}`: {invariant.reasoning}"
 
 
 def _format_value(value) -> str:

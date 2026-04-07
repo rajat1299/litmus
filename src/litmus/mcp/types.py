@@ -16,12 +16,14 @@ class InvariantCounts:
     total: int
     confirmed: int
     suggested: int
+    pending_review: int
 
     def to_dict(self) -> dict[str, int]:
         return {
             "total": self.total,
             "confirmed": self.confirmed,
             "suggested": self.suggested,
+            "pending_review": self.pending_review,
         }
 
 
@@ -111,6 +113,8 @@ class InvariantView:
     source: str
     status: str
     type: str
+    review_state: str | None
+    review_reason: str | None
     reasoning: str | None
     method: str | None
     path: str | None
@@ -123,6 +127,12 @@ class InvariantView:
             source=invariant.source,
             status=invariant.status.value,
             type=invariant.type.value,
+            review_state=(
+                invariant.review.state.value
+                if invariant.review is not None
+                else ("pending" if invariant.is_pending_suggestion() else None)
+            ),
+            review_reason=None if invariant.review is None else invariant.review.reason,
             reasoning=invariant.reasoning,
             method=None if request is None or request.method is None else request.method.upper(),
             path=None if request is None else request.path,
@@ -137,6 +147,10 @@ class InvariantView:
             "method": self.method,
             "path": self.path,
         }
+        if self.review_state is not None:
+            payload["review_state"] = self.review_state
+        if self.review_reason is not None:
+            payload["review_reason"] = self.review_reason
         if self.reasoning is not None:
             payload["reasoning"] = self.reasoning
         return payload
@@ -235,6 +249,7 @@ class InvariantCountsPayload(BaseModel):
     total: int
     confirmed: int
     suggested: int
+    pending_review: int
 
 
 class ReplayCountsPayload(BaseModel):
@@ -298,6 +313,8 @@ class InvariantViewPayload(BaseModel):
     source: str
     status: str
     type: str
+    review_state: str | None = None
+    review_reason: str | None = None
     reasoning: str | None = None
     method: str | None = None
     path: str | None = None

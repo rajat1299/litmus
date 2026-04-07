@@ -38,17 +38,17 @@ def render_verification_summary(result) -> str:
     if compatibility_lines:
         lines.append("Compatibility:")
         lines.extend(compatibility_lines)
-    suggestion_lines = _suggestion_lines(result)
+    suggestion_lines = _pending_review_lines(result)
     if suggestion_lines:
-        lines.append("Suggested actions:")
+        lines.append("Pending invariant review:")
         lines.extend(suggestion_lines)
     return "\n".join(lines)
 
 
-def _suggestion_lines(result) -> list[str]:
+def _pending_review_lines(result) -> list[str]:
     lines: list[str] = []
     for invariant in result.invariants:
-        if invariant.status.value != "suggested":
+        if not invariant.is_pending_suggestion():
             continue
         if invariant.reasoning is None:
             lines.append(f"- {invariant.name}")

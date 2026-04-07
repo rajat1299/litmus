@@ -124,7 +124,7 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
             "- http: supported",
             "- sqlalchemy: not detected",
             "- redis: unsupported (Unsupported constructor or type import in loaded app modules.)",
-            "Suggested actions:",
+            "Pending invariant review:",
             "- refund_needs_review: Review refund behavior before trusting this endpoint.",
         ]
     )

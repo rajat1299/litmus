@@ -253,8 +253,9 @@ def test_render_pr_comment_surfaces_suggested_invariants_needing_review() -> Non
     comment = render_pr_comment(result)
 
     assert "- `POST /payments/refund`" in comment
+    assert "### Pending Invariant Review" in comment
     assert (
-        "- Suggested invariant `refund_post_payments_refund_needs_confirmed_anchor` for "
+        "- Pending review for suggested invariant `refund_post_payments_refund_needs_confirmed_anchor` on "
         "`POST /payments/refund`: POST /payments/refund is selected for verification without a "
         "confirmed mined invariant anchor. Add or approve a baseline before trusting verification "
         "coverage."

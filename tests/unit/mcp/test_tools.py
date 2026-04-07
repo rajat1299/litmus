@@ -4,6 +4,12 @@ from pathlib import Path
 import sys
 import textwrap
 
+from litmus.invariants.models import (
+    Invariant,
+    InvariantStatus,
+    InvariantType,
+    RequestExample,
+)
 from litmus.mcp.types import VerifyOperationPayload
 from litmus.mcp.server import build_mcp_server
 from litmus.mcp.tools import (
@@ -78,6 +84,7 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.compatibility.matrix.http.package == "httpx/aiohttp"
     assert payload.compatibility.boundaries.redis.status == "not_detected"
     assert payload.compatibility.boundaries.redis.unsupported_details == []
+    assert payload.invariants.pending_review == 0
 
     compatibility_property = schema["properties"]["compatibility"]
     assert "$ref" in compatibility_property
@@ -88,6 +95,38 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert set(boundaries_schema["properties"]) == {"http", "sqlalchemy", "redis"}
 
 
+def test_run_list_invariants_operation_surfaces_pending_review_metadata(monkeypatch, tmp_path: Path) -> None:
+    suggested_invariant = Invariant(
+        name="refund_needs_review",
+        source="manual:suggested",
+        status=InvariantStatus.SUGGESTED,
+        type=InvariantType.PROPERTY,
+        request=RequestExample(method="POST", path="/payments/refund"),
+        reasoning="Review refund behavior before trusting this endpoint.",
+    )
+
+    class _Inputs:
+        app_reference = "service.app:app"
+        scope_label = "full repo"
+        invariants = [suggested_invariant]
+
+    monkeypatch.setattr(
+        "litmus.mcp.tools._resolve_scope",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "litmus.mcp.tools.collect_verification_inputs",
+        lambda *_args, **_kwargs: _Inputs(),
+    )
+
+    result = run_list_invariants_operation(tmp_path)
+
+    assert result.total == 1
+    assert result.invariants[0].name == "refund_needs_review"
+    assert result.invariants[0].review_state == "pending"
+    assert result.invariants[0].review_reason is None
+
+
 def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -95,6 +134,7 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
         total = 0
         confirmed = 0
         suggested = 0
+        pending_review = 0
 
     class _DummyReplayCounts:
         unchanged = 0

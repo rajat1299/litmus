@@ -24,6 +24,7 @@ class ActivityType(str, Enum):
     WATCH_ITERATION = "watch_iteration"
     REPLAY = "replay"
     PUBLISH_COMMENT = "publish_comment"
+    INVARIANT_REVIEW = "invariant_review"
 
 
 class ActivityStatus(str, Enum):

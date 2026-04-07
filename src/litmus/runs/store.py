@@ -108,11 +108,53 @@ def record_replay_run(
     return run
 
 
+def record_invariant_review_run(
+    root: Path | str,
+    *,
+    invariant_name: str,
+    decision: str,
+    reason: str | None,
+    review_source: str,
+    mode: RunMode = RunMode.LOCAL,
+) -> VerificationRun:
+    timestamp = _timestamp()
+    summary: dict[str, object] = {
+        "invariant_name": invariant_name,
+        "decision": decision,
+        "review_source": review_source,
+    }
+    if reason is not None:
+        summary["reason"] = reason
+    run = VerificationRun(
+        run_id=_run_id(),
+        mode=mode,
+        status=RunStatus.COMPLETED,
+        repo_root=str(Path(root)),
+        app_reference=None,
+        scope_label="curated invariant review",
+        started_at=timestamp,
+        completed_at=timestamp,
+        activities=[
+            VerificationActivity(
+                activity_id=_activity_id(ActivityType.INVARIANT_REVIEW),
+                type=ActivityType.INVARIANT_REVIEW,
+                status=ActivityStatus.COMPLETED,
+                started_at=timestamp,
+                completed_at=timestamp,
+                summary=summary,
+            )
+        ],
+    )
+    save_verification_run(root, run, replayable=False, update_latest=False)
+    return run
+
+
 def save_verification_run(
     root: Path | str,
     run: VerificationRun,
     *,
     replayable: bool,
+    update_latest: bool = True,
 ) -> None:
     manifest_path = run_manifest_path(root, run.run_id)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -120,8 +162,9 @@ def save_verification_run(
         json.dumps(run.to_dict(), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    _write_pointer(latest_run_pointer_path(root), run.run_id)
-    if replayable:
+    if update_latest:
+        _write_pointer(latest_run_pointer_path(root), run.run_id)
+    if replayable and update_latest:
         _write_pointer(latest_replayable_run_pointer_path(root), run.run_id)
 
 

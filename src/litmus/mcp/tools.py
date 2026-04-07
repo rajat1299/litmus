@@ -50,12 +50,13 @@ def run_verify_operation(
     result = run_verification(repo_root, mode=mode, scope=scope)
     run = record_verification_run(repo_root, result, mode=mode)
     projection = VerificationProjection.from_result(result)
+    pending_review = sum(1 for invariant in result.invariants if invariant.is_pending_suggestion())
     return VerifyOperationResult(
         run_id=run.run_id,
         app_reference=projection.app_reference,
         scope_label=projection.scope_label,
         routes=projection.routes,
-        invariants=InvariantCounts(**projection.invariants),
+        invariants=InvariantCounts(**projection.invariants, pending_review=pending_review),
         scenarios=projection.scenarios,
         replay=ReplayCounts(
             unchanged=projection.replay["unchanged"],

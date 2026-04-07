@@ -8,6 +8,7 @@ from litmus.config import FaultProfile, RepoConfig, load_repo_config, write_repo
 from litmus.errors import LitmusUserError
 from litmus.invariants.models import Invariant, InvariantReview, InvariantReviewState, InvariantStatus
 from litmus.invariants.store import default_invariants_path, load_invariants, save_invariants
+from litmus.runs import record_invariant_review_run
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +146,13 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
     if target.status is not InvariantStatus.SUGGESTED:
         raise LitmusUserError(f"Invariant '{name}' is not suggested and cannot be accepted.")
     _ensure_can_confirm(target)
+    review_run = record_invariant_review_run(
+        root,
+        invariant_name=name,
+        decision=InvariantReviewState.PROMOTED.value,
+        reason=reason,
+        review_source="cli",
+    )
 
     updated = target.model_copy(
         update={
@@ -154,6 +162,7 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
                 reason=reason,
                 reviewed_at=_review_timestamp(),
                 review_source="cli",
+                review_run_id=review_run.run_id,
             ),
         }
     )
@@ -168,6 +177,13 @@ def dismiss_invariant(root: Path | str, *, name: str, reason: str) -> InvariantR
     target = _find_invariant(invariants, name=name, invariants_path=invariants_path)
     if target.status is not InvariantStatus.SUGGESTED:
         raise LitmusUserError(f"Invariant '{name}' is not suggested and cannot be dismissed.")
+    review_run = record_invariant_review_run(
+        root,
+        invariant_name=name,
+        decision=InvariantReviewState.DISMISSED.value,
+        reason=reason,
+        review_source="cli",
+    )
 
     updated = target.model_copy(
         update={
@@ -176,6 +192,7 @@ def dismiss_invariant(root: Path | str, *, name: str, reason: str) -> InvariantR
                 reason=reason,
                 reviewed_at=_review_timestamp(),
                 review_source="cli",
+                review_run_id=review_run.run_id,
             ),
         }
     )

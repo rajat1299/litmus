@@ -7,6 +7,7 @@ from pathlib import Path
 from litmus.config import FaultProfile, load_repo_config
 from litmus.invariants.models import InvariantReviewState, InvariantStatus
 from litmus.invariants.store import load_invariants
+from litmus.runs.store import latest_replayable_run_pointer_path, latest_run_pointer_path, run_manifest_path
 
 
 def test_litmus_invariants_list_shows_curated_invariants(tmp_path: Path) -> None:
@@ -168,6 +169,10 @@ def test_litmus_invariants_accept_promotes_suggested_invariant_with_review_metad
     assert promoted.review.state is InvariantReviewState.PROMOTED
     assert promoted.review.reason == "Matches the intended retry contract."
     assert promoted.review.review_source == "cli"
+    assert promoted.review.review_run_id is not None
+    assert run_manifest_path(tmp_path, promoted.review.review_run_id).exists()
+    assert not latest_run_pointer_path(tmp_path).exists()
+    assert not latest_replayable_run_pointer_path(tmp_path).exists()
 
 
 def test_litmus_invariants_accept_rejects_generic_route_gap_warnings(tmp_path: Path) -> None:
@@ -293,6 +298,8 @@ def test_litmus_invariants_dismiss_marks_suggestion_review_state_and_hides_it_fr
     assert dismissed.review.state is InvariantReviewState.DISMISSED
     assert dismissed.review.reason == "Retry behavior is already enforced elsewhere."
     assert dismissed.review.review_source == "cli"
+    assert dismissed.review.review_run_id is not None
+    assert run_manifest_path(tmp_path, dismissed.review.review_run_id).exists()
 
     list_result = subprocess.run(
         ["litmus", "invariants", "list"],

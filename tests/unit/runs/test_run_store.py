@@ -19,6 +19,8 @@ from litmus.runs.store import (
     latest_run_pointer_path,
     load_latest_replayable_run,
     load_latest_verification_run,
+    load_verification_run,
+    record_invariant_review_run,
     replay_record_for_seed,
     save_verification_run,
 )
@@ -183,3 +185,48 @@ def test_clear_latest_replayable_run_removes_only_replayable_pointer(tmp_path) -
 
     assert latest_run_pointer_path(tmp_path).exists()
     assert not latest_replayable_run_pointer_path(tmp_path).exists()
+
+
+def test_record_invariant_review_run_persists_manifest_without_updating_latest_pointers(tmp_path) -> None:
+    verification_run = VerificationRun(
+        run_id="run-verify",
+        mode=RunMode.LOCAL,
+        status=RunStatus.COMPLETED,
+        repo_root=str(tmp_path),
+        app_reference="service.app:app",
+        scope_label="full repo",
+        started_at="2026-04-01T12:00:00+00:00",
+        completed_at="2026-04-01T12:00:01+00:00",
+        activities=[
+            VerificationActivity(
+                activity_id="verify-123",
+                type=ActivityType.VERIFY,
+                status=ActivityStatus.COMPLETED,
+                started_at="2026-04-01T12:00:00+00:00",
+                completed_at="2026-04-01T12:00:01+00:00",
+            )
+        ],
+    )
+    save_verification_run(tmp_path, verification_run, replayable=True)
+
+    review_run = record_invariant_review_run(
+        tmp_path,
+        invariant_name="charge_is_idempotent_on_retry",
+        decision="dismissed",
+        reason="Retry behavior is already enforced elsewhere.",
+        review_source="cli",
+    )
+
+    assert load_latest_verification_run(tmp_path).run_id == "run-verify"
+    assert load_latest_replayable_run(tmp_path).run_id == "run-verify"
+
+    stored_review_run = load_verification_run(tmp_path, review_run.run_id)
+    assert stored_review_run.app_reference is None
+    assert stored_review_run.scope_label == "curated invariant review"
+    assert stored_review_run.activities[0].type is ActivityType.INVARIANT_REVIEW
+    assert stored_review_run.activities[0].summary == {
+        "invariant_name": "charge_is_idempotent_on_retry",
+        "decision": "dismissed",
+        "review_source": "cli",
+        "reason": "Retry behavior is already enforced elsewhere.",
+    }
