@@ -117,6 +117,27 @@ def record_invariant_review_run(
     review_source: str,
     mode: RunMode = RunMode.LOCAL,
 ) -> VerificationRun:
+    run = build_invariant_review_run(
+        root,
+        invariant_name=invariant_name,
+        decision=decision,
+        reason=reason,
+        review_source=review_source,
+        mode=mode,
+    )
+    persist_invariant_review_run(root, run)
+    return run
+
+
+def build_invariant_review_run(
+    root: Path | str,
+    *,
+    invariant_name: str,
+    decision: str,
+    reason: str | None,
+    review_source: str,
+    mode: RunMode = RunMode.LOCAL,
+) -> VerificationRun:
     timestamp = _timestamp()
     summary: dict[str, object] = {
         "invariant_name": invariant_name,
@@ -125,7 +146,7 @@ def record_invariant_review_run(
     }
     if reason is not None:
         summary["reason"] = reason
-    run = VerificationRun(
+    return VerificationRun(
         run_id=_run_id(),
         mode=mode,
         status=RunStatus.COMPLETED,
@@ -145,8 +166,10 @@ def record_invariant_review_run(
             )
         ],
     )
+
+
+def persist_invariant_review_run(root: Path | str, run: VerificationRun) -> None:
     save_verification_run(root, run, replayable=False, update_latest=False)
-    return run
 
 
 def save_verification_run(

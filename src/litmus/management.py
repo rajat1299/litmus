@@ -8,7 +8,7 @@ from litmus.config import FaultProfile, RepoConfig, load_repo_config, write_repo
 from litmus.errors import LitmusUserError
 from litmus.invariants.models import Invariant, InvariantReview, InvariantReviewState, InvariantStatus
 from litmus.invariants.store import default_invariants_path, load_invariants, save_invariants
-from litmus.runs import record_invariant_review_run
+from litmus.runs import build_invariant_review_run, persist_invariant_review_run
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +146,7 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
     if target.status is not InvariantStatus.SUGGESTED:
         raise LitmusUserError(f"Invariant '{name}' is not suggested and cannot be accepted.")
     _ensure_can_confirm(target)
-    review_run = record_invariant_review_run(
+    review_run = build_invariant_review_run(
         root,
         invariant_name=name,
         decision=InvariantReviewState.PROMOTED.value,
@@ -168,6 +168,7 @@ def accept_invariant(root: Path | str, *, name: str, reason: str | None = None) 
     )
     updated_invariants = [updated if invariant.name == name else invariant for invariant in invariants]
     save_invariants(invariants_path, updated_invariants)
+    persist_invariant_review_run(root, review_run)
     return InvariantReviewUpdateResult(invariants_path=invariants_path, invariant=updated)
 
 
@@ -177,7 +178,7 @@ def dismiss_invariant(root: Path | str, *, name: str, reason: str) -> InvariantR
     target = _find_invariant(invariants, name=name, invariants_path=invariants_path)
     if target.status is not InvariantStatus.SUGGESTED:
         raise LitmusUserError(f"Invariant '{name}' is not suggested and cannot be dismissed.")
-    review_run = record_invariant_review_run(
+    review_run = build_invariant_review_run(
         root,
         invariant_name=name,
         decision=InvariantReviewState.DISMISSED.value,
@@ -198,6 +199,7 @@ def dismiss_invariant(root: Path | str, *, name: str, reason: str) -> InvariantR
     )
     updated_invariants = [updated if invariant.name == name else invariant for invariant in invariants]
     save_invariants(invariants_path, updated_invariants)
+    persist_invariant_review_run(root, review_run)
     return InvariantReviewUpdateResult(invariants_path=invariants_path, invariant=updated)
 
 
