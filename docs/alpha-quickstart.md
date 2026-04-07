@@ -13,6 +13,13 @@ Current grounded alpha surface:
 - compatibility and degradation contract documented in `docs/alpha-compatibility.md`
 - local fault-profile controls are grounded presets: `default`, `gentle`, and `hostile`
 
+Performance contract:
+
+- local `litmus verify` runs are budgeted to stay within 10 seconds on the grounded launch fixture path
+- CI verification runs are budgeted within 60 seconds
+- the default local launch budget uses 3 replay seeds per scenario and 100 property examples
+- the grounded CI budget uses 500 replay seeds per scenario and 500 property examples
+
 Install-channel note:
 
 - package build and publish are now automated through the repository release workflow
@@ -82,6 +89,8 @@ Invariants: 2
 Scenarios: 2
 Replay: unchanged=1 breaking=1 benign=0 improvement=0
 Properties: passed=0 failed=0 skipped=0
+Performance: elapsed=0.70s budget<=10.00s mode=local profile=default within_budget=yes
+Launch budgets: replay_seeds/scenario=3 property_examples=100
 Confidence: 0.50
 ```
 
@@ -152,6 +161,7 @@ Expected output shape:
 
 ```text
 Replay: unchanged=2 breaking=0 benign=0 improvement=0
+Performance: elapsed=0.65s budget<=10.00s mode=local profile=default within_budget=yes
 Confidence: 1.00
 ```
 

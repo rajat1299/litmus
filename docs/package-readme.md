@@ -15,6 +15,13 @@ Current grounded alpha surface:
 - local stdio MCP server via `litmus mcp`
 - replay over local run artifacts stored under `.litmus/runs/`
 
+Performance contract:
+
+- Local verify is budgeted for 10 seconds on the grounded launch fixture path.
+- CI verification is budgeted for 60 seconds.
+- Litmus uses 3 replay seeds per scenario and 100 property examples in local mode.
+- Litmus uses 500 replay seeds per scenario and 500 property examples in CI mode.
+
 Package metadata notes:
 
 - The top-level `README.md` remains aspirational.
