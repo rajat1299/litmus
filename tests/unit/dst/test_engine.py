@@ -960,6 +960,77 @@ def test_run_verification_loads_promoted_curated_confirmed_invariants_into_activ
     assert [invariant.name for invariant in captured["property_invariants"]] == ["refund_is_idempotent"]
 
 
+def test_run_verification_ignores_legacy_promoted_route_gap_records_and_regenerates_warning(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    legacy_promoted_route_gap = Invariant(
+        name="refund_post_payments_refund_needs_confirmed_anchor",
+        source="suggested:route_gap",
+        status=InvariantStatus.CONFIRMED,
+        type=InvariantType.DIFFERENTIAL,
+        request=RequestExample(method="POST", path="/payments/refund"),
+        reasoning="Legacy invalid promoted route-gap record.",
+        review=InvariantReview(
+            state=InvariantReviewState.PROMOTED,
+            reason="Legacy bad data.",
+            reviewed_at="2026-04-06T12:00:00Z",
+            review_source="cli",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_repo_config",
+        lambda _root: RepoConfig(app="service.app:app", suggested_invariants=True),
+    )
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="POST",
+                path="/payments/refund",
+                handler_name="refund",
+                file_path="service/app.py",
+            )
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+    monkeypatch.setattr(
+        "litmus.dst.engine.default_invariants_path",
+        lambda _root: tmp_path / ".litmus" / "invariants.yaml",
+    )
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_invariants",
+        lambda _path: [legacy_promoted_route_gap],
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_build_scenarios(_routes, invariants):
+        captured["scenario_invariants"] = list(invariants)
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", fake_build_scenarios)
+    monkeypatch.setattr("litmus.dst.engine._run_replay", lambda *_args, **_kwargs: asyncio.sleep(0, result=([], [])))
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", lambda *_args, **_kwargs: [])
+
+    invariants_path = tmp_path / ".litmus" / "invariants.yaml"
+    invariants_path.parent.mkdir(parents=True, exist_ok=True)
+    invariants_path.write_text("[]\n", encoding="utf-8")
+
+    result = run_verification(tmp_path)
+
+    assert [invariant.name for invariant in result.invariants] == [
+        "refund_post_payments_refund_needs_confirmed_anchor"
+    ]
+    assert [invariant.status for invariant in result.invariants] == [InvariantStatus.SUGGESTED]
+    assert captured["scenario_invariants"] == []
+    assert result.scenarios == []
+
+
 def test_run_verification_keeps_dismissed_curated_route_gap_suggestions_out_of_active_results_but_still_suppresses_route_gaps(
     monkeypatch,
     tmp_path: Path,

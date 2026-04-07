@@ -56,6 +56,9 @@ class Invariant(BaseModel):
     response: ResponseExample | None = None
     review: InvariantReview | None = None
 
+    def is_route_gap_warning(self) -> bool:
+        return self.source == "suggested:route_gap"
+
     def is_pending_suggestion(self) -> bool:
         if self.status is not InvariantStatus.SUGGESTED:
             return False
@@ -75,4 +78,5 @@ class Invariant(BaseModel):
             self.status is InvariantStatus.CONFIRMED
             and self.review is not None
             and self.review.state is InvariantReviewState.PROMOTED
+            and not self.is_route_gap_warning()
         )
