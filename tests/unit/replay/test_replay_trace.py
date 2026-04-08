@@ -125,6 +125,8 @@ def test_replay_trace_record_round_trips_target_selection_artifact() -> None:
             allocated_seeds=3,
             redistributed_seeds=0,
             allocation_mode="target_spread",
+            priority_class="multi_target",
+            frontier_capacity=4,
             selected_targets=("http", "redis"),
             planned_fault_kinds=("timeout",),
             scenario_seed_start=1,

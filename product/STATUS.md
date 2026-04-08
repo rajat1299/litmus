@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-04-07
-**Phase:** Track B3 slice 1 in progress
+**Status Date:** 2026-04-08
+**Phase:** Track B3 slice 2 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -78,7 +78,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-19 | Suggested invariant review workflow | Codex | Done | WS-13, WS-18 | 2026-04-07 |
 | WS-20 | Performance and launch SLO hardening | Codex | Done | WS-17, WS-18, WS-19 | 2026-04-07 |
 | WS-21 | Scheduler-level deterministic replay | Codex | Done | WS-16, WS-17, WS-20 | 2026-04-07 |
-| WS-22 | Search-depth scaling and smarter fault budgets | Codex | In progress | WS-17, WS-20, WS-21 | 2026-04-07 |
+| WS-22 | Search-depth scaling and smarter fault budgets | Codex | In progress | WS-17, WS-20, WS-21 | 2026-04-08 |
 
 ---
 
@@ -120,6 +120,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Landed the first WS-22 review slice on `codex/b3-search-budget-slice1`: verify artifacts now persist per-scenario search-budget snapshots, shared verification summaries expose requested versus allocated replay budget plus target/no-boundary accounting, and CLI/MCP surfaces carry the same bounded search-budget contract without changing current search depth |
 | 2026-04-08 | Landed a follow-up WS-22 slice on `codex/b3-search-budget-slice1`: repeated same-target replay seeds now diversify fault kinds instead of rerunning identical target/kind pairs, and search-budget artifacts/summaries expose planned fault-kind coverage so narrower scenarios remain explainable |
 | 2026-04-08 | Fixed a post-review WS-22 issue on `codex/b3-search-budget-slice1`: Redis planner diversification now excludes operation-gated `partial_write` from the default replay-kind cycle, so read-only routes no longer spend budget on no-op faults or overstate planned kind diversity |
+| 2026-04-08 | Landed another WS-22 review slice on `codex/b3-search-budget-slice1`: search-budget artifacts now persist scenario priority class plus replayable frontier capacity, redistribution prefers higher-value multi-target frontier before simpler cases, and CLI/MCP/run summaries expose those priority/frontier counts so scenario-aware budget allocation is inspectable |
 
 ---
 
@@ -128,7 +129,7 @@ Update this table whenever work is claimed, blocked, or completed.
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
 3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
-4. Treat Track B2 as complete, keep WS-22 bounded to search-budget artifacts/accounting first, and defer any default-depth changes until that slice is reviewed.
+4. Treat Track B2 as complete, keep WS-22 bounded to scenario-aware search-budget prioritization and explicit frontier accounting, and defer any default-depth changes until those slices are reviewed.
 5. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

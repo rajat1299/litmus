@@ -149,6 +149,9 @@ class SearchBudgetCounts:
     disabled_scenarios: int
     reduced_allocation_scenarios: int
     redistributed_scenarios: int
+    frontier_capped_scenarios: int
+    multi_target_priority_scenarios: int
+    kind_diverse_priority_scenarios: int
     unique_selected_targets: list[str]
     unique_planned_fault_kinds: list[str]
     kind_diverse_scenarios: int
@@ -167,6 +170,9 @@ class SearchBudgetCounts:
             "disabled_scenarios": self.disabled_scenarios,
             "reduced_allocation_scenarios": self.reduced_allocation_scenarios,
             "redistributed_scenarios": self.redistributed_scenarios,
+            "frontier_capped_scenarios": self.frontier_capped_scenarios,
+            "multi_target_priority_scenarios": self.multi_target_priority_scenarios,
+            "kind_diverse_priority_scenarios": self.kind_diverse_priority_scenarios,
             "unique_selected_targets": list(self.unique_selected_targets),
             "unique_planned_fault_kinds": list(self.unique_planned_fault_kinds),
             "kind_diverse_scenarios": self.kind_diverse_scenarios,
@@ -359,6 +365,9 @@ class SearchBudgetPayload(BaseModel):
     disabled_scenarios: int
     reduced_allocation_scenarios: int
     redistributed_scenarios: int
+    frontier_capped_scenarios: int
+    multi_target_priority_scenarios: int
+    kind_diverse_priority_scenarios: int
     unique_selected_targets: list[str]
     unique_planned_fault_kinds: list[str]
     kind_diverse_scenarios: int

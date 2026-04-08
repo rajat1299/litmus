@@ -423,6 +423,8 @@ def test_litmus_verify_keeps_fault_only_reachable_redis_in_reachability_artifact
         "allocated_seeds": 3,
         "redistributed_seeds": 0,
         "allocation_mode": "target_single",
+        "priority_class": "kind_diverse",
+        "frontier_capacity": 4,
         "selected_targets": ["http"],
         "planned_fault_kinds": ["timeout", "connection_refused", "http_error"],
         "scenario_seed_start": 1,
