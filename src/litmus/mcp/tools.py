@@ -34,7 +34,7 @@ from litmus.replay.fidelity import (
     normalize_replay_checkpoints,
     normalize_scheduler_ledger,
 )
-from litmus.replay.models import ReplayExplanation
+from litmus.replay.models import ReplayExplanation, ReplayResponseDetails
 from litmus.replay.trace import boundary_coverage_from_result, replay_fault_plan
 from litmus.simulators.boundary_patches import patched_supported_boundaries
 from litmus.runs import RunMode, record_replay_run, record_verification_run, replay_record_for_seed
@@ -198,8 +198,10 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         record.replay_checkpoints or record.execution_transcript,
         replay_checkpoints or replay_transcript,
         outcome_matches=_replay_outcome_matches_recorded_run(
+            record.recorded_outcome,
             record.replay_checkpoints or record.execution_transcript,
             current_response.status_code,
+            current_result.body,
         ),
     )
     explanation = explain_replay(
@@ -240,9 +242,17 @@ def _resolve_scope(
 
 
 def _replay_outcome_matches_recorded_run(
+    recorded_outcome: ReplayResponseDetails | None,
     recorded_checkpoints: list | None,
     current_status_code: int | None,
+    current_body,
 ) -> bool:
+    if recorded_outcome is not None:
+        return (
+            recorded_outcome.status_code == current_status_code
+            and recorded_outcome.body == current_body
+        )
+
     if recorded_checkpoints is None:
         return True
 

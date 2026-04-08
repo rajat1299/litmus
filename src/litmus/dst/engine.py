@@ -35,6 +35,7 @@ from litmus.replay.fidelity import (
     normalize_replay_checkpoints,
     normalize_scheduler_ledger,
 )
+from litmus.replay.models import ReplayResponseDetails
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import RunMode
 from litmus.scenarios.builder import Scenario, build_scenarios
@@ -385,6 +386,10 @@ async def _run_replay(
                             trace,
                             method=scenario.method,
                             path=scenario.path,
+                        ),
+                        recorded_outcome=ReplayResponseDetails(
+                            status_code=result.status_code,
+                            body=result.body,
                         ),
                         execution_transcript=normalize_execution_transcript(trace),
                         target_selection=TargetSelectionArtifact.from_reachability(

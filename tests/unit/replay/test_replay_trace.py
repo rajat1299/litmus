@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from litmus.dst.reachability import PlannedFaultSeed, ScenarioReachability, TargetSelectionArtifact
 from litmus.dst.runtime import TraceEvent
-from litmus.replay.models import ReplayCheckpoint, SchedulerDecision
+from litmus.replay.models import ReplayCheckpoint, ReplayResponseDetails, SchedulerDecision
 from litmus.replay.trace import ReplayTraceRecord, replay_fault_plan, replay_trace_record_from_dict, replay_trace_record_to_dict
 
 
@@ -105,6 +105,7 @@ def test_replay_trace_record_round_trips_target_selection_artifact() -> None:
             ReplayCheckpoint(kind="boundary_exit", target="redis"),
             ReplayCheckpoint(kind="response_completed", status_code=500),
         ],
+        recorded_outcome=ReplayResponseDetails(status_code=500, body={"status": "charged"}),
         target_selection=TargetSelectionArtifact.from_reachability(
             reachability=ScenarioReachability(
                 clean_path_targets=("http",),

@@ -6,7 +6,7 @@ from typing import Any
 from litmus.dst.faults import FaultPlan, FaultSpec
 from litmus.dst.reachability import TargetSelectionArtifact
 from litmus.dst.runtime import BoundaryCoverage, TraceEvent
-from litmus.replay.models import ReplayCheckpoint, SchedulerDecision
+from litmus.replay.models import ReplayCheckpoint, ReplayResponseDetails, SchedulerDecision
 
 
 @dataclass(slots=True)
@@ -22,6 +22,7 @@ class ReplayTraceRecord:
     trace: list[TraceEvent]
     scheduler_ledger: list[SchedulerDecision] | None = None
     replay_checkpoints: list[ReplayCheckpoint] | None = None
+    recorded_outcome: ReplayResponseDetails | None = None
     execution_transcript: list[ReplayCheckpoint] | None = None
     target_selection: TargetSelectionArtifact | None = None
 
@@ -49,6 +50,9 @@ def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
         "replay_checkpoints": None
         if record.replay_checkpoints is None
         else [checkpoint.to_dict() for checkpoint in record.replay_checkpoints],
+        "recorded_outcome": None
+        if record.recorded_outcome is None
+        else record.recorded_outcome.to_dict(),
         "execution_transcript": None
         if record.execution_transcript is None
         else [checkpoint.to_dict() for checkpoint in record.execution_transcript],
@@ -84,6 +88,9 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
             ReplayCheckpoint.from_dict(checkpoint_payload)
             for checkpoint_payload in payload.get("replay_checkpoints", [])
         ],
+        recorded_outcome=None
+        if payload.get("recorded_outcome") is None
+        else ReplayResponseDetails.from_dict(payload["recorded_outcome"]),
         execution_transcript=None
         if payload.get("execution_transcript") is None
         else [

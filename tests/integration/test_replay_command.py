@@ -112,6 +112,120 @@ def test_litmus_replay_replays_a_recorded_breaking_scenario(tmp_path) -> None:
     assert "- Status code regressed from 200 to 500." in replay_result.stdout
 
 
+def test_litmus_replay_reports_outcome_drift_when_response_body_changes_without_status_change(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def post(self, path: str):
+                    def decorator(func):
+                        self.routes[("POST", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    request = await receive()
+                    payload = json.loads(request["body"].decode("utf-8")) if request["body"] else None
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler(payload)
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.post("/payments/charge")
+            async def charge(payload):
+                return {"status_code": 200, "json": {"status": "charged"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_payments.py").write_text(
+        textwrap.dedent(
+            """
+            def test_charge_returns_200_on_success():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/charge",
+                    "json": {"amount": 100},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "charged"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 0, verify_result.stdout
+
+    (service_dir / "app.py").write_text(
+        (service_dir / "app.py").read_text(encoding="utf-8").replace(
+            '{"status": "charged"}',
+            '{"status": "delayed"}',
+        ),
+        encoding="utf-8",
+    )
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:1"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: benign_change" in replay_result.stdout
+    assert "Execution fidelity: drifted" in replay_result.stdout
+    assert "- Replay outcome drifted after scheduler decisions and checkpoints aligned." in replay_result.stdout
+    assert "- Response body changed from {'status': 'charged'} to {'status': 'delayed'}." in replay_result.stdout
+
+
 def test_litmus_replay_reports_missing_artifact_cleanly(tmp_path) -> None:
     result = subprocess.run(
         ["litmus", "replay", "seed:1"],
