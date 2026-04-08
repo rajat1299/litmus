@@ -344,9 +344,16 @@ def _legacy_priority_class(payload: dict[str, object]) -> str:
 
 
 def _legacy_frontier_capacity(payload: dict[str, object]) -> int:
+    allocation_mode = str(payload.get("allocation_mode", "no_boundary"))
     allocated_seeds = int(payload.get("allocated_seeds", 0))
     selected_targets = tuple(str(target) for target in payload.get("selected_targets", []))
     planned_fault_kinds = tuple(str(kind) for kind in payload.get("planned_fault_kinds", []))
-    if not selected_targets and allocated_seeds == 0:
+    if allocation_mode == "disabled":
         return 0
-    return max(allocated_seeds, len(planned_fault_kinds), 1)
+    if not selected_targets:
+        return 0 if allocated_seeds == 0 else 1
+    if len(selected_targets) > 1:
+        return max(len(selected_targets), len(planned_fault_kinds), 1)
+    if planned_fault_kinds:
+        return len(planned_fault_kinds)
+    return 1
