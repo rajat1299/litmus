@@ -30,7 +30,11 @@ from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
 from litmus.performance import property_max_examples_for_mode, replay_seed_count_for_mode
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
-from litmus.replay.fidelity import normalize_execution_transcript
+from litmus.replay.fidelity import (
+    normalize_execution_transcript,
+    normalize_replay_checkpoints,
+    normalize_scheduler_ledger,
+)
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import RunMode
 from litmus.scenarios.builder import Scenario, build_scenarios
@@ -367,6 +371,21 @@ async def _run_replay(
                         baseline_status_code=replay_result.baseline_response.status_code,
                         baseline_body=replay_result.baseline_response.body,
                         trace=trace,
+                        scheduler_ledger=normalize_scheduler_ledger(
+                            seed=f"seed:{planned_seed.seed_value}",
+                            method=scenario.method,
+                            path=scenario.path,
+                            trace=trace,
+                            target_selection=TargetSelectionArtifact.from_reachability(
+                                reachability=reachability,
+                                planned_fault_seed=planned_seed,
+                            ),
+                        ),
+                        replay_checkpoints=normalize_replay_checkpoints(
+                            trace,
+                            method=scenario.method,
+                            path=scenario.path,
+                        ),
                         execution_transcript=normalize_execution_transcript(trace),
                         target_selection=TargetSelectionArtifact.from_reachability(
                             reachability=reachability,

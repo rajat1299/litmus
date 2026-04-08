@@ -6,7 +6,7 @@ from typing import Any
 from litmus.dst.faults import FaultPlan, FaultSpec
 from litmus.dst.reachability import TargetSelectionArtifact
 from litmus.dst.runtime import BoundaryCoverage, TraceEvent
-from litmus.replay.models import ReplayCheckpoint
+from litmus.replay.models import ReplayCheckpoint, SchedulerDecision
 
 
 @dataclass(slots=True)
@@ -20,6 +20,8 @@ class ReplayTraceRecord:
     baseline_status_code: int | None
     baseline_body: dict[str, Any] | None
     trace: list[TraceEvent]
+    scheduler_ledger: list[SchedulerDecision] | None = None
+    replay_checkpoints: list[ReplayCheckpoint] | None = None
     execution_transcript: list[ReplayCheckpoint] | None = None
     target_selection: TargetSelectionArtifact | None = None
 
@@ -41,6 +43,12 @@ def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
             }
             for event in record.trace
         ],
+        "scheduler_ledger": None
+        if record.scheduler_ledger is None
+        else [decision.to_dict() for decision in record.scheduler_ledger],
+        "replay_checkpoints": None
+        if record.replay_checkpoints is None
+        else [checkpoint.to_dict() for checkpoint in record.replay_checkpoints],
         "execution_transcript": None
         if record.execution_transcript is None
         else [checkpoint.to_dict() for checkpoint in record.execution_transcript],
@@ -64,6 +72,18 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
             TraceEvent(kind=event["kind"], metadata=event.get("metadata", {}))
             for event in payload.get("trace", [])
         ],
+        scheduler_ledger=None
+        if payload.get("scheduler_ledger") is None
+        else [
+            SchedulerDecision.from_dict(decision_payload)
+            for decision_payload in payload.get("scheduler_ledger", [])
+        ],
+        replay_checkpoints=None
+        if payload.get("replay_checkpoints") is None
+        else [
+            ReplayCheckpoint.from_dict(checkpoint_payload)
+            for checkpoint_payload in payload.get("replay_checkpoints", [])
+        ],
         execution_transcript=None
         if payload.get("execution_transcript") is None
         else [
@@ -77,6 +97,19 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
 
 
 def replay_fault_plan(record: ReplayTraceRecord) -> FaultPlan:
+    if record.scheduler_ledger is not None:
+        schedule = {
+            decision.step: FaultSpec(
+                kind=str(decision.detail),
+                target=str(decision.target),
+                params=dict(decision.params),
+            )
+            for decision in record.scheduler_ledger
+            if decision.kind == "fault_plan_selected" and decision.step is not None and decision.target is not None
+        }
+        if schedule:
+            return FaultPlan(seed=record.seed_value, schedule=schedule)
+
     for event in record.trace:
         if event.kind != "fault_plan_selected":
             continue

@@ -797,9 +797,8 @@ def test_litmus_replay_reports_execution_fidelity_drift_even_when_response_is_un
     assert replay_result.returncode == 0, replay_result.stderr
     assert "Classification: unchanged" in replay_result.stdout
     assert "Execution fidelity: drifted" in replay_result.stdout
-    assert "- Replay execution diverged from the recorded transcript." in replay_result.stdout
-    assert "- Recorded step 2:" in replay_result.stdout
-    assert "- Replay step 2: response_completed (status 200)" in replay_result.stdout
+    assert "- Replay stopped before reproducing a recorded scheduler decision." in replay_result.stdout
+    assert "- Recorded step" in replay_result.stdout
 
 
 def _write_replay_fidelity_drift_repo(tmp_path: Path) -> Path:

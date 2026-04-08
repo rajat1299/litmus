@@ -8,6 +8,37 @@ from litmus.replay.differential import ReplayClassification
 
 
 @dataclass(slots=True)
+class SchedulerDecision:
+    kind: str
+    step: int | None = None
+    target: str | None = None
+    detail: str | None = None
+    params: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"kind": self.kind}
+        if self.step is not None:
+            payload["step"] = self.step
+        if self.target is not None:
+            payload["target"] = self.target
+        if self.detail is not None:
+            payload["detail"] = self.detail
+        if self.params:
+            payload["params"] = dict(self.params)
+        return payload
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SchedulerDecision:
+        return cls(
+            kind=payload["kind"],
+            step=payload.get("step"),
+            target=payload.get("target"),
+            detail=payload.get("detail"),
+            params=dict(payload.get("params", {})),
+        )
+
+
+@dataclass(slots=True)
 class ReplayResponseDetails:
     status_code: int | None
     body: Any
@@ -89,9 +120,18 @@ class ReplayFidelityStatus(str, Enum):
     NOT_CHECKED = "not_checked"
 
 
+class ReplayDriftKind(str, Enum):
+    DECISION_MISMATCH = "decision_mismatch"
+    DECISION_MISSING = "decision_missing"
+    UNEXPECTED_DECISION = "unexpected_decision"
+    CHECKPOINT_DRIFT = "checkpoint_drift"
+    OUTCOME_DRIFT = "outcome_drift"
+
+
 @dataclass(slots=True)
 class ReplayFidelityResult:
     status: ReplayFidelityStatus
+    drift_kind: ReplayDriftKind | None = None
     recorded_step: int | None = None
     replay_step: int | None = None
     reason: str = ""
@@ -103,6 +143,8 @@ class ReplayFidelityResult:
             "status": self.status.value,
             "reason": self.reason,
         }
+        if self.drift_kind is not None:
+            payload["drift_kind"] = self.drift_kind.value
         if self.recorded_step is not None:
             payload["recorded_step"] = self.recorded_step
         if self.replay_step is not None:
@@ -117,6 +159,9 @@ class ReplayFidelityResult:
     def from_dict(cls, payload: dict[str, Any]) -> ReplayFidelityResult:
         return cls(
             status=ReplayFidelityStatus(payload["status"]),
+            drift_kind=None
+            if payload.get("drift_kind") is None
+            else ReplayDriftKind(payload["drift_kind"]),
             recorded_step=payload.get("recorded_step"),
             replay_step=payload.get("replay_step"),
             reason=payload.get("reason", ""),

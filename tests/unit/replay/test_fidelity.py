@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from litmus.dst.runtime import TraceEvent
-from litmus.replay.fidelity import compare_execution_transcripts, normalize_execution_transcript
-from litmus.replay.models import ReplayCheckpoint, ReplayFidelityStatus
+from litmus.replay.fidelity import (
+    compare_execution_transcripts,
+    compare_replay_contract,
+    normalize_execution_transcript,
+)
+from litmus.replay.models import ReplayCheckpoint, ReplayDriftKind, ReplayFidelityStatus, SchedulerDecision
 
 
 def test_normalize_execution_transcript_keeps_stable_execution_checkpoints() -> None:
@@ -101,3 +105,75 @@ def test_compare_execution_transcripts_reports_not_checked_for_legacy_artifacts(
     assert result.reason == "Recorded replay artifact predates execution fidelity transcripts."
     assert result.recorded_checkpoint is None
     assert result.replay_checkpoint is None
+
+
+def test_compare_replay_contract_reports_decision_mismatch_before_checkpoint_drift() -> None:
+    result = compare_replay_contract(
+        recorded_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="fault_plan_selected", step=1, target="redis", detail="timeout"),
+        ],
+        replay_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="fault_plan_selected", step=1, target="http", detail="timeout"),
+        ],
+        recorded_checkpoints=[ReplayCheckpoint(kind="response_completed", status_code=500)],
+        replay_checkpoints=[ReplayCheckpoint(kind="response_completed", status_code=500)],
+        outcome_matches=True,
+    )
+
+    assert result.status is ReplayFidelityStatus.DRIFTED
+    assert result.drift_kind is ReplayDriftKind.DECISION_MISMATCH
+    assert result.recorded_step == 2
+    assert result.replay_step == 2
+    assert result.reason == "Replay decisions diverged from the recorded scheduler ledger."
+
+
+def test_compare_replay_contract_reports_checkpoint_drift_when_decisions_align() -> None:
+    result = compare_replay_contract(
+        recorded_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="fault_plan_selected", step=1, target="redis", detail="timeout"),
+        ],
+        replay_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="fault_plan_selected", step=1, target="redis", detail="timeout"),
+        ],
+        recorded_checkpoints=[
+            ReplayCheckpoint(kind="boundary_enter", target="redis"),
+            ReplayCheckpoint(kind="response_completed", status_code=500),
+        ],
+        replay_checkpoints=[
+            ReplayCheckpoint(kind="boundary_exit", target="redis"),
+            ReplayCheckpoint(kind="response_completed", status_code=500),
+        ],
+        outcome_matches=True,
+    )
+
+    assert result.status is ReplayFidelityStatus.DRIFTED
+    assert result.drift_kind is ReplayDriftKind.CHECKPOINT_DRIFT
+    assert result.recorded_step == 1
+    assert result.replay_step == 1
+    assert result.reason == "Replay checkpoints diverged after scheduler decisions stayed aligned."
+
+
+def test_compare_replay_contract_reports_outcome_drift_when_decisions_and_checkpoints_match() -> None:
+    result = compare_replay_contract(
+        recorded_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="fault_plan_selected", step=1, target="redis", detail="timeout"),
+        ],
+        replay_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="fault_plan_selected", step=1, target="redis", detail="timeout"),
+        ],
+        recorded_checkpoints=[ReplayCheckpoint(kind="response_completed", status_code=500)],
+        replay_checkpoints=[ReplayCheckpoint(kind="response_completed", status_code=500)],
+        outcome_matches=False,
+    )
+
+    assert result.status is ReplayFidelityStatus.DRIFTED
+    assert result.drift_kind is ReplayDriftKind.OUTCOME_DRIFT
+    assert result.recorded_step is None
+    assert result.replay_step is None
+    assert result.reason == "Replay outcome drifted after scheduler decisions and checkpoints aligned."

@@ -28,7 +28,12 @@ from litmus.mcp.types import (
 )
 from litmus.replay.differential import ReplayClassification, run_differential_replay
 from litmus.replay.explain import explain_replay
-from litmus.replay.fidelity import compare_execution_transcripts, normalize_execution_transcript
+from litmus.replay.fidelity import (
+    compare_replay_contract,
+    normalize_execution_transcript,
+    normalize_replay_checkpoints,
+    normalize_scheduler_ledger,
+)
 from litmus.replay.models import ReplayExplanation
 from litmus.replay.trace import boundary_coverage_from_result, replay_fault_plan
 from litmus.simulators.boundary_patches import patched_supported_boundaries
@@ -175,7 +180,28 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
     diff = replay_results[0].diff if replay_results else {}
     current_trace = [*_unsupported_boundary_trace_events(boundary_usage), *current_result.trace]
     replay_transcript = normalize_execution_transcript(current_trace)
-    fidelity = compare_execution_transcripts(record.execution_transcript, replay_transcript)
+    replay_checkpoints = normalize_replay_checkpoints(
+        current_trace,
+        method=record.method,
+        path=record.path,
+    )
+    replay_ledger = normalize_scheduler_ledger(
+        seed=seed,
+        method=record.method,
+        path=record.path,
+        trace=current_trace,
+        target_selection=record.target_selection,
+    )
+    fidelity = compare_replay_contract(
+        record.scheduler_ledger,
+        replay_ledger,
+        record.replay_checkpoints or record.execution_transcript,
+        replay_checkpoints or replay_transcript,
+        outcome_matches=_replay_outcome_matches_recorded_run(
+            record.replay_checkpoints or record.execution_transcript,
+            current_response.status_code,
+        ),
+    )
     explanation = explain_replay(
         seed=seed,
         method=record.method,
@@ -211,3 +237,17 @@ def _resolve_scope(
         staged=staged,
         diff=diff,
     )
+
+
+def _replay_outcome_matches_recorded_run(
+    recorded_checkpoints: list | None,
+    current_status_code: int | None,
+) -> bool:
+    if recorded_checkpoints is None:
+        return True
+
+    for checkpoint in reversed(recorded_checkpoints):
+        if getattr(checkpoint, "kind", None) != "response_completed":
+            continue
+        return checkpoint.status_code == current_status_code
+    return True

@@ -40,6 +40,22 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "suggested": 0,
     }
     assert run_payload["artifacts"]["replay_traces"][0]["seed"] == "seed:1"
+    scheduler_ledger = run_payload["artifacts"]["replay_traces"][0]["scheduler_ledger"]
+    assert scheduler_ledger is not None
+    assert scheduler_ledger[:2] == [
+        {"kind": "replay_seed", "detail": "seed:1"},
+        {"kind": "scenario", "detail": "GET /health"},
+    ]
+    replay_checkpoints = run_payload["artifacts"]["replay_traces"][0]["replay_checkpoints"]
+    assert replay_checkpoints is not None
+    assert replay_checkpoints[0] == {
+        "kind": "request_started",
+        "detail": "GET /health",
+    }
+    assert replay_checkpoints[-1] == {
+        "kind": "response_completed",
+        "status_code": 200,
+    }
     transcript = run_payload["artifacts"]["replay_traces"][0]["execution_transcript"]
     assert transcript is not None
     assert transcript[-1] == {
