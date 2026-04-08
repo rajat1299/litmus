@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 
+import aiohttp
 import httpx
 
 from litmus.dst.asgi import run_asgi_app
@@ -216,6 +217,50 @@ def test_run_asgi_app_patches_httpx_and_records_fault_injection_trace() -> None:
         "step": 1,
         "target": "http",
         "url": "https://service.invalid/orders/123",
+    }
+
+
+def test_run_asgi_app_preserves_aiohttp_client_response_transparency() -> None:
+    async def app(scope, receive, send):
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://service.invalid/orders/123") as response:
+                assert isinstance(response, aiohttp.ClientResponse)
+                body = await response.json()
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 200,
+                        "headers": [(b"content-type", b"application/json")],
+                    }
+                )
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": json.dumps(
+                            {
+                                "status": response.status,
+                                "body": body,
+                                "content_type": response.headers["content-type"],
+                            }
+                        ).encode("utf-8"),
+                    }
+                )
+
+    result = asyncio.run(
+        run_asgi_app(
+            app=app,
+            method="GET",
+            path="/health",
+            seed=3,
+            fault_plan=FaultPlan(seed=3),
+        )
+    )
+
+    assert result.status_code == 200
+    assert result.body == {
+        "status": 200,
+        "body": {},
+        "content_type": "application/json",
     }
 
 

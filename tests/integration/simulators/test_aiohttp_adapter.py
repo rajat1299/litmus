@@ -35,6 +35,29 @@ def test_patch_aiohttp_intercepts_requests_and_restores_original_behavior() -> N
     asyncio.run(exercise())
 
 
+def test_patch_aiohttp_preserves_client_response_transparency() -> None:
+    simulator = HttpSimulator()
+    simulator.add_json_response(
+        method="GET",
+        url_pattern="https://api.example.com/orders/*",
+        status_code=200,
+        json_body={"status": "ok"},
+    )
+
+    async def exercise() -> None:
+        async with aiohttp.ClientSession() as session:
+            with patch_aiohttp(simulator):
+                async with session.get("https://api.example.com/orders/123") as response:
+                    assert isinstance(response, aiohttp.ClientResponse)
+                    assert response.status == 200
+                    assert response.headers["content-type"] == "application/json"
+                    assert await response.json() == {"status": "ok"}
+                    assert await response.text() == '{"status": "ok"}'
+                    assert await response.read() == b'{"status": "ok"}'
+
+    asyncio.run(exercise())
+
+
 def test_patch_aiohttp_applies_slow_response_delay() -> None:
     simulator = HttpSimulator(
         fault_plan=FaultPlan(

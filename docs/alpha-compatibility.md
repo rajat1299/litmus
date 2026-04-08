@@ -39,6 +39,7 @@ The current HTTP launch slice is intentionally narrow:
 
 - `httpx.AsyncClient`
 - `aiohttp.ClientSession`
+- on the supported aiohttp path, ordinary `aiohttp.ClientResponse` use including `isinstance(response, aiohttp.ClientResponse)`, `response.status`, `await response.json()`, `await response.text()`, `await response.read()`, and basic `headers` lookup
 - outbound request interception through the shipped HTTP simulator and bounded HTTP fault kinds already used by verify/replay
 
 Examples outside that slice should degrade honestly or remain outside the current supported matrix rather than silently claiming broader HTTP coverage.

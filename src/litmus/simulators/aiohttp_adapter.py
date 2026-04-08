@@ -10,11 +10,19 @@ from litmus.simulators.base import HttpConnectionRefusedError, HttpTimeoutError,
 from litmus.simulators.http import HttpSimulator
 
 
-class _SimulatedAiohttpResponse:
+class _BaseSimulatedAiohttpResponse:
+    __slots__ = ("_response",)
+
     def __init__(self, response: SimulatedHttpResponse) -> None:
         self._response = response
-        self.status = response.status_code
-        self.headers = response.headers
+
+    @property
+    def status(self) -> int:
+        return self._response.status_code
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return self._response.headers
 
     async def __aenter__(self):
         return self
@@ -33,10 +41,32 @@ class _SimulatedAiohttpResponse:
     async def read(self):
         return self._response.content_bytes()
 
+    def release(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    async def wait_for_close(self) -> None:
+        return None
+
+
+def _build_patched_aiohttp_response_class(original_response_class):
+    class _PatchedAiohttpResponse(_BaseSimulatedAiohttpResponse, original_response_class):
+        __slots__ = ()
+
+    return _PatchedAiohttpResponse
+
 
 @contextmanager
 def patch_aiohttp(simulator: HttpSimulator):
     original_request = aiohttp.ClientSession._request
+    original_response_class = getattr(aiohttp, "ClientResponse", None)
+    patched_response_class = (
+        _build_patched_aiohttp_response_class(original_response_class)
+        if isinstance(original_response_class, type)
+        else _BaseSimulatedAiohttpResponse
+    )
 
     async def simulated_request(self, method, url, *args, **kwargs):
         try:
@@ -53,7 +83,7 @@ def patch_aiohttp(simulator: HttpSimulator):
         if response.latency_ms:
             await asyncio.sleep(response.latency_ms / 1000)
 
-        return _SimulatedAiohttpResponse(response)
+        return patched_response_class(response)
 
     aiohttp.ClientSession._request = simulated_request
     try:

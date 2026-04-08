@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-08
-**Phase:** Track B4 slice 5 in progress
+**Phase:** Track B4 slice 6 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -135,6 +135,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-08 | Claimed Track B4 slice 4 on `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around Redis constructor transparency: preserve `isinstance(redis, Redis)` for already-supported Redis constructor/import paths, keep the runtime patch type-shaped on those supported paths, and leave deeper Redis semantics plus other library surfaces for later B4 slices |
 | 2026-04-08 | Landed the fourth WS-23 review slice on `codex/b4-supported-stack-fidelity-slice1`: already-supported Redis constructor/import paths now preserve `isinstance(redis, Redis)` while staying interceptable in verify and replay, and unsupported Redis variants still degrade unchanged |
 | 2026-04-08 | Claimed Track B4 slice 5 on `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around HTTP client-shape fidelity: make `httpx.AsyncClient` versus `aiohttp.ClientSession` explicit in compatibility/reporting surfaces, add shipped verify/replay coverage for the aiohttp path, and leave deeper HTTP semantics plus other library surfaces for later B4 slices |
+| 2026-04-08 | Landed the fifth WS-23 review slice on `codex/b4-supported-stack-fidelity-slice1`: Litmus now reports exact shipped HTTP client shapes as `httpx.AsyncClient` and `aiohttp.ClientSession`, and verify/replay coverage now exercises the aiohttp path instead of leaving the HTTP launch claim at a generic `httpx/aiohttp` label |
+| 2026-04-08 | Claimed Track B4 slice 6 on `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around aiohttp response transparency: preserve ordinary `aiohttp.ClientResponse` use on the already-supported `aiohttp.ClientSession` path, keep HTTP simulator semantics unchanged, and leave deeper HTTP semantics plus other library surfaces for later B4 slices |
 
 ---
 
@@ -143,7 +145,7 @@ Update this table whenever work is claimed, blocked, or completed.
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
 3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
-4. Treat Track B2 and Track B3 as complete, keep WS-23 bounded to common SQLAlchemy, Redis async, and HTTP client-shape coverage plus honest compatibility reporting and constructor transparency, and defer deeper simulator semantics plus other library shapes to later B4 slices.
+4. Treat Track B2 and Track B3 as complete, keep WS-23 bounded to common SQLAlchemy, Redis async, and HTTP client-shape/response transparency coverage plus honest compatibility reporting and constructor transparency, and defer deeper simulator semantics plus other library shapes to later B4 slices.
 5. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
