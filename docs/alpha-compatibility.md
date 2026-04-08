@@ -52,6 +52,7 @@ The current Redis async launch slice is intentionally narrow:
 - `redis.asyncio.Redis.from_url(...)`
 - `redis.asyncio.client.Redis(...)`
 - `redis.asyncio.client.Redis.from_url(...)`
+- on the supported Redis path, ordinary lifecycle use including `isinstance(redis, Redis)`, `async with redis`, and `await redis.aclose()`
 - simulator-backed key/value operations exercised through the shipped verify and replay loop
 
 Examples outside that slice should degrade as `unsupported` rather than silently claiming full DST coverage.

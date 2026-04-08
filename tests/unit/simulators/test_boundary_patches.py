@@ -189,6 +189,34 @@ def test_patched_redis_constructor_preserves_type_identity_for_supported_code() 
     assert isinstance(from_url_client, patched)
 
 
+def test_patched_redis_constructor_supports_async_with_and_aclose() -> None:
+    class OriginalRedis:
+        pass
+
+    patched = _build_patched_redis_constructor(
+        OriginalRedis,
+        supported_shape="redis.asyncio.client.Redis",
+        from_url_shape="redis.asyncio.client.Redis.from_url",
+    )
+    runtime = RuntimeContext(seed=1, fault_plan=FaultPlan(seed=1))
+
+    async def _exercise() -> None:
+        with activate_runtime(runtime):
+            async with patched.from_url("redis://cache") as client:
+                assert isinstance(client, patched)
+                await client.get("charge:1")
+            await client.aclose()
+
+    asyncio.run(_exercise())
+
+    assert any(
+        event.kind == "boundary_intercepted"
+        and event.metadata["boundary"] == "redis"
+        and event.metadata["supported_shape"] == "redis.asyncio.client.Redis.from_url"
+        for event in runtime.trace
+    )
+
+
 def _clear_test_modules(*prefixes: str) -> None:
     for name in list(sys.modules):
         if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):

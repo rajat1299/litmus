@@ -422,6 +422,16 @@ class _PatchedRedisProxy:
         self._kwargs = kwargs
         self._proxy_id = next(_PROXY_IDS)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.aclose()
+        return False
+
+    async def aclose(self) -> None:
+        return None
+
     def _client(self) -> SimulatedRedis:
         runtime = _require_runtime("redis")
         runtime.mark_boundary_detected("redis")

@@ -732,6 +732,33 @@ def test_litmus_replay_preserves_redis_client_type_identity(tmp_path: Path) -> N
     assert "Traceback" not in replay_result.stderr
 
 
+def test_litmus_replay_supports_redis_client_lifecycle_transparency(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, redis_constructor_shape="client_class_from_url_lifecycle")
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:2"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: breaking_change" in replay_result.stdout
+    assert "Execution fidelity: matched" in replay_result.stdout
+    assert "Traceback" not in replay_result.stderr
+
+
 def test_litmus_replay_supports_aiohttp_client_session(tmp_path: Path) -> None:
     repo_root = _write_aiohttp_http_repo(tmp_path)
 
@@ -937,6 +964,7 @@ def _write_cross_layer_dst_repo(
     redis_import = "from redis.asyncio import from_url"
     redis_constructor = 'redis = from_url("redis://cache")'
     redis_identity_guard = ""
+    redis_lifecycle_flow = False
     if redis_constructor_shape == "class_from_url":
         redis_import = "from redis.asyncio import Redis"
         redis_constructor = 'redis = Redis.from_url("redis://cache")'
@@ -953,6 +981,10 @@ def _write_cross_layer_dst_repo(
             'if not isinstance(redis, Redis):\n'
             '    raise TypeError("expected Redis type identity")'
         )
+    elif redis_constructor_shape == "client_class_from_url_lifecycle":
+        redis_import = "from redis.asyncio.client import Redis"
+        redis_constructor = 'redis = Redis.from_url("redis://cache")'
+        redis_lifecycle_flow = True
 
     sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
     sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
@@ -969,9 +1001,66 @@ def _write_cross_layer_dst_repo(
         sqlalchemy_import = "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine"
         sqlalchemy_session_factory = "SessionLocal = AsyncSession"
         sqlalchemy_session_guard = (
-            '                    if not isinstance(session, AsyncSession):\n'
-            '                        raise TypeError("expected AsyncSession type identity")\n'
+            '    if not isinstance(session, AsyncSession):\n'
+            '        raise TypeError("expected AsyncSession type identity")\n'
         )
+    session_flow = textwrap.dedent(
+        """
+            async with SessionLocal() as session:
+                await session.begin()
+                existing = await session.execute(
+                    select(ledger).where(ledger.c.id == payment_id)
+                )
+                if existing.scalar_one_or_none() is None:
+                    await session.execute(
+                        insert(ledger).values(id=payment_id, status="charged")
+                    )
+                await session.commit()
+        """
+    ).strip()
+    if sqlalchemy_constructor_shape == "direct_async_session":
+        session_flow = session_flow.replace(
+            "async with SessionLocal() as session:",
+            "async with SessionLocal(engine) as session:",
+        )
+    if sqlalchemy_session_guard:
+        session_flow = session_flow.replace(
+            "    await session.begin()",
+            f"{sqlalchemy_session_guard}    await session.begin()",
+        )
+
+    redis_charge_flow_lines = [
+        'cached = await redis.get(f"charge:{payment_id}")',
+        'if cached == "charged":',
+        '    return {"status_code": 200, "json": {"status": "charged", "source": "cache"}}',
+        "",
+        *session_flow.splitlines(),
+        "",
+        'await redis.set(f"charge:{payment_id}", "charged")',
+        'return {"status_code": 200, "json": {"status": "charged"}}',
+    ]
+    if redis_lifecycle_flow:
+        redis_charge_flow_lines = [
+            "if not isinstance(redis, Redis):",
+            '    raise TypeError("expected Redis type identity")',
+            "",
+            "async with redis:",
+            '    cached = await redis.get(f"charge:{payment_id}")',
+            'if cached == "charged":',
+            "    await redis.aclose()",
+            '    return {"status_code": 200, "json": {"status": "charged", "source": "cache"}}',
+            "",
+            *session_flow.splitlines(),
+            "",
+            "async with redis:",
+            '    await redis.set(f"charge:{payment_id}", "charged")',
+            "await redis.aclose()",
+            'return {"status_code": 200, "json": {"status": "charged"}}',
+        ]
+    redis_charge_flow = "\n".join(
+        f"    {line}" if line else ""
+        for line in redis_charge_flow_lines
+    )
     app_source = textwrap.dedent(
         """
             from __future__ import annotations
@@ -1035,23 +1124,7 @@ def _write_cross_layer_dst_repo(
                 async with httpx.AsyncClient() as client:
                     await client.get("https://processor.invalid/charge")
 
-                cached = await redis.get(f"charge:{payment_id}")
-                if cached == "charged":
-                    return {"status_code": 200, "json": {"status": "charged", "source": "cache"}}
-
-                async with SessionLocal() as session:
-                    await session.begin()
-                    existing = await session.execute(
-                        select(ledger).where(ledger.c.id == payment_id)
-                    )
-                    if existing.scalar_one_or_none() is None:
-                        await session.execute(
-                            insert(ledger).values(id=payment_id, status="charged")
-                        )
-                    await session.commit()
-
-                await redis.set(f"charge:{payment_id}", "charged")
-                return {"status_code": 200, "json": {"status": "charged"}}
+            __REDIS_CHARGE_FLOW__
             """
     ).strip()
     app_source = app_source.replace("__REDIS_IMPORT__", redis_import)
@@ -1059,15 +1132,9 @@ def _write_cross_layer_dst_repo(
         "__REDIS_CONSTRUCTOR__",
         redis_constructor if not redis_identity_guard else f"{redis_constructor}\n{redis_identity_guard}",
     )
+    app_source = app_source.replace("__REDIS_CHARGE_FLOW__", redis_charge_flow)
     app_source = app_source.replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
     app_source = app_source.replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
-    if sqlalchemy_constructor_shape == "direct_async_session":
-        app_source = app_source.replace("async with SessionLocal() as session:", "async with SessionLocal(engine) as session:")
-    if sqlalchemy_session_guard:
-        app_source = app_source.replace(
-            "                    await session.begin()",
-            f"{sqlalchemy_session_guard}                    await session.begin()",
-        )
     (service_dir / "app.py").write_text(
         app_source
         + "\n",
