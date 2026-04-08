@@ -18,8 +18,9 @@ def test_patched_orm_sessionmaker_preserves_keyword_bind_when_falling_back() -> 
     result = patched(bind=bind, class_=session_class, expire_on_commit=False)
 
     assert result == "original-factory"
-    assert captured["args"] == (bind,)
+    assert captured["args"] == ()
     assert captured["kwargs"] == {
+        "bind": bind,
         "class_": session_class,
         "expire_on_commit": False,
     }

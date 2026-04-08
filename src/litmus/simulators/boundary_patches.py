@@ -130,8 +130,8 @@ def _patched_async_sessionmaker(bind, *args, **kwargs):
 
 
 def _build_patched_orm_sessionmaker(original_sessionmaker):
-    def _patched_orm_sessionmaker(bind=None, *args, **kwargs):
-        resolved_bind = bind if bind is not None else kwargs.get("bind")
+    def _patched_orm_sessionmaker(*args, **kwargs):
+        resolved_bind = args[0] if args else kwargs.get("bind")
         if isinstance(resolved_bind, _PatchedAsyncEngineProxy) and _uses_sqlalchemy_asyncsession(kwargs):
             return _PatchedAsyncSessionFactory(
                 resolved_bind,
@@ -139,9 +139,7 @@ def _build_patched_orm_sessionmaker(original_sessionmaker):
                 kwargs=kwargs,
                 supported_shape="sqlalchemy.orm.sessionmaker(class_=AsyncSession)",
             )
-        if bind is None:
-            return original_sessionmaker(*args, **kwargs)
-        return original_sessionmaker(bind, *args, **kwargs)
+        return original_sessionmaker(*args, **kwargs)
 
     return _patched_orm_sessionmaker
 
