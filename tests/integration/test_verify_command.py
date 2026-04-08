@@ -348,6 +348,29 @@ def test_litmus_verify_supports_sqlalchemy_orm_sessionmaker_async_constructor(tm
     assert "sqlalchemy.orm.sessionmaker(class_=AsyncSession)" in compatibility["boundaries"]["sqlalchemy"]["supported_shapes"]
 
 
+def test_litmus_verify_supports_direct_sqlalchemy_asyncsession_constructor(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, sqlalchemy_constructor_shape="direct_async_session")
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "DST coverage:" in result.stdout
+    assert "- sqlalchemy: detected, intercepted, simulated, faulted" in result.stdout
+    assert "Traceback" not in result.stderr
+
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    compatibility = run_payload["activities"][0]["summary"]["compatibility"]
+    assert "sqlalchemy.ext.asyncio.AsyncSession" in compatibility["matrix"]["sqlalchemy"]["supported_shapes"]
+    assert "sqlalchemy.ext.asyncio.AsyncSession" in compatibility["boundaries"]["sqlalchemy"]["supported_shapes"]
+
+
 def test_litmus_verify_does_not_schedule_redis_for_unused_supported_helper(tmp_path: Path) -> None:
     repo_root = _write_http_only_repo_with_unused_redis_helper(tmp_path)
 
@@ -1637,6 +1660,9 @@ def _write_cross_layer_dst_repo(
         sqlalchemy_session_factory = (
             "SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)"
         )
+    elif sqlalchemy_constructor_shape == "direct_async_session":
+        sqlalchemy_import = "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine"
+        sqlalchemy_session_factory = "SessionLocal = AsyncSession"
 
     app_source = textwrap.dedent(
         """
@@ -1724,6 +1750,8 @@ def _write_cross_layer_dst_repo(
     app_source = app_source.replace("__REDIS_CONSTRUCTOR__", redis_constructor)
     app_source = app_source.replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
     app_source = app_source.replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
+    if sqlalchemy_constructor_shape == "direct_async_session":
+        app_source = app_source.replace("async with SessionLocal() as session:", "async with SessionLocal(engine) as session:")
 
     (service_dir / "app.py").write_text(
         app_source
@@ -2146,6 +2174,7 @@ def _expected_not_detected_compatibility() -> dict[str, object]:
                 "supported_shapes": [
                     "sqlalchemy.ext.asyncio.create_async_engine",
                     "sqlalchemy.ext.asyncio.async_sessionmaker",
+                    "sqlalchemy.ext.asyncio.AsyncSession",
                     "sqlalchemy.orm.sessionmaker(class_=AsyncSession)",
                 ],
             },

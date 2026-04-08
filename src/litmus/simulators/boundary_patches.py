@@ -72,6 +72,10 @@ def _patch_sqlalchemy_async() -> _ModulePatch | None:
         original["create_async_engine"] = module.create_async_engine
         module.create_async_engine = _patched_create_async_engine
 
+    if hasattr(module, "AsyncSession"):
+        original["AsyncSession"] = module.AsyncSession
+        module.AsyncSession = _build_patched_asyncsession_constructor(module.AsyncSession)
+
     if hasattr(module, "async_sessionmaker"):
         original["async_sessionmaker"] = module.async_sessionmaker
         module.async_sessionmaker = _patched_async_sessionmaker
@@ -127,6 +131,19 @@ def _patched_async_sessionmaker(bind, *args, **kwargs):
         )
 
     raise RuntimeError("Litmus only supports async_sessionmaker with a patched async engine in this slice.")
+
+
+def _build_patched_asyncsession_constructor(original_async_session):
+    def _patched_async_session(*args, **kwargs):
+        resolved_bind = args[0] if args else kwargs.get("bind")
+        if isinstance(resolved_bind, _PatchedAsyncEngineProxy) and current_runtime() is not None:
+            return _PatchedAsyncSession(
+                resolved_bind,
+                supported_shape="sqlalchemy.ext.asyncio.AsyncSession",
+            )
+        return original_async_session(*args, **kwargs)
+
+    return _patched_async_session
 
 
 def _build_patched_orm_sessionmaker(original_sessionmaker):

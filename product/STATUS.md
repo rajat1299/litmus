@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-08
-**Phase:** Track B4 slice 1 in progress
+**Phase:** Track B4 slice 2 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -125,6 +125,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-08 | Landed another WS-22 review slice on `codex/b3-search-budget-slice1`: Litmus now persists an explicit search strategy in verification summaries, keeps the default local/MCP/watch loop on a balanced strategy, and reserves frontier-first prioritization for hostile local runs and CI so deeper profiles control search behavior without broadening the launch path |
 | 2026-04-08 | Completed Track B3 as WS-22 on `codex/b3-search-budget-slice1`: search-budget artifacts now expose honest requested-versus-allocated replay budget, same-target seeds diversify across replayable fault kinds, scenario-aware frontier capacity and priority drive redistribution, and verification surfaces persist explicit search strategy with balanced watch/MCP/default-local behavior and frontier-first reserved for hostile local and CI |
 | 2026-04-08 | Claimed Track B4 slice 1 as WS-23 on branch `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around broader SQLAlchemy constructor coverage: support the common `sqlalchemy.orm.sessionmaker(..., class_=AsyncSession)` async path, expose the added supported shape in compatibility/reporting surfaces, and defer deeper simulator semantics plus other library shapes to later B4 slices |
+| 2026-04-08 | Landed the first WS-23 review slice on `codex/b4-supported-stack-fidelity-slice1`: Litmus now supports `sqlalchemy.orm.sessionmaker(..., class_=AsyncSession)` over a patched async engine in verify and replay, reports the added constructor shape in compatibility surfaces, and preserves unchanged fallback behavior for unsupported `sessionmaker` wrappers |
+| 2026-04-08 | Claimed Track B4 slice 2 on `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around direct SQLAlchemy async-session construction: support `sqlalchemy.ext.asyncio.AsyncSession(...)` over a patched async engine, expose the added supported shape honestly in compatibility/reporting surfaces, and leave broader SQLAlchemy semantics plus non-async shapes for later B4 slices |
 
 ---
 

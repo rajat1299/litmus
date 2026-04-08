@@ -18,6 +18,7 @@ LAUNCH_COMPATIBILITY_MATRIX: dict[str, object] = {
         "supported_shapes": [
             "sqlalchemy.ext.asyncio.create_async_engine",
             "sqlalchemy.ext.asyncio.async_sessionmaker",
+            "sqlalchemy.ext.asyncio.AsyncSession",
             "sqlalchemy.orm.sessionmaker(class_=AsyncSession)",
         ],
     },

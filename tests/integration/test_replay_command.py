@@ -648,6 +648,36 @@ def test_litmus_replay_supports_sqlalchemy_orm_sessionmaker_async_constructor(tm
     assert "Traceback" not in replay_result.stderr
 
 
+def test_litmus_replay_supports_direct_sqlalchemy_asyncsession_constructor(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, sqlalchemy_constructor_shape="direct_async_session")
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:2"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: breaking_change" in replay_result.stdout
+    assert "Execution fidelity: matched" in replay_result.stdout
+    assert "Step 1 scheduled connection_dropped on sqlalchemy." in replay_result.stdout
+    assert "Injected connection_dropped on sqlalchemy for begin at step 1." in replay_result.stdout
+    assert "Simulated sqlalchemy with Litmus state machines." in replay_result.stdout
+    assert "Traceback" not in replay_result.stderr
+
+
 def _write_cross_layer_dst_repo(
     tmp_path: Path,
     *,
@@ -817,6 +847,9 @@ def _write_cross_layer_dst_repo(
         sqlalchemy_session_factory = (
             "SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)"
         )
+    elif sqlalchemy_constructor_shape == "direct_async_session":
+        sqlalchemy_import = "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine"
+        sqlalchemy_session_factory = "SessionLocal = AsyncSession"
     (service_dir / "app.py").write_text(
         textwrap.dedent(
             """
@@ -902,6 +935,12 @@ def _write_cross_layer_dst_repo(
         ).strip()
         .replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
         .replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
+        .replace(
+            "async with SessionLocal() as session:",
+            "async with SessionLocal(engine) as session:"
+            if sqlalchemy_constructor_shape == "direct_async_session"
+            else "async with SessionLocal() as session:",
+        )
         + "\n",
         encoding="utf-8",
     )

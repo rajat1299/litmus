@@ -697,6 +697,8 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
     sqlalchemy_symbol_aliases: set[str] = set()
     redis_symbol_aliases: set[str] = set()
     sqlalchemy_factory_aliases: set[str] = set()
+    sqlalchemy_engine_builder_aliases: set[str] = set()
+    sqlalchemy_engine_aliases: set[str] = set()
     redis_factory_aliases: set[str] = set()
     redis_class_aliases: set[str] = set()
 
@@ -713,6 +715,11 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
                     alias.asname or alias.name
                     for alias in node.names
                     if alias.name in {"create_async_engine", "async_sessionmaker"}
+                )
+                sqlalchemy_engine_builder_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "create_async_engine"
                 )
                 sqlalchemy_symbol_aliases.update(
                     alias.asname or alias.name
@@ -750,9 +757,12 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
                 value_path,
                 direct_path=("sqlalchemy", "ext", "asyncio", "create_async_engine"),
                 module_aliases=sqlalchemy_module_aliases,
-                symbol_aliases=sqlalchemy_factory_aliases,
+                symbol_aliases=sqlalchemy_engine_builder_aliases,
                 attribute_name="create_async_engine",
-            ) or _matches_supported_boundary_call(
+            ):
+                changed |= _add_alias(sqlalchemy_engine_builder_aliases, assigned_name)
+                changed |= _add_alias(sqlalchemy_engine_aliases, assigned_name)
+            if _matches_supported_boundary_call(
                 value_path,
                 direct_path=("sqlalchemy", "ext", "asyncio", "async_sessionmaker"),
                 module_aliases=sqlalchemy_module_aliases,
@@ -760,6 +770,8 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
                 attribute_name="async_sessionmaker",
             ):
                 changed |= _add_alias(sqlalchemy_factory_aliases, assigned_name)
+            if len(value_path) == 1 and value_path[0] in sqlalchemy_engine_aliases:
+                changed |= _add_alias(sqlalchemy_engine_aliases, assigned_name)
             if _matches_supported_boundary_call(
                 value_path,
                 direct_path=("redis", "asyncio", "from_url"),
@@ -826,6 +838,15 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
             attribute_name="async_sessionmaker",
         ):
             supported.add("sqlalchemy")
+        if _is_supported_asyncsession_constructor_call(
+            node,
+            call_path=call_path,
+            module_aliases=sqlalchemy_module_aliases,
+            symbol_aliases=sqlalchemy_symbol_aliases,
+            engine_builder_aliases=sqlalchemy_engine_builder_aliases,
+            engine_aliases=sqlalchemy_engine_aliases,
+        ):
+            supported.add("sqlalchemy")
         if _matches_supported_boundary_call(
             call_path,
             direct_path=("redis", "asyncio", "from_url"),
@@ -859,6 +880,13 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
             module_aliases=sqlalchemy_module_aliases,
             symbol_aliases=sqlalchemy_symbol_aliases,
             attribute_name="AsyncSession",
+        ) and not _is_supported_asyncsession_constructor_call(
+            node,
+            call_path=call_path,
+            module_aliases=sqlalchemy_module_aliases,
+            symbol_aliases=sqlalchemy_symbol_aliases,
+            engine_builder_aliases=sqlalchemy_engine_builder_aliases,
+            engine_aliases=sqlalchemy_engine_aliases,
         ):
             unsupported.add("sqlalchemy")
         if _matches_supported_boundary_call(
@@ -894,10 +922,18 @@ def _assignment_target_name(node: ast.AST) -> str | None:
 
 def _assigned_value_path(node: ast.AST) -> tuple[str, ...] | None:
     if isinstance(node, ast.Assign):
-        return _call_path(node.value)
+        return _value_path(node.value)
     if isinstance(node, ast.AnnAssign):
-        return _call_path(node.value)
+        return _value_path(node.value)
     return None
+
+
+def _value_path(node: ast.AST | None) -> tuple[str, ...] | None:
+    if node is None:
+        return None
+    if isinstance(node, ast.Call):
+        return _call_path(node.func)
+    return _call_path(node)
 
 
 def _add_alias(aliases: set[str], alias: str) -> bool:
@@ -922,6 +958,63 @@ def _matches_supported_boundary_call(
     if len(call_path) == len(alias_suffix) + 1 and call_path[0] in module_aliases and call_path[1:] == alias_suffix:
         return True
     return len(call_path) == 1 and call_path[0] in symbol_aliases
+
+
+def _is_supported_asyncsession_constructor_call(
+    node: ast.Call,
+    *,
+    call_path: tuple[str, ...],
+    module_aliases: set[str],
+    symbol_aliases: set[str],
+    engine_builder_aliases: set[str],
+    engine_aliases: set[str],
+) -> bool:
+    if not _matches_supported_boundary_call(
+        call_path,
+        direct_path=("sqlalchemy", "ext", "asyncio", "AsyncSession"),
+        module_aliases=module_aliases,
+        symbol_aliases=symbol_aliases,
+        attribute_name="AsyncSession",
+    ):
+        return False
+
+    bind_expression = node.args[0] if node.args else None
+    if bind_expression is None:
+        for keyword in node.keywords:
+            if keyword.arg == "bind":
+                bind_expression = keyword.value
+                break
+    if bind_expression is None:
+        return False
+    return _is_sqlalchemy_engine_expression(
+        bind_expression,
+        module_aliases=module_aliases,
+        engine_builder_aliases=engine_builder_aliases,
+        engine_aliases=engine_aliases,
+    )
+
+
+def _is_sqlalchemy_engine_expression(
+    node: ast.AST,
+    *,
+    module_aliases: set[str],
+    engine_builder_aliases: set[str],
+    engine_aliases: set[str],
+) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in engine_aliases
+    if isinstance(node, ast.Call):
+        call_path = _call_path(node.func)
+        if call_path is None:
+            return False
+        return _matches_supported_boundary_call(
+            call_path,
+            direct_path=("sqlalchemy", "ext", "asyncio", "create_async_engine"),
+            module_aliases=module_aliases,
+            symbol_aliases=engine_builder_aliases,
+            attribute_name="create_async_engine",
+        )
+    return False
 
 
 def _loaded_repo_module_files(root: Path) -> list[Path]:
