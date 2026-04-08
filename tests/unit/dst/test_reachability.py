@@ -56,8 +56,8 @@ def test_scenario_reachability_serializes_clean_and_fault_path_targets() -> None
 
 def test_plan_local_fault_seeds_covers_each_target_before_repeating() -> None:
     reachability = ScenarioReachability(
-        clean_path_targets=("http",),
-        fault_path_targets=("redis",),
+        clean_path_targets=("http", "redis"),
+        fault_path_targets=(),
         selected_targets=("http", "redis"),
     )
 
@@ -65,15 +65,15 @@ def test_plan_local_fault_seeds_covers_each_target_before_repeating() -> None:
 
     assert planned == [
         PlannedFaultSeed(seed_value=1, target="http", fault_kind="timeout"),
-        PlannedFaultSeed(seed_value=2, target="redis", fault_kind="timeout", selection_source="fault_path"),
+        PlannedFaultSeed(seed_value=2, target="redis", fault_kind="timeout"),
         PlannedFaultSeed(seed_value=3, target="http", fault_kind="connection_refused"),
     ]
 
 
 def test_planned_target_fault_pairs_exhausts_unique_pairs_before_repeating() -> None:
     reachability = ScenarioReachability(
-        clean_path_targets=("http",),
-        fault_path_targets=("sqlalchemy",),
+        clean_path_targets=("http", "sqlalchemy"),
+        fault_path_targets=(),
         selected_targets=("http", "sqlalchemy"),
     )
 
@@ -88,6 +88,22 @@ def test_planned_target_fault_pairs_exhausts_unique_pairs_before_repeating() -> 
 
     planned = plan_local_fault_seeds(seed_start=1, reachability=reachability, seeds_per_scenario=6)
     assert [(seed.target, seed.fault_kind) for seed in planned] == list(planned_target_fault_pairs(reachability))
+
+
+def test_plan_local_fault_seeds_excludes_fault_path_only_targets_from_replayable_frontier() -> None:
+    reachability = ScenarioReachability(
+        clean_path_targets=("http",),
+        fault_path_targets=("redis",),
+        selected_targets=("http", "redis"),
+    )
+
+    planned = plan_local_fault_seeds(seed_start=1, reachability=reachability, seeds_per_scenario=3)
+
+    assert [(seed.target, seed.fault_kind, seed.selection_source) for seed in planned] == [
+        ("http", "timeout", "clean_path"),
+        ("http", "connection_refused", "clean_path"),
+        ("http", "http_error", "clean_path"),
+    ]
 
 
 def test_plan_local_fault_seeds_diversifies_fault_kinds_for_single_target_budget() -> None:
@@ -133,8 +149,8 @@ def test_planned_fault_kinds_for_target_returns_planner_safe_cycle() -> None:
 
 def test_plan_local_fault_seeds_uses_target_aware_representative_faults() -> None:
     reachability = ScenarioReachability(
-        clean_path_targets=("http",),
-        fault_path_targets=("sqlalchemy", "redis"),
+        clean_path_targets=("http", "sqlalchemy", "redis"),
+        fault_path_targets=(),
         selected_targets=("http", "sqlalchemy", "redis"),
     )
 
@@ -149,8 +165,8 @@ def test_plan_local_fault_seeds_uses_target_aware_representative_faults() -> Non
 
 def test_planned_fault_seed_for_value_uses_absolute_seed_position_within_scenario_window() -> None:
     reachability = ScenarioReachability(
-        clean_path_targets=("http",),
-        fault_path_targets=("sqlalchemy", "redis"),
+        clean_path_targets=("http", "sqlalchemy", "redis"),
+        fault_path_targets=(),
         selected_targets=("http", "sqlalchemy", "redis"),
     )
 
@@ -164,7 +180,6 @@ def test_planned_fault_seed_for_value_uses_absolute_seed_position_within_scenari
         seed_value=2,
         target="sqlalchemy",
         fault_kind="connection_dropped",
-        selection_source="fault_path",
     )
 
 

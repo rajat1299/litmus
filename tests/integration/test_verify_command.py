@@ -354,7 +354,9 @@ def test_litmus_verify_does_not_schedule_redis_for_unused_supported_helper(tmp_p
     )
 
 
-def test_litmus_verify_schedules_fault_only_reachable_redis_in_local_seed_budget(tmp_path: Path) -> None:
+def test_litmus_verify_keeps_fault_only_reachable_redis_in_reachability_artifact_but_not_local_seed_budget(
+    tmp_path: Path,
+) -> None:
     repo_root = _write_fault_path_reachability_repo(tmp_path)
 
     result = subprocess.run(
@@ -377,8 +379,8 @@ def test_litmus_verify_schedules_fault_only_reachable_redis_in_local_seed_budget
         if event["kind"] == "fault_plan_selected" and event["metadata"]["schedule"]
     ]
 
-    assert planned_targets[:2] == ["http", "redis"]
-    assert planned_targets.count("redis") >= 1
+    assert planned_targets
+    assert all(target == "http" for target in planned_targets)
     assert replay_traces[0]["target_selection"] == {
         "clean_path_targets": ["http"],
         "fault_path_targets": ["redis"],
@@ -412,9 +414,19 @@ def test_litmus_verify_schedules_fault_only_reachable_redis_in_local_seed_budget
     }
     assert replay_traces[1]["target_selection"]["planned_fault_seed"] == {
         "seed_value": 2,
-        "target": "redis",
-        "fault_kind": "timeout",
-        "selection_source": "fault_path",
+        "target": "http",
+        "fault_kind": "connection_refused",
+        "selection_source": "clean_path",
+    }
+    assert replay_traces[0]["search_budget"] == {
+        "requested_seeds": 3,
+        "allocated_seeds": 3,
+        "redistributed_seeds": 0,
+        "allocation_mode": "target_single",
+        "selected_targets": ["http"],
+        "planned_fault_kinds": ["timeout", "connection_refused", "http_error"],
+        "scenario_seed_start": 1,
+        "scenario_seed_end": 3,
     }
 
 

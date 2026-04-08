@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from litmus.dst.reachability import PlannedFaultSeed, ScenarioReachability
 else:
-    from litmus.dst.reachability import planned_fault_kinds_for_target
+    from litmus.dst.reachability import planned_target_fault_pairs
 
 
 @dataclass(slots=True, frozen=True)
@@ -125,10 +125,10 @@ def allocate_scenario_seed_budgets(
 def meaningful_seed_capacity(reachability: ScenarioReachability) -> int:
     if not reachability.selected_targets:
         return 1
-    return sum(
-        max(1, len(planned_fault_kinds_for_target(target)))
-        for target in reachability.selected_targets
-    )
+    replayable_pairs = planned_target_fault_pairs(reachability)
+    if not replayable_pairs:
+        return 1
+    return len(replayable_pairs)
 
 
 def build_scenario_search_budget(
@@ -150,7 +150,14 @@ def build_scenario_search_budget(
             scenario_seed_end=None,
         )
 
-    selected_target_count = len(reachability.selected_targets)
+    selected_targets = tuple(
+        dict.fromkeys(
+            planned_seed.target
+            for planned_seed in planned_fault_seeds
+            if planned_seed.target != "none"
+        )
+    )
+    selected_target_count = len(selected_targets)
     if selected_target_count == 0:
         allocation_mode = "no_boundary"
     elif selected_target_count == 1:
@@ -170,7 +177,7 @@ def build_scenario_search_budget(
         allocated_seeds=allocated_seeds,
         redistributed_seeds=allocated_seeds - requested_seeds,
         allocation_mode=allocation_mode,
-        selected_targets=tuple(reachability.selected_targets),
+        selected_targets=selected_targets,
         planned_fault_kinds=tuple(
             dict.fromkeys(
                 planned_seed.fault_kind

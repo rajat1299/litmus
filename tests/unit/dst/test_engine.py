@@ -545,6 +545,139 @@ def test_run_replay_redistributes_saved_budget_from_no_boundary_to_complex_scena
     ]
 
 
+def test_run_replay_redistributes_only_across_clean_path_replayable_targets(monkeypatch) -> None:
+    health_scenario = Scenario(
+        method="GET",
+        path="/health",
+        request=RequestExample(method="GET", path="/health"),
+        expected_response=ResponseExample(status_code=200, json={"status": "ok"}),
+    )
+    charge_scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+
+    observed_fault_runs: list[tuple[str, int, str, str]] = []
+
+    class FakeFaultPlan:
+        def __init__(self, seed: int, schedule: dict[int, dict[str, str]]) -> None:
+            self.seed = seed
+            self.schedule = schedule
+
+    def fake_build_fault_plan(
+        seed: int,
+        *,
+        steps: int,
+        targets: list[str] | None = None,
+        kinds: list[str] | None = None,
+    ):
+        if steps == 0:
+            return FakeFaultPlan(seed, {})
+        assert targets is not None
+        kind = "timeout" if kinds is None else kinds[0]
+        return FakeFaultPlan(seed, {1: {"target": targets[0], "kind": kind}})
+
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
+        if path == "/health":
+            return type(
+                "FakeAsgiResult",
+                (),
+                {
+                    "status_code": 200,
+                    "body": {"status": "ok"},
+                    "trace": [TraceEvent(kind="request_started", metadata={"seed": seed})],
+                    "boundary_coverage": {
+                        "http": BoundaryCoverage(),
+                        "sqlalchemy": BoundaryCoverage(),
+                        "redis": BoundaryCoverage(),
+                    },
+                },
+            )()
+
+        scheduled_target = None
+        scheduled_kind = None
+        if fault_plan is not None and fault_plan.schedule:
+            scheduled = fault_plan.schedule[1]
+            scheduled_target = scheduled["target"]
+            scheduled_kind = scheduled["kind"]
+
+        if seed == 0 and scheduled_target == "http":
+            boundary_coverage = {
+                "http": BoundaryCoverage(detected=True),
+                "sqlalchemy": BoundaryCoverage(),
+                "redis": BoundaryCoverage(detected=True),
+            }
+        elif seed == 0 and scheduled_target == "redis":
+            boundary_coverage = {
+                "http": BoundaryCoverage(detected=True),
+                "sqlalchemy": BoundaryCoverage(),
+                "redis": BoundaryCoverage(),
+            }
+        else:
+            boundary_coverage = {
+                "http": BoundaryCoverage(detected=True),
+                "sqlalchemy": BoundaryCoverage(),
+                "redis": BoundaryCoverage(),
+            }
+
+        trace = [TraceEvent(kind="request_started", metadata={"seed": seed})]
+        if seed > 0 and scheduled_target is not None:
+            observed_fault_runs.append((path, seed, scheduled_target, scheduled_kind or "timeout"))
+            if scheduled_target == "http":
+                trace.append(
+                    TraceEvent(
+                        kind="fault_injected",
+                        metadata={"target": scheduled_target, "fault_kind": scheduled_kind},
+                    )
+                )
+
+        return type(
+            "FakeAsgiResult",
+            (),
+            {
+                "status_code": 200,
+                "body": {"status": "charged"},
+                "trace": trace,
+                "boundary_coverage": boundary_coverage,
+            },
+        )()
+
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            object(),
+            "service.app:app",
+            [health_scenario, charge_scenario],
+            seeds_per_scenario=3,
+        )
+    )
+
+    assert len(replay_results) == 5
+    assert len(replay_traces) == 5
+    charge_traces = [trace for trace in replay_traces if trace.path == "/payments/charge"]
+    assert charge_traces[0].search_budget is not None
+    assert charge_traces[0].search_budget.to_dict() == {
+        "requested_seeds": 3,
+        "allocated_seeds": 4,
+        "redistributed_seeds": 1,
+        "allocation_mode": "target_single",
+        "selected_targets": ["http"],
+        "planned_fault_kinds": ["timeout", "connection_refused", "http_error", "slow_response"],
+        "scenario_seed_start": 2,
+        "scenario_seed_end": 5,
+    }
+    assert observed_fault_runs == [
+        ("/payments/charge", 2, "http", "timeout"),
+        ("/payments/charge", 3, "http", "connection_refused"),
+        ("/payments/charge", 4, "http", "http_error"),
+        ("/payments/charge", 5, "http", "slow_response"),
+    ]
+
+
 def test_run_replay_narrows_fault_targets_to_runtime_detected_boundaries(monkeypatch) -> None:
     scenario = Scenario(
         method="POST",

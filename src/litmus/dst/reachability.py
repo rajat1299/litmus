@@ -137,7 +137,7 @@ def plan_local_fault_seeds(
     reachability: ScenarioReachability,
     seeds_per_scenario: int,
 ) -> list[PlannedFaultSeed]:
-    if seeds_per_scenario <= 0 or not reachability.selected_targets:
+    if seeds_per_scenario <= 0 or not replayable_targets(reachability):
         return []
 
     return [
@@ -156,8 +156,8 @@ def planned_fault_seed_for_value(
     seed_value: int,
     reachability: ScenarioReachability,
 ) -> PlannedFaultSeed:
-    if not reachability.selected_targets:
-        raise ValueError("Cannot select a planned fault seed without any selected targets.")
+    if not replayable_targets(reachability):
+        raise ValueError("Cannot select a planned fault seed without any replayable targets.")
 
     offset = max(seed_value - seed_start, 0)
     clean_targets = set(reachability.clean_path_targets)
@@ -190,7 +190,7 @@ def planned_fault_kinds_for_target(target: str) -> tuple[str, ...]:
 
 
 def planned_target_fault_pairs(reachability: ScenarioReachability) -> tuple[tuple[str, str], ...]:
-    targets = tuple(reachability.selected_targets)
+    targets = replayable_targets(reachability)
     if not targets:
         return ()
 
@@ -206,3 +206,7 @@ def planned_target_fault_pairs(reachability: ScenarioReachability) -> tuple[tupl
             if kind_index < len(kinds):
                 pairs.append((target, kinds[kind_index]))
     return tuple(pairs)
+
+
+def replayable_targets(reachability: ScenarioReachability) -> tuple[str, ...]:
+    return tuple(reachability.clean_path_targets)
