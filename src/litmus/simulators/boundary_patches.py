@@ -37,6 +37,9 @@ def patched_supported_boundaries(root: Path | str | None = None):
         sqlalchemy_patch = _patch_sqlalchemy_async()
         if sqlalchemy_patch is not None:
             patchers.append(sqlalchemy_patch)
+        sqlalchemy_orm_patch = _patch_sqlalchemy_orm()
+        if sqlalchemy_orm_patch is not None:
+            patchers.append(sqlalchemy_orm_patch)
         redis_patch = _patch_redis_async()
         if redis_patch is not None:
             patchers.append(redis_patch)
@@ -76,6 +79,21 @@ def _patch_sqlalchemy_async() -> _ModulePatch | None:
     return _ModulePatch(module, original)
 
 
+def _patch_sqlalchemy_orm() -> _ModulePatch | None:
+    try:
+        module = importlib.import_module("sqlalchemy.orm")
+    except ImportError:
+        return None
+
+    original: dict[str, object] = {}
+
+    if hasattr(module, "sessionmaker"):
+        original["sessionmaker"] = module.sessionmaker
+        module.sessionmaker = _build_patched_orm_sessionmaker(module.sessionmaker)
+
+    return _ModulePatch(module, original)
+
+
 def _patch_redis_async() -> _ModulePatch | None:
     try:
         module = importlib.import_module("redis.asyncio")
@@ -101,9 +119,43 @@ def _patched_create_async_engine(url: str, *args, **kwargs):
 
 def _patched_async_sessionmaker(bind, *args, **kwargs):
     if isinstance(bind, _PatchedAsyncEngineProxy):
-        return _PatchedAsyncSessionFactory(bind, args=args, kwargs=kwargs)
+        return _PatchedAsyncSessionFactory(
+            bind,
+            args=args,
+            kwargs=kwargs,
+            supported_shape="sqlalchemy.ext.asyncio.async_sessionmaker",
+        )
 
     raise RuntimeError("Litmus only supports async_sessionmaker with a patched async engine in this slice.")
+
+
+def _build_patched_orm_sessionmaker(original_sessionmaker):
+    def _patched_orm_sessionmaker(bind=None, *args, **kwargs):
+        resolved_bind = bind if bind is not None else kwargs.get("bind")
+        if isinstance(resolved_bind, _PatchedAsyncEngineProxy) and _uses_sqlalchemy_asyncsession(kwargs):
+            return _PatchedAsyncSessionFactory(
+                resolved_bind,
+                args=args,
+                kwargs=kwargs,
+                supported_shape="sqlalchemy.orm.sessionmaker(class_=AsyncSession)",
+            )
+        if bind is None:
+            return original_sessionmaker(*args, **kwargs)
+        return original_sessionmaker(bind, *args, **kwargs)
+
+    return _patched_orm_sessionmaker
+
+
+def _uses_sqlalchemy_asyncsession(kwargs: dict[str, object]) -> bool:
+    async_session_class = kwargs.get("class_")
+    if async_session_class is None:
+        return False
+    try:
+        module = importlib.import_module("sqlalchemy.ext.asyncio")
+    except ImportError:
+        return False
+    expected_class = getattr(module, "AsyncSession", None)
+    return expected_class is not None and async_session_class is expected_class
 
 
 class _PatchedRedisConstructor:
@@ -154,21 +206,31 @@ class _PatchedAsyncEngineProxy:
 
 
 class _PatchedAsyncSessionFactory:
-    def __init__(self, engine: _PatchedAsyncEngineProxy, *, args: tuple[object, ...], kwargs: dict[str, object]) -> None:
+    def __init__(
+        self,
+        engine: _PatchedAsyncEngineProxy,
+        *,
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+        supported_shape: str,
+    ) -> None:
         self._engine = engine
         self._args = args
         self._kwargs = kwargs
+        self._supported_shape = supported_shape
 
     def __call__(self, *args, **kwargs):
-        return _PatchedAsyncSession(self._engine)
+        return _PatchedAsyncSession(self._engine, supported_shape=self._supported_shape)
 
 
 class _PatchedAsyncSession:
-    def __init__(self, engine: _PatchedAsyncEngineProxy) -> None:
+    def __init__(self, engine: _PatchedAsyncEngineProxy, *, supported_shape: str) -> None:
         runtime = _require_runtime("sqlalchemy")
         self._engine = engine
         self._runtime = runtime
-        self._session = engine.simulator_for_runtime(runtime).session()
+        simulator = engine.simulator_for_runtime(runtime)
+        runtime.mark_boundary_intercepted("sqlalchemy", supported_shape=supported_shape)
+        self._session = simulator.session()
 
     async def __aenter__(self):
         return await self._session.__aenter__()

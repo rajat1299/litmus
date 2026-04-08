@@ -9,7 +9,7 @@ The top-level `README.md` remains aspirational. Use this file when you need the 
 - Python: `3.11+`
 - ASGI app surface: FastAPI / Starlette-style ASGI apps discovered from the current workspace
 - HTTP boundary: `httpx` / `aiohttp` through the shipped outbound HTTP simulator
-- SQLAlchemy boundary: `sqlalchemy.ext.asyncio` via `create_async_engine` plus `async_sessionmaker`
+- SQLAlchemy boundary: `sqlalchemy.ext.asyncio` via `create_async_engine` plus either `async_sessionmaker` or `sqlalchemy.orm.sessionmaker(..., class_=AsyncSession)`
 - Redis boundary: `redis.asyncio.Redis(...)` and `redis.asyncio.Redis.from_url(...)`
 
 ## Capability States
@@ -27,6 +27,7 @@ The current SQLAlchemy async launch slice is intentionally narrow:
 
 - `sqlalchemy.ext.asyncio.create_async_engine(...)`
 - `sqlalchemy.ext.asyncio.async_sessionmaker(...)`
+- `sqlalchemy.orm.sessionmaker(..., class_=AsyncSession)`
 - single-table primary-key reads and writes that fit the simulator-backed async session contract
 
 Examples outside that slice should degrade as `unsupported` rather than silently claiming full DST coverage.

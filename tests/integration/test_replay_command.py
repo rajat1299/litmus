@@ -621,18 +621,51 @@ def test_litmus_replay_explains_sqlalchemy_fault_context_from_shipped_verify_pat
     assert "Simulated sqlalchemy with Litmus state machines." in replay_result.stdout
 
 
-def _write_cross_layer_dst_repo(tmp_path: Path) -> Path:
+def test_litmus_replay_supports_sqlalchemy_orm_sessionmaker_async_constructor(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, sqlalchemy_constructor_shape="orm_sessionmaker")
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:2"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: breaking_change" in replay_result.stdout
+    assert "Execution fidelity: matched" in replay_result.stdout
+    assert "Traceback" not in replay_result.stderr
+
+
+def _write_cross_layer_dst_repo(
+    tmp_path: Path,
+    *,
+    sqlalchemy_constructor_shape: str = "async_sessionmaker",
+) -> Path:
     repo_root = tmp_path
     service_dir = repo_root / "service"
     tests_dir = repo_root / "tests"
     redis_dir = repo_root / "redis"
     sqlalchemy_dir = repo_root / "sqlalchemy"
     sqlalchemy_ext_dir = sqlalchemy_dir / "ext"
+    sqlalchemy_orm_dir = sqlalchemy_dir / "orm"
     service_dir.mkdir()
     tests_dir.mkdir()
     redis_dir.mkdir()
     sqlalchemy_dir.mkdir()
     sqlalchemy_ext_dir.mkdir()
+    sqlalchemy_orm_dir.mkdir()
 
     (redis_dir / "__init__.py").write_text("", encoding="utf-8")
     (redis_dir / "asyncio.py").write_text(
@@ -762,8 +795,28 @@ def _write_cross_layer_dst_repo(tmp_path: Path) -> Path:
         + "\n",
         encoding="utf-8",
     )
+    (sqlalchemy_orm_dir / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            def sessionmaker(*args, **kwargs):
+                raise RuntimeError("litmus should patch sqlalchemy.orm.sessionmaker")
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
 
     (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
+    sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
+    if sqlalchemy_constructor_shape == "orm_sessionmaker":
+        sqlalchemy_import = (
+            "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine\n"
+            "from sqlalchemy.orm import sessionmaker"
+        )
+        sqlalchemy_session_factory = (
+            "SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)"
+        )
     (service_dir / "app.py").write_text(
         textwrap.dedent(
             """
@@ -774,7 +827,7 @@ def _write_cross_layer_dst_repo(tmp_path: Path) -> Path:
             import httpx
             from redis.asyncio import from_url
             from sqlalchemy import Column, MetaData, String, Table, insert, select
-            from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+            __SQLALCHEMY_IMPORT__
 
 
             class FastAPI:
@@ -817,7 +870,7 @@ def _write_cross_layer_dst_repo(tmp_path: Path) -> Path:
                 Column("status", String),
             )
             engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-            SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+            __SQLALCHEMY_SESSION_FACTORY__
             redis = from_url("redis://cache")
 
 
@@ -847,6 +900,8 @@ def _write_cross_layer_dst_repo(tmp_path: Path) -> Path:
                 return {"status_code": 200, "json": {"status": "charged"}}
             """
         ).strip()
+        .replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
+        .replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
         + "\n",
         encoding="utf-8",
     )

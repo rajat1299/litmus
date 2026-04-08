@@ -1697,6 +1697,59 @@ def test_boundary_usage_ignores_asyncsession_type_import_when_supported_sqlalche
     assert boundary_usage.unsupported_targets == ()
 
 
+def test_boundary_usage_supports_sqlalchemy_orm_sessionmaker_with_asyncsession(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "sqlalchemy")
+    service_dir = tmp_path / "service"
+    sqlalchemy_ext_dir = tmp_path / "sqlalchemy" / "ext"
+    sqlalchemy_orm_dir = tmp_path / "sqlalchemy" / "orm"
+    service_dir.mkdir()
+    sqlalchemy_ext_dir.mkdir(parents=True)
+    sqlalchemy_orm_dir.mkdir(parents=True)
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine\n"
+            "from sqlalchemy.orm import sessionmaker\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            "engine = create_async_engine('sqlite+aiosqlite:///:memory:')\n"
+            "SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)\n"
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "sqlalchemy" / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "__init__.py").write_text("", encoding="utf-8")
+    (sqlalchemy_ext_dir / "asyncio.py").write_text(
+        (
+            "class AsyncSession:\n"
+            "    pass\n"
+            "def create_async_engine(*args, **kwargs):\n"
+            "    return object()\n"
+            "def async_sessionmaker(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+    (sqlalchemy_orm_dir / "__init__.py").write_text(
+        (
+            "def sessionmaker(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    boundary_usage = _boundary_usage_for_loaded_app("service.app:app", tmp_path)
+
+    assert boundary_usage.supported_targets == ("sqlalchemy",)
+    assert boundary_usage.unsupported_targets == ()
+
+
 def test_fault_targets_ignore_type_only_supported_boundary_imports(tmp_path: Path) -> None:
     from litmus.discovery.app import load_asgi_app
 

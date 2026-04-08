@@ -14,10 +14,11 @@ LAUNCH_COMPATIBILITY_MATRIX: dict[str, object] = {
         "supported_shapes": ["httpx/aiohttp"],
     },
     "sqlalchemy": {
-        "package": "sqlalchemy.ext.asyncio",
+        "package": "sqlalchemy.ext.asyncio/sqlalchemy.orm",
         "supported_shapes": [
             "sqlalchemy.ext.asyncio.create_async_engine",
             "sqlalchemy.ext.asyncio.async_sessionmaker",
+            "sqlalchemy.orm.sessionmaker(class_=AsyncSession)",
         ],
     },
     "redis": {

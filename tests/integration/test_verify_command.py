@@ -325,6 +325,29 @@ def test_litmus_verify_supports_redis_from_url_class_constructor(tmp_path: Path)
     assert "Traceback" not in result.stderr
 
 
+def test_litmus_verify_supports_sqlalchemy_orm_sessionmaker_async_constructor(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, sqlalchemy_constructor_shape="orm_sessionmaker")
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "DST coverage:" in result.stdout
+    assert "- sqlalchemy: detected, intercepted, simulated, faulted" in result.stdout
+    assert "Traceback" not in result.stderr
+
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    compatibility = run_payload["activities"][0]["summary"]["compatibility"]
+    assert "sqlalchemy.orm.sessionmaker(class_=AsyncSession)" in compatibility["matrix"]["sqlalchemy"]["supported_shapes"]
+    assert "sqlalchemy.orm.sessionmaker(class_=AsyncSession)" in compatibility["boundaries"]["sqlalchemy"]["supported_shapes"]
+
+
 def test_litmus_verify_does_not_schedule_redis_for_unused_supported_helper(tmp_path: Path) -> None:
     repo_root = _write_http_only_repo_with_unused_redis_helper(tmp_path)
 
@@ -1439,18 +1462,25 @@ def _git(repo_root: Path, *args: str) -> None:
     assert result.returncode == 0, result.stderr
 
 
-def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str = "module_from_url") -> Path:
+def _write_cross_layer_dst_repo(
+    tmp_path: Path,
+    *,
+    redis_constructor_shape: str = "module_from_url",
+    sqlalchemy_constructor_shape: str = "async_sessionmaker",
+) -> Path:
     repo_root = tmp_path
     service_dir = repo_root / "service"
     tests_dir = repo_root / "tests"
     redis_dir = repo_root / "redis"
     sqlalchemy_dir = repo_root / "sqlalchemy"
     sqlalchemy_ext_dir = sqlalchemy_dir / "ext"
+    sqlalchemy_orm_dir = sqlalchemy_dir / "orm"
     service_dir.mkdir()
     tests_dir.mkdir()
     redis_dir.mkdir()
     sqlalchemy_dir.mkdir()
     sqlalchemy_ext_dir.mkdir()
+    sqlalchemy_orm_dir.mkdir()
 
     (redis_dir / "__init__.py").write_text("", encoding="utf-8")
     (redis_dir / "asyncio.py").write_text(
@@ -1580,6 +1610,16 @@ def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str 
         + "\n",
         encoding="utf-8",
     )
+    (sqlalchemy_orm_dir / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            def sessionmaker(*args, **kwargs):
+                raise RuntimeError("litmus should patch sqlalchemy.orm.sessionmaker")
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
 
     (service_dir / "__init__.py").write_text("", encoding="utf-8")
     redis_import = "from redis.asyncio import from_url"
@@ -1587,6 +1627,16 @@ def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str 
     if redis_constructor_shape == "class_from_url":
         redis_import = "from redis.asyncio import Redis"
         redis_constructor = 'redis = Redis.from_url("redis://cache")'
+    sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
+    sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
+    if sqlalchemy_constructor_shape == "orm_sessionmaker":
+        sqlalchemy_import = (
+            "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine\n"
+            "from sqlalchemy.orm import sessionmaker"
+        )
+        sqlalchemy_session_factory = (
+            "SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)"
+        )
 
     app_source = textwrap.dedent(
         """
@@ -1597,7 +1647,7 @@ def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str 
             import httpx
             __REDIS_IMPORT__
             from sqlalchemy import Column, MetaData, String, Table, insert, select
-            from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+            __SQLALCHEMY_IMPORT__
 
 
             class FastAPI:
@@ -1640,7 +1690,7 @@ def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str 
                 Column("status", String),
             )
             engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-            SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+            __SQLALCHEMY_SESSION_FACTORY__
             __REDIS_CONSTRUCTOR__
 
 
@@ -1672,6 +1722,8 @@ def _write_cross_layer_dst_repo(tmp_path: Path, *, redis_constructor_shape: str 
     ).strip()
     app_source = app_source.replace("__REDIS_IMPORT__", redis_import)
     app_source = app_source.replace("__REDIS_CONSTRUCTOR__", redis_constructor)
+    app_source = app_source.replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
+    app_source = app_source.replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
 
     (service_dir / "app.py").write_text(
         app_source
@@ -2090,10 +2142,11 @@ def _expected_not_detected_compatibility() -> dict[str, object]:
                 "supported_shapes": ["httpx/aiohttp"],
             },
             "sqlalchemy": {
-                "package": "sqlalchemy.ext.asyncio",
+                "package": "sqlalchemy.ext.asyncio/sqlalchemy.orm",
                 "supported_shapes": [
                     "sqlalchemy.ext.asyncio.create_async_engine",
                     "sqlalchemy.ext.asyncio.async_sessionmaker",
+                    "sqlalchemy.orm.sessionmaker(class_=AsyncSession)",
                 ],
             },
             "redis": {
