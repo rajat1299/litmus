@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-07
-**Phase:** Track A6 in progress
+**Phase:** Track B2 slice 1 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In progress | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, the bounded CLI management surface, the suggested-invariant review lifecycle, and performance/SLO hardening are being closed out in bounded reviewed slices |
+| Release readiness | In progress | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, the bounded CLI management surface, the suggested-invariant review lifecycle, and performance/SLO hardening have landed; bounded moat-deepening work now resumes with scheduler-level deterministic replay |
 
 ---
 
@@ -76,7 +76,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-17 | Fault-path reachability and target-aware local coverage | Codex | Done | WS-15, WS-16 | 2026-04-04 |
 | WS-18 | CLI management surface for invariants, config, and fault profiles | Codex | Done | WS-08, WS-13, WS-17 | 2026-04-07 |
 | WS-19 | Suggested invariant review workflow | Codex | Done | WS-13, WS-18 | 2026-04-07 |
-| WS-20 | Performance and launch SLO hardening | Codex | In progress | WS-17, WS-18, WS-19 | 2026-04-07 |
+| WS-20 | Performance and launch SLO hardening | Codex | Done | WS-17, WS-18, WS-19 | 2026-04-07 |
+| WS-21 | Scheduler-level deterministic replay slice 1 | Codex | In progress | WS-16, WS-17, WS-20 | 2026-04-07 |
 
 ---
 
@@ -109,6 +110,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-06 | Claimed Track A5 as WS-19 on branch `codex/a5-suggested-invariant-review` with a bounded scope around suggestion review state, provenance, and auditable accept/dismiss/promotion lifecycle |
 | 2026-04-07 | Completed Track A5 on `main` via explicit suggestion review state, auditable accept/dismiss flows, and atomic provenance handling that preserves the confirmed-versus-suggested trust boundary |
 | 2026-04-07 | Claimed Track A6 as WS-20 on branch `codex/a6-performance-slo-hardening` with a bounded first slice around explicit launch budgets plus timing/budget summaries in run artifacts and verify surfaces |
+| 2026-04-07 | Claimed Track B2 slice 1 as WS-21 on branch `codex/b2-scheduler-ledger-slice1` with a bounded hybrid scope: add a scheduler decision ledger plus replay checkpoints, drive replay from the ledger for Litmus-owned decisions, preserve WS-16 fallback behavior for legacy artifacts, and defer full async scheduler capture |
 
 ---
 
@@ -116,8 +118,9 @@ Update this table whenever work is claimed, blocked, or completed.
 
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
-3. Drive WS-20 through bounded review slices that make launch performance budgets explicit and measured.
-4. Keep `product/STATUS.md` as the single live source for what is in flight.
+3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
+4. Drive WS-21 through bounded review slices that add scheduler-ledger replay artifacts before any broader runtime rewrites.
+5. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
 
