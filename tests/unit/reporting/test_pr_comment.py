@@ -200,7 +200,7 @@ def test_render_pr_comment_includes_compatibility_section_for_supported_and_unsu
                     TraceEvent(kind="boundary_detected", metadata={"boundary": "http"}),
                     TraceEvent(
                         kind="boundary_intercepted",
-                        metadata={"boundary": "http", "supported_shape": "httpx/aiohttp"},
+                        metadata={"boundary": "http", "supported_shape": "httpx.AsyncClient"},
                     ),
                     TraceEvent(kind="boundary_simulated", metadata={"boundary": "http"}),
                     TraceEvent(kind="boundary_detected", metadata={"boundary": "redis"}),

@@ -11,7 +11,10 @@ LAUNCH_COMPATIBILITY_MATRIX: dict[str, object] = {
     "asgi": "FastAPI / Starlette-style ASGI apps",
     "http": {
         "package": "httpx/aiohttp",
-        "supported_shapes": ["httpx/aiohttp"],
+        "supported_shapes": [
+            "httpx.AsyncClient",
+            "aiohttp.ClientSession",
+        ],
     },
     "sqlalchemy": {
         "package": "sqlalchemy.ext.asyncio/sqlalchemy.orm",

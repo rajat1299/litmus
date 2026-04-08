@@ -88,7 +88,7 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
                     TraceEvent(kind="boundary_detected", metadata={"boundary": "http"}),
                     TraceEvent(
                         kind="boundary_intercepted",
-                        metadata={"boundary": "http", "supported_shape": "httpx/aiohttp"},
+                        metadata={"boundary": "http", "supported_shape": "httpx.AsyncClient"},
                     ),
                     TraceEvent(kind="boundary_simulated", metadata={"boundary": "http"}),
                     TraceEvent(
@@ -179,6 +179,10 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
     }
     assert projection.compatibility["matrix"]["python"] == "3.11+"
     assert projection.compatibility["matrix"]["http"]["package"] == "httpx/aiohttp"
+    assert projection.compatibility["matrix"]["http"]["supported_shapes"] == [
+        "httpx.AsyncClient",
+        "aiohttp.ClientSession",
+    ]
     assert projection.compatibility["boundaries"]["http"] == {
         "status": "supported",
         "detected": True,
@@ -186,7 +190,7 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
         "simulated": True,
         "faulted": False,
         "unsupported": False,
-        "supported_shapes": ["httpx/aiohttp"],
+        "supported_shapes": ["httpx.AsyncClient"],
         "unsupported_details": [],
     }
     assert projection.compatibility["boundaries"]["sqlalchemy"]["status"] == "not_detected"

@@ -15,7 +15,11 @@ def patch_httpx(simulator: HttpSimulator):
 
     async def simulated_request(self, method, url, *args, **kwargs):
         try:
-            response = await simulator.handle_request(method, str(url))
+            response = await simulator.handle_request(
+                method,
+                str(url),
+                supported_shape="httpx.AsyncClient",
+            )
         except HttpTimeoutError as exc:
             raise httpx.ReadTimeout(str(exc)) from exc
         except HttpConnectionRefusedError as exc:

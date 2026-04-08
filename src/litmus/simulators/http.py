@@ -54,10 +54,16 @@ class HttpSimulator:
             )
         )
 
-    async def handle_request(self, method: str, url: str) -> SimulatedHttpResponse:
+    async def handle_request(
+        self,
+        method: str,
+        url: str,
+        *,
+        supported_shape: str = "httpx/aiohttp",
+    ) -> SimulatedHttpResponse:
         self._request_step += 1
         self._record("boundary_detected", boundary="http")
-        self._record("boundary_intercepted", boundary="http", supported_shape="httpx/aiohttp")
+        self._record("boundary_intercepted", boundary="http", supported_shape=supported_shape)
         self._record("boundary_simulated", boundary="http")
         self._record("http_request_started", step=self._request_step, method=method.upper(), url=url)
         fault = self._fault_plan.fault_for_step(self._request_step)

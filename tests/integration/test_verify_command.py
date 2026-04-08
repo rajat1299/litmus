@@ -390,6 +390,32 @@ def test_litmus_verify_preserves_redis_client_type_identity(tmp_path: Path) -> N
     assert "Traceback" not in result.stderr
 
 
+def test_litmus_verify_records_exact_aiohttp_http_shape(tmp_path: Path) -> None:
+    repo_root = _write_aiohttp_http_repo(tmp_path)
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "DST coverage:" in result.stdout
+    assert "- http: detected, intercepted, simulated, faulted" in result.stdout
+    assert "Traceback" not in result.stderr
+
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    compatibility = run_payload["activities"][0]["summary"]["compatibility"]
+    assert compatibility["matrix"]["http"]["supported_shapes"] == [
+        "httpx.AsyncClient",
+        "aiohttp.ClientSession",
+    ]
+    assert compatibility["boundaries"]["http"]["supported_shapes"] == ["aiohttp.ClientSession"]
+
+
 def test_litmus_verify_supports_sqlalchemy_orm_sessionmaker_async_constructor(tmp_path: Path) -> None:
     repo_root = _write_cross_layer_dst_repo(tmp_path, sqlalchemy_constructor_shape="orm_sessionmaker")
 
@@ -2266,6 +2292,127 @@ def _write_unsupported_redis_repo(tmp_path: Path) -> Path:
     return repo_root
 
 
+def _write_aiohttp_http_repo(tmp_path: Path) -> Path:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    aiohttp_dir = repo_root / "aiohttp"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+    aiohttp_dir.mkdir()
+
+    (aiohttp_dir / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class ClientConnectionError(Exception):
+                pass
+
+
+            class ClientSession:
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+
+                async def _request(self, *args, **kwargs):
+                    raise RuntimeError("litmus should patch aiohttp.ClientSession._request")
+
+                async def get(self, url, *args, **kwargs):
+                    return await self._request("GET", url, *args, **kwargs)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import aiohttp
+            import json
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def post(self, path: str):
+                    def decorator(func):
+                        self.routes[("POST", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    request = await receive()
+                    payload = json.loads(request["body"].decode("utf-8")) if request["body"] else None
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler(payload)
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.post("/payments/charge")
+            async def charge(payload):
+                payment_id = payload["payment_id"]
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        response = await session.get("https://processor.invalid/charge")
+                        body = await response.json()
+                        return {
+                            "status_code": response.status,
+                            "json": {"status": body["status"], "payment_id": payment_id},
+                        }
+                except (aiohttp.ClientConnectionError, TimeoutError):
+                    return {"status_code": 503, "json": {"status": "retry_later", "payment_id": payment_id}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_payments.py").write_text(
+        textwrap.dedent(
+            """
+            def test_charge_returns_200():
+                request = {
+                    "method": "POST",
+                    "path": "/payments/charge",
+                    "json": {"payment_id": "ord-1"},
+                }
+                response = {
+                    "status_code": 200,
+                    "json": {"status": "charged", "payment_id": "ord-1"},
+                }
+
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return repo_root
+
+
 def _latest_verify_summary(repo_root: Path) -> dict:
     latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
     run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
@@ -2279,7 +2426,10 @@ def _expected_not_detected_compatibility() -> dict[str, object]:
             "asgi": "FastAPI / Starlette-style ASGI apps",
             "http": {
                 "package": "httpx/aiohttp",
-                "supported_shapes": ["httpx/aiohttp"],
+                "supported_shapes": [
+                    "httpx.AsyncClient",
+                    "aiohttp.ClientSession",
+                ],
             },
             "sqlalchemy": {
                 "package": "sqlalchemy.ext.asyncio/sqlalchemy.orm",

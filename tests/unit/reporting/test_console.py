@@ -85,7 +85,7 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
                     TraceEvent(kind="boundary_detected", metadata={"boundary": "http"}),
                     TraceEvent(
                         kind="boundary_intercepted",
-                        metadata={"boundary": "http", "supported_shape": "httpx/aiohttp"},
+                        metadata={"boundary": "http", "supported_shape": "httpx.AsyncClient"},
                     ),
                     TraceEvent(kind="boundary_simulated", metadata={"boundary": "http"}),
                     TraceEvent(kind="fault_injected", metadata={"target": "http"}),

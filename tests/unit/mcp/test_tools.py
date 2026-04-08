@@ -81,6 +81,10 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.performance.search_budget.unique_planned_fault_kinds == []
     assert result.compatibility.matrix["python"] == "3.11+"
     assert result.compatibility.matrix["http"]["package"] == "httpx/aiohttp"
+    assert result.compatibility.matrix["http"]["supported_shapes"] == [
+        "httpx.AsyncClient",
+        "aiohttp.ClientSession",
+    ]
     assert result.compatibility.boundaries["http"].status == "not_detected"
     assert result.compatibility.boundaries["sqlalchemy"].status == "not_detected"
     assert result.compatibility.boundaries["redis"].status == "not_detected"
@@ -95,6 +99,10 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
 
     assert payload.compatibility.matrix.python == "3.11+"
     assert payload.compatibility.matrix.http.package == "httpx/aiohttp"
+    assert payload.compatibility.matrix.http.supported_shapes == [
+        "httpx.AsyncClient",
+        "aiohttp.ClientSession",
+    ]
     assert payload.compatibility.boundaries.redis.status == "not_detected"
     assert payload.compatibility.boundaries.redis.unsupported_details == []
     assert payload.invariants.pending_review == 0

@@ -40,7 +40,11 @@ def patch_aiohttp(simulator: HttpSimulator):
 
     async def simulated_request(self, method, url, *args, **kwargs):
         try:
-            response = await simulator.handle_request(method, str(url))
+            response = await simulator.handle_request(
+                method,
+                str(url),
+                supported_shape="aiohttp.ClientSession",
+            )
         except HttpTimeoutError as exc:
             raise asyncio.TimeoutError(str(exc)) from exc
         except HttpConnectionRefusedError as exc:

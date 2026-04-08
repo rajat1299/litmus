@@ -8,7 +8,7 @@ The top-level `README.md` remains aspirational. Use this file when you need the 
 
 - Python: `3.11+`
 - ASGI app surface: FastAPI / Starlette-style ASGI apps discovered from the current workspace
-- HTTP boundary: `httpx` / `aiohttp` through the shipped outbound HTTP simulator
+- HTTP boundary: `httpx.AsyncClient` and `aiohttp.ClientSession` through the shipped outbound HTTP simulator
 - SQLAlchemy boundary: `sqlalchemy.ext.asyncio` via `create_async_engine` plus either direct `AsyncSession(...)`, `async_sessionmaker`, or `sqlalchemy.orm.sessionmaker(..., class_=AsyncSession)`
 - Redis boundary: `redis.asyncio.Redis(...)`, `redis.asyncio.Redis.from_url(...)`, `redis.asyncio.client.Redis(...)`, and `redis.asyncio.client.Redis.from_url(...)`
 
@@ -32,6 +32,16 @@ The current SQLAlchemy async launch slice is intentionally narrow:
 - single-table primary-key reads and writes that fit the simulator-backed async session contract
 
 Examples outside that slice should degrade as `unsupported` rather than silently claiming full DST coverage.
+
+## Supported HTTP Slice
+
+The current HTTP launch slice is intentionally narrow:
+
+- `httpx.AsyncClient`
+- `aiohttp.ClientSession`
+- outbound request interception through the shipped HTTP simulator and bounded HTTP fault kinds already used by verify/replay
+
+Examples outside that slice should degrade honestly or remain outside the current supported matrix rather than silently claiming broader HTTP coverage.
 
 ## Supported Redis Slice
 
