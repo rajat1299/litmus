@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from litmus.replay.differential import ReplayClassification
-from litmus.replay.models import ReplayExplanation, ReplayFaultContext, ReplayResponseDetails
+from litmus.replay.models import (
+    ReplayDriftKind,
+    ReplayExplanation,
+    ReplayFaultContext,
+    ReplayFidelityResult,
+    ReplayFidelityStatus,
+    ReplayResponseDetails,
+    SchedulerDecision,
+)
 
 
 def test_replay_explanation_round_trips_through_dict_payload() -> None:
@@ -18,6 +26,25 @@ def test_replay_explanation_round_trips_through_dict_payload() -> None:
             injected_faults=["Injected timeout on http for https://service.invalid/orders/123."],
             defaulted_responses=["Used Litmus default JSON response for GET https://service.invalid/orders/secondary."],
             app_exception="Uncaught ReadTimeout: simulated timeout for GET https://service.invalid/orders/123",
+        ),
+        fidelity=ReplayFidelityResult(
+            status=ReplayFidelityStatus.DRIFTED,
+            drift_kind=ReplayDriftKind.DECISION_MISMATCH,
+            recorded_step=2,
+            replay_step=2,
+            reason="Replay decisions diverged from the recorded scheduler ledger.",
+            recorded_decision=SchedulerDecision(
+                kind="fault_plan_selected",
+                step=1,
+                target="redis",
+                detail="timeout",
+            ),
+            replay_decision=SchedulerDecision(
+                kind="fault_plan_selected",
+                step=1,
+                target="http",
+                detail="timeout",
+            ),
         ),
         next_step="Handle the uncaught ReadTimeout and rerun `litmus replay seed:7`.",
         trace_kinds=["fault_plan_selected", "request_started", "fault_injected", "app_exception"],

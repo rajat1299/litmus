@@ -135,6 +135,8 @@ class ReplayFidelityResult:
     recorded_step: int | None = None
     replay_step: int | None = None
     reason: str = ""
+    recorded_decision: SchedulerDecision | None = None
+    replay_decision: SchedulerDecision | None = None
     recorded_checkpoint: ReplayCheckpoint | None = None
     replay_checkpoint: ReplayCheckpoint | None = None
 
@@ -149,6 +151,10 @@ class ReplayFidelityResult:
             payload["recorded_step"] = self.recorded_step
         if self.replay_step is not None:
             payload["replay_step"] = self.replay_step
+        if self.recorded_decision is not None:
+            payload["recorded_decision"] = self.recorded_decision.to_dict()
+        if self.replay_decision is not None:
+            payload["replay_decision"] = self.replay_decision.to_dict()
         if self.recorded_checkpoint is not None:
             payload["recorded_checkpoint"] = self.recorded_checkpoint.to_dict()
         if self.replay_checkpoint is not None:
@@ -165,6 +171,12 @@ class ReplayFidelityResult:
             recorded_step=payload.get("recorded_step"),
             replay_step=payload.get("replay_step"),
             reason=payload.get("reason", ""),
+            recorded_decision=None
+            if payload.get("recorded_decision") is None
+            else SchedulerDecision.from_dict(payload["recorded_decision"]),
+            replay_decision=None
+            if payload.get("replay_decision") is None
+            else SchedulerDecision.from_dict(payload["replay_decision"]),
             recorded_checkpoint=None
             if payload.get("recorded_checkpoint") is None
             else ReplayCheckpoint.from_dict(payload["recorded_checkpoint"]),

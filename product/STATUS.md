@@ -112,6 +112,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Claimed Track A6 as WS-20 on branch `codex/a6-performance-slo-hardening` with a bounded first slice around explicit launch budgets plus timing/budget summaries in run artifacts and verify surfaces |
 | 2026-04-07 | Claimed Track B2 slice 1 as WS-21 on branch `codex/b2-scheduler-ledger-slice1` with a bounded hybrid scope: add a scheduler decision ledger plus replay checkpoints, drive replay from the ledger for Litmus-owned decisions, preserve WS-16 fallback behavior for legacy artifacts, and defer full async scheduler capture |
 | 2026-04-07 | Landed the first WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: replay traces now persist a scheduler decision ledger plus replay checkpoints, `litmus replay` consumes the ledger for Litmus-owned fault-plan decisions, scheduler-aware drift reasons are surfaced, and legacy WS-16 execution-transcript fallback remains intact |
+| 2026-04-07 | Landed a follow-up WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: fidelity payloads now carry recorded versus replay scheduler decisions for decision drift, and CLI/MCP explanation surfaces render drift kind plus decision-specific divergence details instead of checkpoint-style `missing` placeholders |
 
 ---
 

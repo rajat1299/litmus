@@ -380,11 +380,22 @@ class ReplayCheckpointPayload(BaseModel):
     status_code: int | None = None
 
 
+class SchedulerDecisionPayload(BaseModel):
+    kind: str
+    step: int | None = None
+    target: str | None = None
+    detail: str | None = None
+    params: dict[str, object] = {}
+
+
 class ReplayFidelityPayload(BaseModel):
     status: str
+    drift_kind: str | None = None
     recorded_step: int | None = None
     replay_step: int | None = None
     reason: str
+    recorded_decision: SchedulerDecisionPayload | None = None
+    replay_decision: SchedulerDecisionPayload | None = None
     recorded_checkpoint: ReplayCheckpointPayload | None = None
     replay_checkpoint: ReplayCheckpointPayload | None = None
 

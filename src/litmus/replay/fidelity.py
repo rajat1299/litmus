@@ -281,6 +281,7 @@ def _compare_scheduler_decisions(
                 recorded_step=index + 1,
                 replay_step=index + 1,
                 reason="Replay emitted an unexpected scheduler decision.",
+                replay_decision=replay_decision,
             )
         if replay_decision is None:
             return ReplayFidelityResult(
@@ -289,6 +290,7 @@ def _compare_scheduler_decisions(
                 recorded_step=index + 1,
                 replay_step=index + 1,
                 reason="Replay stopped before reproducing a recorded scheduler decision.",
+                recorded_decision=recorded_decision,
             )
         return ReplayFidelityResult(
             status=ReplayFidelityStatus.DRIFTED,
@@ -296,6 +298,8 @@ def _compare_scheduler_decisions(
             recorded_step=index + 1,
             replay_step=index + 1,
             reason="Replay decisions diverged from the recorded scheduler ledger.",
+            recorded_decision=recorded_decision,
+            replay_decision=replay_decision,
         )
     return None
 

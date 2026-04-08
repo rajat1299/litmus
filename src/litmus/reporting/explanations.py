@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from litmus.replay.models import ReplayCheckpoint, ReplayExplanation, ReplayFidelityResult, ReplayFidelityStatus
+from litmus.replay.models import (
+    ReplayCheckpoint,
+    ReplayDriftKind,
+    ReplayExplanation,
+    ReplayFidelityResult,
+    ReplayFidelityStatus,
+    SchedulerDecision,
+)
 
 
 def render_replay_explanation(explanation: ReplayExplanation) -> str:
@@ -68,6 +75,24 @@ def _fidelity_context_lines(fidelity: ReplayFidelityResult) -> list[str]:
     if fidelity.status is not ReplayFidelityStatus.DRIFTED:
         return lines
 
+    if fidelity.drift_kind is not None:
+        lines.append(f"- Scheduler drift kind: {fidelity.drift_kind.value}")
+
+    if fidelity.drift_kind in {
+        ReplayDriftKind.DECISION_MISMATCH,
+        ReplayDriftKind.DECISION_MISSING,
+        ReplayDriftKind.UNEXPECTED_DECISION,
+    }:
+        if fidelity.recorded_step is not None:
+            lines.append(
+                f"- Recorded decision {fidelity.recorded_step}: {_format_decision(fidelity.recorded_decision)}"
+            )
+        if fidelity.replay_step is not None:
+            lines.append(
+                f"- Replay decision {fidelity.replay_step}: {_format_decision(fidelity.replay_decision)}"
+            )
+        return lines
+
     if fidelity.recorded_step is not None:
         lines.append(
             f"- Recorded step {fidelity.recorded_step}: {_format_checkpoint(fidelity.recorded_checkpoint)}"
@@ -90,4 +115,18 @@ def _format_checkpoint(checkpoint: ReplayCheckpoint | None) -> str:
         parts.append(f"({checkpoint.detail})")
     if checkpoint.status_code is not None:
         parts.append(f"(status {checkpoint.status_code})")
+    return " ".join(parts)
+
+
+def _format_decision(decision: SchedulerDecision | None) -> str:
+    if decision is None:
+        return "missing"
+
+    parts = [decision.kind]
+    if decision.target is not None:
+        parts.append(f"on {decision.target}")
+    if decision.detail is not None:
+        parts.append(f"({decision.detail})")
+    if decision.step is not None:
+        parts.append(f"at step {decision.step}")
     return " ".join(parts)

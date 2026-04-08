@@ -3,11 +3,13 @@ from __future__ import annotations
 from litmus.replay.differential import ReplayClassification
 from litmus.replay.models import (
     ReplayCheckpoint,
+    ReplayDriftKind,
     ReplayExplanation,
     ReplayFaultContext,
     ReplayFidelityResult,
     ReplayFidelityStatus,
     ReplayResponseDetails,
+    SchedulerDecision,
 )
 from litmus.reporting.explanations import render_replay_explanation
 
@@ -98,3 +100,43 @@ def test_render_replay_explanation_surfaces_first_execution_divergence() -> None
     assert "Execution fidelity: drifted" in rendered
     assert "- Recorded step 2: fault_injected on http (timeout)" in rendered
     assert "- Replay step 2: response_completed (status 200)" in rendered
+
+
+def test_render_replay_explanation_surfaces_scheduler_decision_divergence() -> None:
+    explanation = ReplayExplanation(
+        seed="seed:9",
+        method="POST",
+        path="/payments/charge",
+        classification=ReplayClassification.UNCHANGED,
+        baseline=ReplayResponseDetails(status_code=200, body={"status": "charged"}),
+        current=ReplayResponseDetails(status_code=200, body={"status": "charged"}),
+        reasons=["Current behavior still matches the baseline response."],
+        fidelity=ReplayFidelityResult(
+            status=ReplayFidelityStatus.DRIFTED,
+            drift_kind=ReplayDriftKind.DECISION_MISMATCH,
+            recorded_step=3,
+            replay_step=3,
+            reason="Replay decisions diverged from the recorded scheduler ledger.",
+            recorded_decision=SchedulerDecision(
+                kind="fault_plan_selected",
+                step=1,
+                target="redis",
+                detail="timeout",
+            ),
+            replay_decision=SchedulerDecision(
+                kind="fault_plan_selected",
+                step=1,
+                target="http",
+                detail="timeout",
+            ),
+        ),
+        next_step="No action needed. This seed still matches the baseline.",
+        trace_kinds=["fault_plan_selected", "request_completed"],
+    )
+
+    rendered = render_replay_explanation(explanation)
+
+    assert "Execution fidelity: drifted" in rendered
+    assert "- Scheduler drift kind: decision_mismatch" in rendered
+    assert "- Recorded decision 3: fault_plan_selected on redis (timeout) at step 1" in rendered
+    assert "- Replay decision 3: fault_plan_selected on http (timeout) at step 1" in rendered
