@@ -239,6 +239,156 @@ def test_litmus_replay_reports_missing_artifact_cleanly(tmp_path) -> None:
     assert "No replay traces found. Run `litmus verify` first." in result.stderr
 
 
+def test_litmus_replay_reports_planner_decision_drift_when_current_app_discovers_new_boundary(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    tests_dir = repo_root / "tests"
+    service_dir.mkdir()
+    tests_dir.mkdir()
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler()
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                return {"status_code": 200, "json": {"status": "ok"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (tests_dir / "test_health.py").write_text(
+        textwrap.dedent(
+            """
+            def test_health_returns_200():
+                request = {"method": "GET", "path": "/health"}
+                response = {"status_code": 200, "json": {"status": "ok"}}
+                assert response["status_code"] == 200
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 0, verify_result.stdout
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            import json
+
+            import httpx
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+                async def __call__(self, scope, receive, send) -> None:
+                    handler = self.routes[(scope["method"], scope["path"])]
+                    response = await handler()
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": response["status_code"],
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": json.dumps(response["json"]).encode("utf-8"),
+                        }
+                    )
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                async with httpx.AsyncClient() as client:
+                    await client.get("https://processor.invalid/health")
+                return {"status_code": 200, "json": {"status": "ok"}}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:1"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: unchanged" in replay_result.stdout
+    assert "Execution fidelity: drifted" in replay_result.stdout
+    assert "- Scheduler drift kind: decision_mismatch" in replay_result.stdout
+    assert "- Recorded decision 3: probe_targets_discovered (clean_path)" in replay_result.stdout
+    assert "- Replay decision 3: probe_targets_discovered (clean_path)" in replay_result.stdout
+
+
 def test_litmus_replay_reports_unknown_seed_cleanly(tmp_path) -> None:
     repo_root = tmp_path
     service_dir = repo_root / "service"
@@ -911,8 +1061,9 @@ def test_litmus_replay_reports_execution_fidelity_drift_even_when_response_is_un
     assert replay_result.returncode == 0, replay_result.stderr
     assert "Classification: unchanged" in replay_result.stdout
     assert "Execution fidelity: drifted" in replay_result.stdout
-    assert "- Replay stopped before reproducing a recorded scheduler decision." in replay_result.stdout
-    assert "- Recorded step" in replay_result.stdout
+    assert "- Replay decisions diverged from the recorded scheduler ledger." in replay_result.stdout
+    assert "- Scheduler drift kind: decision_mismatch" in replay_result.stdout
+    assert "- Recorded decision 3: probe_targets_discovered (clean_path)" in replay_result.stdout
 
 
 def _write_replay_fidelity_drift_repo(tmp_path: Path) -> Path:

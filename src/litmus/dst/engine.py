@@ -421,6 +421,45 @@ async def _scenario_fault_targets(
     return list(reachability.selected_targets)
 
 
+def replay_target_selection_artifact(
+    app,
+    app_reference: str,
+    scenario: Scenario,
+    *,
+    seed_value: int,
+    root: Path | None = None,
+    candidate_targets: list[str] | None = None,
+) -> TargetSelectionArtifact:
+    selected_candidate_targets = candidate_targets or VERIFY_FAULT_TARGETS
+    reachability = asyncio.run(
+        _scenario_reachability(
+            app,
+            app_reference,
+            scenario,
+            selected_candidate_targets,
+            root=root,
+        )
+    )
+    planned_fault_seeds = plan_local_fault_seeds(
+        seed_start=seed_value,
+        reachability=reachability,
+        seeds_per_scenario=1,
+    )
+    if planned_fault_seeds:
+        planned_seed = planned_fault_seeds[0]
+    else:
+        planned_seed = PlannedFaultSeed(
+            seed_value=seed_value,
+            target="none",
+            fault_kind="none",
+            selection_source="no_boundary",
+        )
+    return TargetSelectionArtifact.from_reachability(
+        reachability=reachability,
+        planned_fault_seed=planned_seed,
+    )
+
+
 async def _scenario_reachability(
     app,
     app_reference: str,

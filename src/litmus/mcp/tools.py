@@ -11,6 +11,7 @@ from litmus.dst.engine import (
     _boundary_usage_for_loaded_app,
     _unsupported_boundary_trace_events,
     collect_verification_inputs,
+    replay_target_selection_artifact,
     run_verification,
 )
 from litmus.invariants.models import RequestExample, ResponseExample
@@ -171,6 +172,13 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         request=RequestExample(method=record.method, path=record.path, json=record.request_payload),
         expected_response=baseline_response,
     )
+    current_target_selection = replay_target_selection_artifact(
+        app,
+        record.app_reference,
+        scenario,
+        seed_value=record.seed_value,
+        root=root,
+    )
 
     async def runner(_: Scenario) -> ResponseExample:
         return current_response
@@ -190,7 +198,7 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         method=record.method,
         path=record.path,
         trace=current_trace,
-        target_selection=record.target_selection,
+        target_selection=current_target_selection,
     )
     fidelity = compare_replay_contract(
         record.scheduler_ledger,

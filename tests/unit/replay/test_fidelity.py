@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from litmus.dst.reachability import PlannedFaultSeed, ReachabilityProbeRecord, ScenarioReachability, TargetSelectionArtifact
 from litmus.dst.runtime import TraceEvent
 from litmus.replay.fidelity import (
     compare_execution_transcripts,
     compare_replay_contract,
     normalize_execution_transcript,
+    normalize_scheduler_ledger,
 )
 from litmus.replay.models import ReplayCheckpoint, ReplayDriftKind, ReplayFidelityStatus, SchedulerDecision
 
@@ -107,6 +109,71 @@ def test_compare_execution_transcripts_reports_not_checked_for_legacy_artifacts(
     assert result.replay_checkpoint is None
 
 
+def test_normalize_scheduler_ledger_includes_probe_and_selected_target_decisions() -> None:
+    ledger = normalize_scheduler_ledger(
+        seed="seed:4",
+        method="POST",
+        path="/payments/charge",
+        trace=[],
+        target_selection=TargetSelectionArtifact.from_reachability(
+            reachability=ScenarioReachability(
+                clean_path_targets=("http",),
+                fault_path_targets=("redis",),
+                selected_targets=("http", "redis"),
+                probe_records=(
+                    ReachabilityProbeRecord(
+                        phase="clean_path",
+                        discovered_targets=("http",),
+                    ),
+                    ReachabilityProbeRecord(
+                        phase="fault_path",
+                        trigger_target="http",
+                        trigger_fault_kind="timeout",
+                        discovered_targets=("http", "redis"),
+                    ),
+                ),
+            ),
+            planned_fault_seed=PlannedFaultSeed(
+                seed_value=4,
+                target="redis",
+                fault_kind="timeout",
+                selection_source="fault_path",
+            ),
+        ),
+    )
+
+    assert ledger[:7] == [
+        SchedulerDecision(kind="replay_seed", detail="seed:4"),
+        SchedulerDecision(kind="scenario", detail="POST /payments/charge"),
+        SchedulerDecision(
+            kind="probe_targets_discovered",
+            step=1,
+            detail="clean_path",
+            params={"discovered_targets": ["http"]},
+        ),
+        SchedulerDecision(
+            kind="probe_targets_discovered",
+            step=2,
+            target="http",
+            detail="fault_path",
+            params={
+                "fault_kind": "timeout",
+                "discovered_targets": ["http", "redis"],
+            },
+        ),
+        SchedulerDecision(
+            kind="selected_targets_resolved",
+            params={
+                "clean_path_targets": ["http"],
+                "fault_path_targets": ["redis"],
+                "selected_targets": ["http", "redis"],
+            },
+        ),
+        SchedulerDecision(kind="fault_target_selected", target="redis", detail="fault_path"),
+        SchedulerDecision(kind="fault_kind_selected", target="redis", detail="timeout"),
+    ]
+
+
 def test_compare_replay_contract_reports_decision_mismatch_before_checkpoint_drift() -> None:
     result = compare_replay_contract(
         recorded_decisions=[
@@ -177,3 +244,26 @@ def test_compare_replay_contract_reports_outcome_drift_when_decisions_and_checkp
     assert result.recorded_step is None
     assert result.replay_step is None
     assert result.reason == "Replay outcome drifted after scheduler decisions and checkpoints aligned."
+
+
+def test_compare_replay_contract_reports_unexpected_decision_when_replay_planner_discovers_new_target() -> None:
+    result = compare_replay_contract(
+        recorded_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="scenario", detail="GET /health"),
+        ],
+        replay_decisions=[
+            SchedulerDecision(kind="replay_seed", detail="seed:7"),
+            SchedulerDecision(kind="scenario", detail="GET /health"),
+            SchedulerDecision(kind="fault_target_selected", target="http", detail="clean_path"),
+        ],
+        recorded_checkpoints=[ReplayCheckpoint(kind="response_completed", status_code=200)],
+        replay_checkpoints=[ReplayCheckpoint(kind="response_completed", status_code=200)],
+        outcome_matches=True,
+    )
+
+    assert result.status is ReplayFidelityStatus.DRIFTED
+    assert result.drift_kind is ReplayDriftKind.UNEXPECTED_DECISION
+    assert result.recorded_step == 3
+    assert result.replay_step == 3
+    assert result.reason == "Replay emitted an unexpected scheduler decision."

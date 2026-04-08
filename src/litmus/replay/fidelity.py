@@ -25,6 +25,32 @@ def normalize_scheduler_ledger(
         SchedulerDecision(kind="scenario", detail=f"{method.upper()} {path}"),
     ]
     if target_selection is not None:
+        for index, probe_record in enumerate(target_selection.reachability.probe_records, start=1):
+            params: dict[str, object] = {
+                "discovered_targets": list(probe_record.discovered_targets),
+            }
+            if probe_record.trigger_fault_kind is not None:
+                params["fault_kind"] = probe_record.trigger_fault_kind
+            ledger.append(
+                SchedulerDecision(
+                    kind="probe_targets_discovered",
+                    step=index,
+                    target=probe_record.trigger_target,
+                    detail=probe_record.phase,
+                    params=params,
+                )
+            )
+
+        ledger.append(
+            SchedulerDecision(
+                kind="selected_targets_resolved",
+                params={
+                    "clean_path_targets": list(target_selection.reachability.clean_path_targets),
+                    "fault_path_targets": list(target_selection.reachability.fault_path_targets),
+                    "selected_targets": list(target_selection.reachability.selected_targets),
+                },
+            )
+        )
         planned_fault_seed = target_selection.planned_fault_seed
         if planned_fault_seed.target != "none":
             ledger.append(

@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-07
-**Phase:** Track B2 slice 1 in progress
+**Phase:** Track B2 complete
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -77,7 +77,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-18 | CLI management surface for invariants, config, and fault profiles | Codex | Done | WS-08, WS-13, WS-17 | 2026-04-07 |
 | WS-19 | Suggested invariant review workflow | Codex | Done | WS-13, WS-18 | 2026-04-07 |
 | WS-20 | Performance and launch SLO hardening | Codex | Done | WS-17, WS-18, WS-19 | 2026-04-07 |
-| WS-21 | Scheduler-level deterministic replay slice 1 | Codex | In progress | WS-16, WS-17, WS-20 | 2026-04-07 |
+| WS-21 | Scheduler-level deterministic replay | Codex | Done | WS-16, WS-17, WS-20 | 2026-04-07 |
 
 ---
 
@@ -113,6 +113,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Claimed Track B2 slice 1 as WS-21 on branch `codex/b2-scheduler-ledger-slice1` with a bounded hybrid scope: add a scheduler decision ledger plus replay checkpoints, drive replay from the ledger for Litmus-owned decisions, preserve WS-16 fallback behavior for legacy artifacts, and defer full async scheduler capture |
 | 2026-04-07 | Landed the first WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: replay traces now persist a scheduler decision ledger plus replay checkpoints, `litmus replay` consumes the ledger for Litmus-owned fault-plan decisions, scheduler-aware drift reasons are surfaced, and legacy WS-16 execution-transcript fallback remains intact |
 | 2026-04-07 | Landed a follow-up WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: fidelity payloads now carry recorded versus replay scheduler decisions for decision drift, and CLI/MCP explanation surfaces render drift kind plus decision-specific divergence details instead of checkpoint-style `missing` placeholders |
+| 2026-04-07 | Completed Track B2 as WS-21 on `codex/b2-scheduler-ledger-slice1`: replay now covers both planner and execution scheduler decisions within the bounded hybrid contract, including probe/target-selection ledger entries, replay-time planner recomputation, recorded replay outcomes, and decision-aware CLI/MCP drift explanations with honest WS-16 fallback for legacy artifacts |
 
 ---
 
@@ -121,7 +122,7 @@ Update this table whenever work is claimed, blocked, or completed.
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
 3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
-4. Drive WS-21 through bounded review slices that add scheduler-ledger replay artifacts before any broader runtime rewrites.
+4. Treat Track B2 as complete and use B3 in `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the next moat-depth candidate.
 5. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
