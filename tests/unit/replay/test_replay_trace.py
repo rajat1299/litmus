@@ -123,8 +123,10 @@ def test_replay_trace_record_round_trips_target_selection_artifact() -> None:
         search_budget=ScenarioSearchBudget(
             requested_seeds=3,
             allocated_seeds=3,
+            redistributed_seeds=0,
             allocation_mode="target_spread",
             selected_targets=("http", "redis"),
+            planned_fault_kinds=("timeout",),
             scenario_seed_start=1,
             scenario_seed_end=3,
         ),

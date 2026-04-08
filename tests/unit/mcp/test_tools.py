@@ -74,6 +74,7 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.performance.search_budget.no_boundary_scenarios == 1
     assert result.performance.search_budget.target_single_scenarios == 0
     assert result.performance.search_budget.allocated_total_replay_seeds == 1
+    assert result.performance.search_budget.redistributed_scenarios == 1
     assert result.performance.search_budget.unique_planned_fault_kinds == []
     assert result.compatibility.matrix["python"] == "3.11+"
     assert result.compatibility.matrix["http"]["package"] == "httpx/aiohttp"
@@ -101,6 +102,7 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.performance.property_max_examples == 100
     assert payload.performance.search_budget.no_boundary_scenarios == 1
     assert payload.performance.search_budget.target_single_scenarios == 0
+    assert payload.performance.search_budget.redistributed_scenarios == 1
     assert payload.performance.search_budget.unique_selected_targets == []
     assert payload.performance.search_budget.unique_planned_fault_kinds == []
 

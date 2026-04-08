@@ -110,6 +110,7 @@ def _search_budget_line(projection: VerificationProjection) -> str:
         f"executed={search_budget['executed_replays']} "
         f"single_target={search_budget['target_single_scenarios']} "
         f"kind_diverse={search_budget['kind_diverse_scenarios']} "
+        f"redistributed={search_budget['redistributed_scenarios']} "
         f"no_boundary={search_budget['no_boundary_scenarios']} "
         f"targets={rendered_targets} "
         f"kinds={rendered_fault_kinds}"

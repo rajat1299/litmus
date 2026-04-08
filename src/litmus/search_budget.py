@@ -6,12 +6,15 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from litmus.dst.reachability import PlannedFaultSeed, ScenarioReachability
+else:
+    from litmus.dst.reachability import planned_fault_kinds_for_target
 
 
 @dataclass(slots=True, frozen=True)
 class ScenarioSearchBudget:
     requested_seeds: int
     allocated_seeds: int
+    redistributed_seeds: int
     allocation_mode: str
     selected_targets: tuple[str, ...] = ()
     planned_fault_kinds: tuple[str, ...] = ()
@@ -22,6 +25,7 @@ class ScenarioSearchBudget:
         return {
             "requested_seeds": self.requested_seeds,
             "allocated_seeds": self.allocated_seeds,
+            "redistributed_seeds": self.redistributed_seeds,
             "allocation_mode": self.allocation_mode,
             "selected_targets": list(self.selected_targets),
             "planned_fault_kinds": list(self.planned_fault_kinds),
@@ -34,6 +38,7 @@ class ScenarioSearchBudget:
         return cls(
             requested_seeds=int(payload["requested_seeds"]),
             allocated_seeds=int(payload["allocated_seeds"]),
+            redistributed_seeds=int(payload.get("redistributed_seeds", 0)),
             allocation_mode=str(payload["allocation_mode"]),
             selected_targets=tuple(str(target) for target in payload.get("selected_targets", [])),
             planned_fault_kinds=tuple(str(kind) for kind in payload.get("planned_fault_kinds", [])),
@@ -57,6 +62,7 @@ class SearchBudgetSummary:
     no_boundary_scenarios: int
     disabled_scenarios: int
     reduced_allocation_scenarios: int
+    redistributed_scenarios: int
     unique_selected_targets: tuple[str, ...] = ()
     unique_planned_fault_kinds: tuple[str, ...] = ()
     kind_diverse_scenarios: int = 0
@@ -74,10 +80,55 @@ class SearchBudgetSummary:
             "no_boundary_scenarios": self.no_boundary_scenarios,
             "disabled_scenarios": self.disabled_scenarios,
             "reduced_allocation_scenarios": self.reduced_allocation_scenarios,
+            "redistributed_scenarios": self.redistributed_scenarios,
             "unique_selected_targets": list(self.unique_selected_targets),
             "unique_planned_fault_kinds": list(self.unique_planned_fault_kinds),
             "kind_diverse_scenarios": self.kind_diverse_scenarios,
         }
+
+
+def allocate_scenario_seed_budgets(
+    *,
+    requested_seeds_per_scenario: int,
+    reachabilities: list[ScenarioReachability],
+) -> list[int]:
+    if requested_seeds_per_scenario <= 0:
+        return [0 for _ in reachabilities]
+
+    capacities = [meaningful_seed_capacity(reachability) for reachability in reachabilities]
+    allocations = [min(requested_seeds_per_scenario, capacity) for capacity in capacities]
+    remaining_budget = requested_seeds_per_scenario * len(reachabilities) - sum(allocations)
+
+    while remaining_budget > 0:
+        candidate_indices = [
+            index
+            for index, (allocation, capacity, reachability) in enumerate(zip(allocations, capacities, reachabilities))
+            if allocation < capacity and reachability.selected_targets
+        ]
+        if not candidate_indices:
+            break
+
+        chosen_index = max(
+            candidate_indices,
+            key=lambda index: (
+                capacities[index] - allocations[index],
+                len(reachabilities[index].selected_targets),
+                -index,
+            ),
+        )
+        allocations[chosen_index] += 1
+        remaining_budget -= 1
+
+    return allocations
+
+
+def meaningful_seed_capacity(reachability: ScenarioReachability) -> int:
+    if not reachability.selected_targets:
+        return 1
+    return sum(
+        max(1, len(planned_fault_kinds_for_target(target)))
+        for target in reachability.selected_targets
+    )
 
 
 def build_scenario_search_budget(
@@ -91,6 +142,7 @@ def build_scenario_search_budget(
         return ScenarioSearchBudget(
             requested_seeds=requested_seeds,
             allocated_seeds=0,
+            redistributed_seeds=0,
             allocation_mode="disabled",
             selected_targets=tuple(reachability.selected_targets),
             planned_fault_kinds=(),
@@ -116,6 +168,7 @@ def build_scenario_search_budget(
     return ScenarioSearchBudget(
         requested_seeds=requested_seeds,
         allocated_seeds=allocated_seeds,
+        redistributed_seeds=allocated_seeds - requested_seeds,
         allocation_mode=allocation_mode,
         selected_targets=tuple(reachability.selected_targets),
         planned_fault_kinds=tuple(
@@ -156,6 +209,7 @@ def summarize_search_budget(
             no_boundary_scenarios=0,
             disabled_scenarios=0,
             reduced_allocation_scenarios=0,
+            redistributed_scenarios=0,
             unique_selected_targets=(),
             unique_planned_fault_kinds=(),
             kind_diverse_scenarios=0,
@@ -175,6 +229,7 @@ def summarize_search_budget(
         reduced_allocation_scenarios=sum(
             1 for budget in scenario_budgets if budget.allocated_seeds < budget.requested_seeds
         ),
+        redistributed_scenarios=sum(1 for budget in scenario_budgets if budget.redistributed_seeds != 0),
         unique_selected_targets=unique_selected_targets,
         unique_planned_fault_kinds=unique_planned_fault_kinds,
         kind_diverse_scenarios=sum(1 for budget in scenario_budgets if len(budget.planned_fault_kinds) > 1),
@@ -197,6 +252,7 @@ def _unique_scenario_budgets(replay_traces: list[object]) -> list[ScenarioSearch
             request_key,
             budget.requested_seeds,
             budget.allocated_seeds,
+            budget.redistributed_seeds,
             budget.allocation_mode,
             budget.scenario_seed_start,
             budget.scenario_seed_end,

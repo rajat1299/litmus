@@ -161,13 +161,12 @@ def planned_fault_seed_for_value(
 
     offset = max(seed_value - seed_start, 0)
     clean_targets = set(reachability.clean_path_targets)
-    targets = list(reachability.selected_targets)
-    target = targets[offset % len(targets)]
-    target_cycle = offset // len(targets)
+    planned_pairs = planned_target_fault_pairs(reachability)
+    target, fault_kind = planned_pairs[offset % len(planned_pairs)]
     return PlannedFaultSeed(
         seed_value=seed_value,
         target=target,
-        fault_kind=planned_fault_kind_for_target(target, cycle=target_cycle),
+        fault_kind=fault_kind,
         selection_source="clean_path" if target in clean_targets else "fault_path",
     )
 
@@ -177,9 +176,33 @@ def representative_fault_kind_for_target(target: str) -> str:
 
 
 def planned_fault_kind_for_target(target: str, *, cycle: int) -> str:
-    target_kinds = PLANNED_FAULT_KINDS_BY_TARGET.get(target)
-    if target_kinds is None:
-        target_kinds = tuple(DEFAULT_FAULT_KINDS_BY_TARGET.get(target, []))
+    target_kinds = planned_fault_kinds_for_target(target)
     if not target_kinds:
         return representative_fault_kind_for_target(target)
     return target_kinds[cycle % len(target_kinds)]
+
+
+def planned_fault_kinds_for_target(target: str) -> tuple[str, ...]:
+    target_kinds = PLANNED_FAULT_KINDS_BY_TARGET.get(target)
+    if target_kinds is not None:
+        return target_kinds
+    return tuple(DEFAULT_FAULT_KINDS_BY_TARGET.get(target, []))
+
+
+def planned_target_fault_pairs(reachability: ScenarioReachability) -> tuple[tuple[str, str], ...]:
+    targets = tuple(reachability.selected_targets)
+    if not targets:
+        return ()
+
+    target_kinds = {
+        target: planned_fault_kinds_for_target(target) or (representative_fault_kind_for_target(target),)
+        for target in targets
+    }
+    max_kind_count = max(len(kinds) for kinds in target_kinds.values())
+    pairs: list[tuple[str, str]] = []
+    for kind_index in range(max_kind_count):
+        for target in targets:
+            kinds = target_kinds[target]
+            if kind_index < len(kinds):
+                pairs.append((target, kinds[kind_index]))
+    return tuple(pairs)

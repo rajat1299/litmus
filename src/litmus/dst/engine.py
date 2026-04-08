@@ -40,7 +40,7 @@ from litmus.replay.models import ReplayResponseDetails
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import RunMode
 from litmus.scenarios.builder import Scenario, build_scenarios
-from litmus.search_budget import build_scenario_search_budget
+from litmus.search_budget import allocate_scenario_seed_budgets, build_scenario_search_budget
 from litmus.verify_scope import VerifyScope, apply_verification_scope, default_verification_scope
 
 LOCAL_PROPERTY_MAX_EXAMPLES = 100
@@ -303,7 +303,7 @@ async def _run_replay(
     replay_traces: list[ReplayTraceRecord] = []
     next_seed_value = 1
     candidate_fault_targets = _normalize_fault_targets(fault_targets or VERIFY_FAULT_TARGETS)
-
+    scenario_reachabilities: list[ScenarioReachability] = []
     for scenario in scenarios:
         reachability = await _scenario_reachability(
             app,
@@ -312,12 +312,25 @@ async def _run_replay(
             candidate_fault_targets,
             root=root,
         )
+        scenario_reachabilities.append(reachability)
+
+    scenario_seed_budgets = allocate_scenario_seed_budgets(
+        requested_seeds_per_scenario=seeds_per_scenario,
+        reachabilities=scenario_reachabilities,
+    )
+
+    for scenario, reachability, allocated_seed_budget in zip(
+        scenarios,
+        scenario_reachabilities,
+        scenario_seed_budgets,
+        strict=False,
+    ):
         planned_fault_seeds = plan_local_fault_seeds(
             seed_start=next_seed_value,
             reachability=reachability,
-            seeds_per_scenario=seeds_per_scenario,
+            seeds_per_scenario=allocated_seed_budget,
         )
-        if not planned_fault_seeds and seeds_per_scenario > 0:
+        if not planned_fault_seeds and allocated_seed_budget > 0:
             planned_fault_seeds = [
                 PlannedFaultSeed(
                     seed_value=next_seed_value,

@@ -5,8 +5,10 @@ from litmus.dst.reachability import (
     ReachabilityProbeRecord,
     ScenarioReachability,
     TargetSelectionArtifact,
+    planned_fault_kinds_for_target,
     planned_fault_seed_for_value,
     plan_local_fault_seeds,
+    planned_target_fault_pairs,
 )
 
 
@@ -68,6 +70,26 @@ def test_plan_local_fault_seeds_covers_each_target_before_repeating() -> None:
     ]
 
 
+def test_planned_target_fault_pairs_exhausts_unique_pairs_before_repeating() -> None:
+    reachability = ScenarioReachability(
+        clean_path_targets=("http",),
+        fault_path_targets=("sqlalchemy",),
+        selected_targets=("http", "sqlalchemy"),
+    )
+
+    assert planned_target_fault_pairs(reachability) == (
+        ("http", "timeout"),
+        ("sqlalchemy", "connection_dropped"),
+        ("http", "connection_refused"),
+        ("sqlalchemy", "pool_exhausted"),
+        ("http", "http_error"),
+        ("http", "slow_response"),
+    )
+
+    planned = plan_local_fault_seeds(seed_start=1, reachability=reachability, seeds_per_scenario=6)
+    assert [(seed.target, seed.fault_kind) for seed in planned] == list(planned_target_fault_pairs(reachability))
+
+
 def test_plan_local_fault_seeds_diversifies_fault_kinds_for_single_target_budget() -> None:
     reachability = ScenarioReachability(
         clean_path_targets=("http",),
@@ -99,6 +121,14 @@ def test_plan_local_fault_seeds_excludes_operation_gated_partial_write_from_defa
         ("redis", "moved"),
         ("redis", "timeout"),
     ]
+
+
+def test_planned_fault_kinds_for_target_returns_planner_safe_cycle() -> None:
+    assert planned_fault_kinds_for_target("redis") == (
+        "timeout",
+        "connection_refused",
+        "moved",
+    )
 
 
 def test_plan_local_fault_seeds_uses_target_aware_representative_faults() -> None:

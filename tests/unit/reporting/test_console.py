@@ -101,6 +101,7 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
                 search_budget=ScenarioSearchBudget(
                     requested_seeds=3,
                     allocated_seeds=1,
+                    redistributed_seeds=-2,
                     allocation_mode="no_boundary",
                     selected_targets=(),
                     planned_fault_kinds=(),
@@ -130,7 +131,7 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
             "Properties: passed=1 failed=0 skipped=1",
             "Performance: elapsed=2.10s budget<=10.00s mode=local profile=default within_budget=yes",
             "Launch budgets: replay_seeds/scenario=3 property_examples=100",
-            "Search budget: requested_total=3 allocated_total=1 executed=1 single_target=0 kind_diverse=0 no_boundary=1 targets=none kinds=none",
+            "Search budget: requested_total=3 allocated_total=1 executed=1 single_target=0 kind_diverse=0 redistributed=1 no_boundary=1 targets=none kinds=none",
             "Budget policy: launch-default under-10s path",
             "Confidence: 0.67",
             "DST coverage:",

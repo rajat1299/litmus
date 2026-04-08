@@ -84,6 +84,7 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
     assert run_payload["artifacts"]["replay_traces"][0]["search_budget"] == {
         "requested_seeds": 3,
         "allocated_seeds": 1,
+        "redistributed_seeds": -2,
         "allocation_mode": "no_boundary",
         "selected_targets": [],
         "planned_fault_kinds": [],
@@ -102,6 +103,7 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "no_boundary_scenarios": 1,
         "disabled_scenarios": 0,
         "reduced_allocation_scenarios": 1,
+        "redistributed_scenarios": 1,
         "unique_selected_targets": [],
         "unique_planned_fault_kinds": [],
         "kind_diverse_scenarios": 0,
