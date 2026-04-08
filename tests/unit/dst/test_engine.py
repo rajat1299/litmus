@@ -352,9 +352,84 @@ def test_run_replay_spreads_local_fault_targets_across_http_sqlalchemy_and_redis
         "allocated_seeds": 3,
         "allocation_mode": "target_spread",
         "selected_targets": ["http", "sqlalchemy", "redis"],
+        "planned_fault_kinds": ["timeout", "connection_dropped"],
         "scenario_seed_start": 1,
         "scenario_seed_end": 3,
     }
+
+
+def test_run_replay_diversifies_single_target_fault_kinds_before_repeating(monkeypatch) -> None:
+    scenario = Scenario(
+        method="POST",
+        path="/payments/charge",
+        request=RequestExample(method="POST", path="/payments/charge", json={"amount": 100}),
+        expected_response=ResponseExample(status_code=200, json={"status": "charged"}),
+    )
+
+    captured_faults: list[tuple[str, str]] = []
+
+    class FakeFaultPlan:
+        def __init__(self, seed: int, target: str, kind: str) -> None:
+            self.seed = seed
+            self.schedule = {
+                1: {
+                    "kind": kind,
+                    "target": target,
+                }
+            }
+
+    def fake_build_fault_plan(seed: int, *, steps: int, targets: list[str], kinds: list[str] | None = None):
+        assert steps == 1
+        target = targets[0]
+        kind = "timeout" if kinds is None else kinds[0]
+        if seed > 0:
+            captured_faults.append((target, kind))
+        return FakeFaultPlan(seed, target, kind)
+
+    async def fake_run_asgi_app(_app, *, method, path, json_body, seed, fault_plan=None):
+        assert method == "POST"
+        assert path == "/payments/charge"
+        assert json_body == {"amount": 100}
+        return type(
+            "FakeAsgiResult",
+            (),
+            {
+                "status_code": 200,
+                "body": {"status": "charged"},
+                "trace": [TraceEvent(kind="request_started", metadata={"seed": seed})],
+                "boundary_coverage": {
+                    "http": BoundaryCoverage(detected=True),
+                    "sqlalchemy": BoundaryCoverage(),
+                    "redis": BoundaryCoverage(),
+                },
+            },
+        )()
+
+    monkeypatch.setattr("litmus.dst.engine.build_fault_plan", fake_build_fault_plan)
+    monkeypatch.setattr("litmus.dst.engine.run_asgi_app", fake_run_asgi_app)
+
+    replay_results, replay_traces = asyncio.run(
+        _run_replay(
+            object(),
+            "service.app:app",
+            [scenario],
+            seeds_per_scenario=3,
+        )
+    )
+
+    assert len(replay_results) == 3
+    assert len(replay_traces) == 3
+    assert captured_faults == [
+        ("http", "timeout"),
+        ("http", "connection_refused"),
+        ("http", "http_error"),
+    ]
+    assert replay_traces[0].search_budget is not None
+    assert replay_traces[0].search_budget.planned_fault_kinds == (
+        "timeout",
+        "connection_refused",
+        "http_error",
+    )
 
 
 def test_run_replay_narrows_fault_targets_to_runtime_detected_boundaries(monkeypatch) -> None:
@@ -559,6 +634,7 @@ def test_run_replay_uses_single_no_fault_seed_when_no_supported_boundaries_are_d
         "allocated_seeds": 1,
         "allocation_mode": "no_boundary",
         "selected_targets": [],
+        "planned_fault_kinds": [],
         "scenario_seed_start": 1,
         "scenario_seed_end": 1,
     }

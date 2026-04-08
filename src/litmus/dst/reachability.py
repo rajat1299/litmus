@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from litmus.dst.faults import DEFAULT_FAULT_KINDS_BY_TARGET
+
 
 TARGET_AWARE_COVERAGE_FAULTS: dict[str, str] = {
     "http": "timeout",
@@ -154,13 +156,21 @@ def planned_fault_seed_for_value(
     clean_targets = set(reachability.clean_path_targets)
     targets = list(reachability.selected_targets)
     target = targets[offset % len(targets)]
+    target_cycle = offset // len(targets)
     return PlannedFaultSeed(
         seed_value=seed_value,
         target=target,
-        fault_kind=representative_fault_kind_for_target(target),
+        fault_kind=planned_fault_kind_for_target(target, cycle=target_cycle),
         selection_source="clean_path" if target in clean_targets else "fault_path",
     )
 
 
 def representative_fault_kind_for_target(target: str) -> str:
     return TARGET_AWARE_COVERAGE_FAULTS.get(target, "timeout")
+
+
+def planned_fault_kind_for_target(target: str, *, cycle: int) -> str:
+    target_kinds = DEFAULT_FAULT_KINDS_BY_TARGET.get(target)
+    if not target_kinds:
+        return representative_fault_kind_for_target(target)
+    return target_kinds[cycle % len(target_kinds)]

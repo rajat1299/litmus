@@ -118,6 +118,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Fixed a post-completion WS-21 review issue on `codex/b2-scheduler-ledger-slice1`: replay-time planner recomputation now preserves the original scenario seed window for non-first seeds, so unchanged multi-target routes no longer report false scheduler drift on `seed:2`, `seed:3`, and later replayed seeds |
 | 2026-04-07 | Claimed Track B3 slice 1 as WS-22 on branch `codex/b3-search-budget-slice1` with a bounded scope around explicit search-budget artifacts and accounting: record requested versus allocated replay seeds per scenario, expose target-aware budget usage in run summaries, and defer any actual depth/default changes until the accounting contract is reviewed |
 | 2026-04-07 | Landed the first WS-22 review slice on `codex/b3-search-budget-slice1`: verify artifacts now persist per-scenario search-budget snapshots, shared verification summaries expose requested versus allocated replay budget plus target/no-boundary accounting, and CLI/MCP surfaces carry the same bounded search-budget contract without changing current search depth |
+| 2026-04-08 | Landed a follow-up WS-22 slice on `codex/b3-search-budget-slice1`: repeated same-target replay seeds now diversify fault kinds instead of rerunning identical target/kind pairs, and search-budget artifacts/summaries expose planned fault-kind coverage so narrower scenarios remain explainable |
 
 ---
 

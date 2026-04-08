@@ -38,3 +38,8 @@ The next slice can then decide whether to:
 - deepen CI search selectively
 - make hostile/default profiles search-strategy-aware
 - introduce scenario-aware prioritization
+
+Follow-up landed on 2026-04-08:
+
+- same-target replay budget now diversifies across target-specific fault kinds before rerunning identical target/kind pairs
+- search-budget artifacts now expose planned fault-kind coverage so repeated seeds are explainable in CLI, run summaries, and MCP payloads

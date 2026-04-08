@@ -108,6 +108,7 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
                     allocated_seeds=1,
                     allocation_mode="no_boundary",
                     selected_targets=(),
+                    planned_fault_kinds=(),
                     scenario_seed_start=1,
                     scenario_seed_end=1,
                 ),
@@ -148,6 +149,8 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
             "disabled_scenarios": 0,
             "reduced_allocation_scenarios": 1,
             "unique_selected_targets": [],
+            "unique_planned_fault_kinds": [],
+            "kind_diverse_scenarios": 0,
         },
     }
     assert projection.invariants == {
@@ -235,6 +238,7 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
                     allocated_seeds=500,
                     allocation_mode="target_single",
                     selected_targets=("redis",),
+                    planned_fault_kinds=("timeout", "connection_refused", "partial_write", "moved"),
                     scenario_seed_start=1,
                     scenario_seed_end=500,
                 ),
@@ -263,6 +267,7 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
                     allocated_seeds=500,
                     allocation_mode="target_single",
                     selected_targets=("redis",),
+                    planned_fault_kinds=("timeout", "connection_refused", "partial_write", "moved"),
                     scenario_seed_start=1,
                     scenario_seed_end=500,
                 ),
@@ -296,6 +301,13 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
             "disabled_scenarios": 0,
             "reduced_allocation_scenarios": 0,
             "unique_selected_targets": ["redis"],
+            "unique_planned_fault_kinds": [
+                "connection_refused",
+                "moved",
+                "partial_write",
+                "timeout",
+            ],
+            "kind_diverse_scenarios": 1,
         },
     }
     assert projection.compatibility["boundaries"]["redis"]["status"] == "partial"
@@ -348,5 +360,7 @@ def test_verification_projection_marks_hostile_local_profile_as_opt_in_deeper_pa
             "disabled_scenarios": 0,
             "reduced_allocation_scenarios": 0,
             "unique_selected_targets": [],
+            "unique_planned_fault_kinds": [],
+            "kind_diverse_scenarios": 0,
         },
     }

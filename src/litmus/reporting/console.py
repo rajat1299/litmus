@@ -100,15 +100,19 @@ def _budget_policy_line(projection: VerificationProjection) -> str:
 def _search_budget_line(projection: VerificationProjection) -> str:
     search_budget = projection.performance["search_budget"]
     targets = search_budget["unique_selected_targets"]
+    fault_kinds = search_budget["unique_planned_fault_kinds"]
     rendered_targets = "none" if not targets else ",".join(targets)
+    rendered_fault_kinds = "none" if not fault_kinds else ",".join(fault_kinds)
     return (
         "Search budget: "
         f"requested_total={search_budget['requested_total_replay_seeds']} "
         f"allocated_total={search_budget['allocated_total_replay_seeds']} "
         f"executed={search_budget['executed_replays']} "
         f"single_target={search_budget['target_single_scenarios']} "
+        f"kind_diverse={search_budget['kind_diverse_scenarios']} "
         f"no_boundary={search_budget['no_boundary_scenarios']} "
-        f"targets={rendered_targets}"
+        f"targets={rendered_targets} "
+        f"kinds={rendered_fault_kinds}"
     )
 
 

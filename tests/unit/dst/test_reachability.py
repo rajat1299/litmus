@@ -64,7 +64,23 @@ def test_plan_local_fault_seeds_covers_each_target_before_repeating() -> None:
     assert planned == [
         PlannedFaultSeed(seed_value=1, target="http", fault_kind="timeout"),
         PlannedFaultSeed(seed_value=2, target="redis", fault_kind="timeout", selection_source="fault_path"),
-        PlannedFaultSeed(seed_value=3, target="http", fault_kind="timeout"),
+        PlannedFaultSeed(seed_value=3, target="http", fault_kind="connection_refused"),
+    ]
+
+
+def test_plan_local_fault_seeds_diversifies_fault_kinds_for_single_target_budget() -> None:
+    reachability = ScenarioReachability(
+        clean_path_targets=("http",),
+        fault_path_targets=(),
+        selected_targets=("http",),
+    )
+
+    planned = plan_local_fault_seeds(seed_start=1, reachability=reachability, seeds_per_scenario=3)
+
+    assert [(seed.target, seed.fault_kind) for seed in planned] == [
+        ("http", "timeout"),
+        ("http", "connection_refused"),
+        ("http", "http_error"),
     ]
 
 

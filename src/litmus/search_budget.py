@@ -14,6 +14,7 @@ class ScenarioSearchBudget:
     allocated_seeds: int
     allocation_mode: str
     selected_targets: tuple[str, ...] = ()
+    planned_fault_kinds: tuple[str, ...] = ()
     scenario_seed_start: int | None = None
     scenario_seed_end: int | None = None
 
@@ -23,6 +24,7 @@ class ScenarioSearchBudget:
             "allocated_seeds": self.allocated_seeds,
             "allocation_mode": self.allocation_mode,
             "selected_targets": list(self.selected_targets),
+            "planned_fault_kinds": list(self.planned_fault_kinds),
             "scenario_seed_start": self.scenario_seed_start,
             "scenario_seed_end": self.scenario_seed_end,
         }
@@ -34,6 +36,7 @@ class ScenarioSearchBudget:
             allocated_seeds=int(payload["allocated_seeds"]),
             allocation_mode=str(payload["allocation_mode"]),
             selected_targets=tuple(str(target) for target in payload.get("selected_targets", [])),
+            planned_fault_kinds=tuple(str(kind) for kind in payload.get("planned_fault_kinds", [])),
             scenario_seed_start=(
                 None if payload.get("scenario_seed_start") is None else int(payload["scenario_seed_start"])
             ),
@@ -55,6 +58,8 @@ class SearchBudgetSummary:
     disabled_scenarios: int
     reduced_allocation_scenarios: int
     unique_selected_targets: tuple[str, ...] = ()
+    unique_planned_fault_kinds: tuple[str, ...] = ()
+    kind_diverse_scenarios: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -70,6 +75,8 @@ class SearchBudgetSummary:
             "disabled_scenarios": self.disabled_scenarios,
             "reduced_allocation_scenarios": self.reduced_allocation_scenarios,
             "unique_selected_targets": list(self.unique_selected_targets),
+            "unique_planned_fault_kinds": list(self.unique_planned_fault_kinds),
+            "kind_diverse_scenarios": self.kind_diverse_scenarios,
         }
 
 
@@ -86,6 +93,7 @@ def build_scenario_search_budget(
             allocated_seeds=0,
             allocation_mode="disabled",
             selected_targets=tuple(reachability.selected_targets),
+            planned_fault_kinds=(),
             scenario_seed_start=None,
             scenario_seed_end=None,
         )
@@ -110,6 +118,13 @@ def build_scenario_search_budget(
         allocated_seeds=allocated_seeds,
         allocation_mode=allocation_mode,
         selected_targets=tuple(reachability.selected_targets),
+        planned_fault_kinds=tuple(
+            dict.fromkeys(
+                planned_seed.fault_kind
+                for planned_seed in planned_fault_seeds
+                if planned_seed.fault_kind != "none"
+            )
+        ),
         scenario_seed_start=scenario_seed_start,
         scenario_seed_end=scenario_seed_end,
     )
@@ -125,6 +140,9 @@ def summarize_search_budget(
     unique_selected_targets = tuple(
         sorted({target for budget in scenario_budgets for target in budget.selected_targets})
     )
+    unique_planned_fault_kinds = tuple(
+        sorted({kind for budget in scenario_budgets for kind in budget.planned_fault_kinds})
+    )
     if not scenario_budgets:
         return SearchBudgetSummary(
             requested_seeds_per_scenario=requested_seeds_per_scenario,
@@ -139,6 +157,8 @@ def summarize_search_budget(
             disabled_scenarios=0,
             reduced_allocation_scenarios=0,
             unique_selected_targets=(),
+            unique_planned_fault_kinds=(),
+            kind_diverse_scenarios=0,
         )
 
     return SearchBudgetSummary(
@@ -156,6 +176,8 @@ def summarize_search_budget(
             1 for budget in scenario_budgets if budget.allocated_seeds < budget.requested_seeds
         ),
         unique_selected_targets=unique_selected_targets,
+        unique_planned_fault_kinds=unique_planned_fault_kinds,
+        kind_diverse_scenarios=sum(1 for budget in scenario_budgets if len(budget.planned_fault_kinds) > 1),
     )
 
 
@@ -179,6 +201,7 @@ def _unique_scenario_budgets(replay_traces: list[object]) -> list[ScenarioSearch
             budget.scenario_seed_start,
             budget.scenario_seed_end,
             budget.selected_targets,
+            budget.planned_fault_kinds,
         )
         if key in seen_keys:
             continue

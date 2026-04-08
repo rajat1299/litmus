@@ -149,6 +149,8 @@ class SearchBudgetCounts:
     disabled_scenarios: int
     reduced_allocation_scenarios: int
     unique_selected_targets: list[str]
+    unique_planned_fault_kinds: list[str]
+    kind_diverse_scenarios: int
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -164,6 +166,8 @@ class SearchBudgetCounts:
             "disabled_scenarios": self.disabled_scenarios,
             "reduced_allocation_scenarios": self.reduced_allocation_scenarios,
             "unique_selected_targets": list(self.unique_selected_targets),
+            "unique_planned_fault_kinds": list(self.unique_planned_fault_kinds),
+            "kind_diverse_scenarios": self.kind_diverse_scenarios,
         }
 
 
@@ -353,6 +357,8 @@ class SearchBudgetPayload(BaseModel):
     disabled_scenarios: int
     reduced_allocation_scenarios: int
     unique_selected_targets: list[str]
+    unique_planned_fault_kinds: list[str]
+    kind_diverse_scenarios: int
 
 
 class BoundaryCoveragePayload(BaseModel):

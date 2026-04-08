@@ -282,6 +282,8 @@ def test_record_verification_run_uses_measured_result_timing_in_summary(tmp_path
             "disabled_scenarios": 0,
             "reduced_allocation_scenarios": 0,
             "unique_selected_targets": [],
+            "unique_planned_fault_kinds": [],
+            "kind_diverse_scenarios": 0,
         },
     }
 
@@ -331,5 +333,7 @@ def test_record_verification_run_marks_summary_performance_unmeasured_without_re
             "disabled_scenarios": 0,
             "reduced_allocation_scenarios": 0,
             "unique_selected_targets": [],
+            "unique_planned_fault_kinds": [],
+            "kind_diverse_scenarios": 0,
         },
     }

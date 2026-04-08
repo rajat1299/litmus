@@ -86,6 +86,7 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "allocated_seeds": 1,
         "allocation_mode": "no_boundary",
         "selected_targets": [],
+        "planned_fault_kinds": [],
         "scenario_seed_start": 1,
         "scenario_seed_end": 1,
     }
@@ -102,6 +103,8 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
         "disabled_scenarios": 0,
         "reduced_allocation_scenarios": 1,
         "unique_selected_targets": [],
+        "unique_planned_fault_kinds": [],
+        "kind_diverse_scenarios": 0,
     }
     assert not (repo_root / ".litmus" / "replay-traces.json").exists()
 
