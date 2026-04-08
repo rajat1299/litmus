@@ -80,6 +80,8 @@ def search_strategy_for_mode(
     resolved_fault_profile = coerce_fault_profile(fault_profile)
     if resolved_mode == "ci":
         return "frontier_first"
+    if resolved_mode == "watch":
+        return "balanced"
     if resolved_fault_profile is FaultProfile.HOSTILE:
         return "frontier_first"
     return "balanced"

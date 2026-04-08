@@ -27,6 +27,7 @@ from litmus.invariants.models import (
     ResponseExample,
 )
 from litmus.properties.runner import PropertyCheckStatus
+from litmus.runs import RunMode
 from litmus.scenarios.builder import Scenario
 
 
@@ -225,6 +226,47 @@ def test_run_verification_uses_hostile_fault_profile_local_budgets(monkeypatch, 
 
     assert captured["seeds_per_scenario"] == 9
     assert captured["search_strategy"] == "frontier_first"
+    assert captured["max_examples"] == 250
+
+
+def test_run_verification_keeps_watch_mode_balanced_under_hostile_profile(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("litmus.dst.engine.load_repo_config", lambda _root: RepoConfig(fault_profile="hostile"))
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr("litmus.dst.engine._collect_routes", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", lambda _routes, _invariants: [])
+
+    captured: dict[str, int | str] = {}
+
+    async def fake_run_replay(
+        _app,
+        _app_reference,
+        _scenarios,
+        *,
+        seeds_per_scenario: int,
+        search_strategy: str,
+        fault_targets=None,
+        boundary_usage=None,
+        root=None,
+    ):
+        captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["search_strategy"] = search_strategy
+        return [], []
+
+    monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
+
+    def fake_run_property_checks(_app, _invariants, *, max_examples: int):
+        captured["max_examples"] = max_examples
+        return []
+
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", fake_run_property_checks)
+
+    run_verification(tmp_path, mode=RunMode.WATCH)
+
+    assert captured["seeds_per_scenario"] == 9
+    assert captured["search_strategy"] == "balanced"
     assert captured["max_examples"] == 250
 
 
