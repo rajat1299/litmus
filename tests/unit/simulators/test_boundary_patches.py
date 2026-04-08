@@ -11,6 +11,7 @@ from litmus.simulators.boundary_patches import (
     _PatchedAsyncEngineProxy,
     _build_patched_asyncsession_constructor,
     _build_patched_orm_sessionmaker,
+    _build_patched_redis_constructor,
     activate_runtime,
     patched_supported_boundaries,
 )
@@ -168,6 +169,24 @@ def test_patched_supported_boundaries_support_redis_client_module_imports(tmp_pa
         and event.metadata["supported_shape"] == "redis.asyncio.client.Redis.from_url"
         for event in runtime.trace
     )
+
+
+def test_patched_redis_constructor_preserves_type_identity_for_supported_code() -> None:
+    class OriginalRedis:
+        pass
+
+    patched = _build_patched_redis_constructor(
+        OriginalRedis,
+        supported_shape="redis.asyncio.client.Redis",
+        from_url_shape="redis.asyncio.client.Redis.from_url",
+    )
+
+    client = patched("redis://cache")
+    from_url_client = patched.from_url("redis://cache")
+
+    assert isinstance(patched, type)
+    assert isinstance(client, patched)
+    assert isinstance(from_url_client, patched)
 
 
 def _clear_test_modules(*prefixes: str) -> None:

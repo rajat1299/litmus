@@ -106,18 +106,21 @@ def _patch_redis_async() -> list[_ModulePatch]:
 
     if module is not None:
         original: dict[str, object] = {}
-        package_constructor = _build_patched_redis_constructor(
-            supported_shape="redis.asyncio.Redis",
-            from_url_shape="redis.asyncio.Redis.from_url",
-        )
-
         if hasattr(module, "Redis"):
             original["Redis"] = module.Redis
+            package_constructor = _build_patched_redis_constructor(
+                module.Redis,
+                supported_shape="redis.asyncio.Redis",
+                from_url_shape="redis.asyncio.Redis.from_url",
+            )
             module.Redis = package_constructor
 
-        if hasattr(module, "from_url"):
+            if hasattr(module, "from_url"):
+                original["from_url"] = module.from_url
+                module.from_url = package_constructor.from_url
+
+        elif hasattr(module, "from_url"):
             original["from_url"] = module.from_url
-            module.from_url = package_constructor.from_url
 
         if original:
             patchers.append(_ModulePatch(module, original))
@@ -129,13 +132,13 @@ def _patch_redis_async() -> list[_ModulePatch]:
 
     if client_module is not None:
         original: dict[str, object] = {}
-        client_constructor = _build_patched_redis_constructor(
-            supported_shape="redis.asyncio.client.Redis",
-            from_url_shape="redis.asyncio.client.Redis.from_url",
-        )
-
         if hasattr(client_module, "Redis"):
             original["Redis"] = client_module.Redis
+            client_constructor = _build_patched_redis_constructor(
+                client_module.Redis,
+                supported_shape="redis.asyncio.client.Redis",
+                from_url_shape="redis.asyncio.client.Redis.from_url",
+            )
             client_module.Redis = client_constructor
 
         if original:
@@ -221,24 +224,43 @@ def _uses_sqlalchemy_asyncsession(kwargs: dict[str, object]) -> bool:
     return expected_class is not None and async_session_class is expected_class
 
 
-def _build_patched_redis_constructor(*, supported_shape: str, from_url_shape: str):
-    class _PatchedRedisConstructor:
-        def __new__(cls, *args, **kwargs):
+def _build_patched_redis_constructor(original_redis_class, *, supported_shape: str, from_url_shape: str):
+    original_meta = type(original_redis_class)
+
+    class _PatchedRedisMeta(original_meta):
+        def __call__(cls, *args, **kwargs):
             return _PatchedRedisProxy(
                 supported_shape=supported_shape,
                 args=args,
                 kwargs=kwargs,
             )
 
-        @classmethod
-        def from_url(cls, url: str, *args, **kwargs):
-            return _PatchedRedisProxy(
-                supported_shape=from_url_shape,
-                args=(url, *args),
-                kwargs=kwargs,
-            )
+        def __instancecheck__(cls, instance):
+            return isinstance(instance, _PatchedRedisProxy) or isinstance(instance, original_redis_class)
 
-    return _PatchedRedisConstructor
+        def __subclasscheck__(cls, subclass):
+            return subclass is _PatchedRedisProxy or issubclass(subclass, original_redis_class)
+
+    return _PatchedRedisMeta(
+        getattr(original_redis_class, "__name__", "Redis"),
+        (original_redis_class,),
+        {
+            "__doc__": getattr(original_redis_class, "__doc__", None),
+            "__module__": getattr(original_redis_class, "__module__", __name__),
+            "__qualname__": getattr(
+                original_redis_class,
+                "__qualname__",
+                getattr(original_redis_class, "__name__", "Redis"),
+            ),
+            "from_url": classmethod(
+                lambda cls, url, *args, **kwargs: _PatchedRedisProxy(
+                    supported_shape=from_url_shape,
+                    args=(url, *args),
+                    kwargs=kwargs,
+                )
+            ),
+        },
+    )
 
 
 class _PatchedAsyncEngineProxy:

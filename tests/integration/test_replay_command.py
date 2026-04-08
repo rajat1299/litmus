@@ -705,6 +705,33 @@ def test_litmus_replay_supports_redis_client_module_from_url_constructor(tmp_pat
     assert "Traceback" not in replay_result.stderr
 
 
+def test_litmus_replay_preserves_redis_client_type_identity(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, redis_constructor_shape="client_class_from_url_type_guard")
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:2"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: breaking_change" in replay_result.stdout
+    assert "Execution fidelity: matched" in replay_result.stdout
+    assert "Traceback" not in replay_result.stderr
+
+
 def _write_cross_layer_dst_repo(
     tmp_path: Path,
     *,
@@ -882,6 +909,7 @@ def _write_cross_layer_dst_repo(
     (service_dir / "__init__.py").write_text("", encoding="utf-8")
     redis_import = "from redis.asyncio import from_url"
     redis_constructor = 'redis = from_url("redis://cache")'
+    redis_identity_guard = ""
     if redis_constructor_shape == "class_from_url":
         redis_import = "from redis.asyncio import Redis"
         redis_constructor = 'redis = Redis.from_url("redis://cache")'
@@ -891,6 +919,13 @@ def _write_cross_layer_dst_repo(
     elif redis_constructor_shape == "client_class_from_url":
         redis_import = "from redis.asyncio.client import Redis"
         redis_constructor = 'redis = Redis.from_url("redis://cache")'
+    elif redis_constructor_shape == "client_class_from_url_type_guard":
+        redis_import = "from redis.asyncio.client import Redis"
+        redis_constructor = 'redis = Redis.from_url("redis://cache")'
+        redis_identity_guard = (
+            'if not isinstance(redis, Redis):\n'
+            '    raise TypeError("expected Redis type identity")'
+        )
 
     sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
     sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
@@ -993,7 +1028,10 @@ def _write_cross_layer_dst_repo(
             """
     ).strip()
     app_source = app_source.replace("__REDIS_IMPORT__", redis_import)
-    app_source = app_source.replace("__REDIS_CONSTRUCTOR__", redis_constructor)
+    app_source = app_source.replace(
+        "__REDIS_CONSTRUCTOR__",
+        redis_constructor if not redis_identity_guard else f"{redis_constructor}\n{redis_identity_guard}",
+    )
     app_source = app_source.replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
     app_source = app_source.replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
     if sqlalchemy_constructor_shape == "direct_async_session":
