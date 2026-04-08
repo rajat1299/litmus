@@ -29,7 +29,11 @@ from litmus.invariants.models import Invariant, InvariantStatus, InvariantType, 
 from litmus.invariants.suggested import suggest_route_gap_invariants
 from litmus.invariants.store import default_invariants_path, load_invariants
 from litmus.properties.runner import PropertyCheckResult, run_property_checks
-from litmus.performance import property_max_examples_for_mode, replay_seed_count_for_mode
+from litmus.performance import (
+    property_max_examples_for_mode,
+    replay_seed_count_for_mode,
+    search_strategy_for_mode,
+)
 from litmus.replay.differential import DifferentialReplayResult, run_differential_replay
 from litmus.replay.fidelity import (
     normalize_execution_transcript,
@@ -66,6 +70,7 @@ class VerificationResult:
     mode: RunMode | str = RunMode.LOCAL
     fault_profile: FaultProfile | str = FaultProfile.DEFAULT
     replay_seeds_per_scenario: int | None = None
+    search_strategy: str | None = None
     property_max_examples: int | None = None
     scope_label: str = "full repo"
 
@@ -100,6 +105,10 @@ def run_verification(
         verification_mode,
         fault_profile=inputs.config.fault_profile,
     )
+    replay_search_strategy = search_strategy_for_mode(
+        verification_mode,
+        fault_profile=inputs.config.fault_profile,
+    )
     property_example_budget = property_max_examples_for_mode(
         verification_mode,
         fault_profile=inputs.config.fault_profile,
@@ -114,6 +123,7 @@ def run_verification(
                 inputs.app_reference,
                 inputs.scenarios,
                 seeds_per_scenario=replay_seed_budget,
+                search_strategy=replay_search_strategy,
                 fault_targets=active_fault_targets,
                 boundary_usage=boundary_usage,
                 root=Path(root),
@@ -139,6 +149,7 @@ def run_verification(
         mode=verification_mode,
         fault_profile=inputs.config.fault_profile,
         replay_seeds_per_scenario=replay_seed_budget,
+        search_strategy=replay_search_strategy,
         property_max_examples=property_example_budget,
     )
 
@@ -295,6 +306,7 @@ async def _run_replay(
     scenarios: list[Scenario],
     *,
     seeds_per_scenario: int = LOCAL_REPLAY_SEEDS_PER_SCENARIO,
+    search_strategy: str = "frontier_first",
     fault_targets: list[str] | None = None,
     boundary_usage: AppBoundaryUsage | None = None,
     root: Path | None = None,
@@ -317,6 +329,7 @@ async def _run_replay(
     scenario_seed_budgets = allocate_scenario_seed_budgets(
         requested_seeds_per_scenario=seeds_per_scenario,
         reachabilities=scenario_reachabilities,
+        strategy=search_strategy,
     )
 
     for scenario, reachability, allocated_seed_budget in zip(

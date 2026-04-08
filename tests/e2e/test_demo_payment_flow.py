@@ -96,7 +96,7 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert "Litmus verify" in verify_failure.stdout
     assert "App: app:app" in verify_failure.stdout
     assert "Performance:" in verify_failure.stdout
-    assert "budget<=10.00s mode=local profile=default within_budget=yes" in verify_failure.stdout
+    assert "budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes" in verify_failure.stdout
     assert "Launch budgets: replay_seeds/scenario=3 property_examples=100" in verify_failure.stdout
     assert "Budget policy: launch-default under-10s path" in verify_failure.stdout
 
@@ -156,7 +156,7 @@ def test_payment_service_demo_fails_replays_and_passes_after_fix(tmp_path) -> No
     assert verify_fixed.returncode == 0, verify_fixed.stderr
     assert "Litmus verify" in verify_fixed.stdout
     assert "Performance:" in verify_fixed.stdout
-    assert "budget<=10.00s mode=local profile=default within_budget=yes" in verify_fixed.stdout
+    assert "budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes" in verify_fixed.stdout
     assert "Budget policy: launch-default under-10s path" in verify_fixed.stdout
     latest_fixed_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))[
         "run_id"

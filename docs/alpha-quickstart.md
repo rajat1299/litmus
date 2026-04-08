@@ -91,7 +91,7 @@ Invariants: 2
 Scenarios: 2
 Replay: unchanged=1 breaking=1 benign=0 improvement=0
 Properties: passed=0 failed=0 skipped=0
-Performance: elapsed=0.70s budget<=10.00s mode=local profile=default within_budget=yes
+Performance: elapsed=0.70s budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes
 Launch budgets: replay_seeds/scenario=3 property_examples=100
 Budget policy: launch-default under-10s path
 Confidence: 0.50
@@ -164,7 +164,7 @@ Expected output shape:
 
 ```text
 Replay: unchanged=2 breaking=0 benign=0 improvement=0
-Performance: elapsed=0.65s budget<=10.00s mode=local profile=default within_budget=yes
+Performance: elapsed=0.65s budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes
 Budget policy: launch-default under-10s path
 Confidence: 1.00
 ```

@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-08
-**Phase:** Track B3 slice 2 in progress
+**Phase:** Track B3 slice 3 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -121,6 +121,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-08 | Landed a follow-up WS-22 slice on `codex/b3-search-budget-slice1`: repeated same-target replay seeds now diversify fault kinds instead of rerunning identical target/kind pairs, and search-budget artifacts/summaries expose planned fault-kind coverage so narrower scenarios remain explainable |
 | 2026-04-08 | Fixed a post-review WS-22 issue on `codex/b3-search-budget-slice1`: Redis planner diversification now excludes operation-gated `partial_write` from the default replay-kind cycle, so read-only routes no longer spend budget on no-op faults or overstate planned kind diversity |
 | 2026-04-08 | Landed another WS-22 review slice on `codex/b3-search-budget-slice1`: search-budget artifacts now persist scenario priority class plus replayable frontier capacity, redistribution prefers higher-value multi-target frontier before simpler cases, and CLI/MCP/run summaries expose those priority/frontier counts so scenario-aware budget allocation is inspectable |
+| 2026-04-08 | Landed another WS-22 review slice on `codex/b3-search-budget-slice1`: Litmus now persists an explicit search strategy in verification summaries, keeps the default local/MCP/watch loop on a balanced strategy, and reserves frontier-first prioritization for hostile local runs and CI so deeper profiles control search behavior without broadening the launch path |
 
 ---
 
@@ -129,7 +130,7 @@ Update this table whenever work is claimed, blocked, or completed.
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
 3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
-4. Treat Track B2 as complete, keep WS-22 bounded to scenario-aware search-budget prioritization and explicit frontier accounting, and defer any default-depth changes until those slices are reviewed.
+4. Treat Track B2 as complete, keep WS-22 bounded to explicit search-strategy controls plus scenario-aware frontier accounting, and defer any default-depth changes until those slices are reviewed.
 5. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

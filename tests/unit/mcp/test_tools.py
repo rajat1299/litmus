@@ -68,6 +68,7 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.replay_seeds == ["seed:1"]
     assert result.performance.mode == "mcp"
     assert result.performance.budget_policy == "mcp_local_agent"
+    assert result.performance.search_strategy == "balanced"
     assert result.performance.measured is True
     assert result.performance.budget_ms == 10000
     assert result.performance.within_budget is True
@@ -99,6 +100,7 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.invariants.pending_review == 0
     assert payload.performance.mode == "mcp"
     assert payload.performance.budget_policy == "mcp_local_agent"
+    assert payload.performance.search_strategy == "balanced"
     assert payload.performance.measured is True
     assert payload.performance.replay_seeds_per_scenario == 3
     assert payload.performance.property_max_examples == 100
@@ -179,6 +181,7 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
         mode = "ci"
         fault_profile = "default"
         replay_seeds_per_scenario = 500
+        search_strategy = "frontier_first"
         property_max_examples = 500
         routes = []
         invariants = []
@@ -206,6 +209,7 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
     assert captured["mode"] is RunMode.CI
     assert result.performance.mode == "ci"
     assert result.performance.budget_policy == "ci_deeper"
+    assert result.performance.search_strategy == "frontier_first"
     assert result.performance.measured is True
     assert result.performance.budget_ms == 60000
     assert result.performance.search_budget.requested_seeds_per_scenario == 500

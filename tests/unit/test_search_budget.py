@@ -50,7 +50,34 @@ def test_allocate_scenario_seed_budgets_prioritizes_multi_target_frontier() -> N
     assert allocate_scenario_seed_budgets(
         requested_seeds_per_scenario=3,
         reachabilities=reachabilities,
+        strategy="frontier_first",
     ) == [5, 3, 1]
+
+
+def test_allocate_scenario_seed_budgets_balanced_strategy_prefers_remaining_frontier() -> None:
+    reachabilities = [
+        ScenarioReachability(
+            clean_path_targets=("sqlalchemy", "custom"),
+            selected_targets=("sqlalchemy", "custom"),
+        ),
+        ScenarioReachability(
+            clean_path_targets=("http",),
+            selected_targets=("http",),
+        ),
+        ScenarioReachability(),
+    ]
+
+    assert allocate_scenario_seed_budgets(
+        requested_seeds_per_scenario=2,
+        reachabilities=reachabilities,
+        strategy="balanced",
+    ) == [2, 3, 1]
+
+    assert allocate_scenario_seed_budgets(
+        requested_seeds_per_scenario=2,
+        reachabilities=reachabilities,
+        strategy="frontier_first",
+    ) == [3, 2, 1]
 
 
 def test_scenario_search_budget_restores_legacy_frontier_conservatively() -> None:

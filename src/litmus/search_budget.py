@@ -103,6 +103,7 @@ def allocate_scenario_seed_budgets(
     *,
     requested_seeds_per_scenario: int,
     reachabilities: list[ScenarioReachability],
+    strategy: str = "balanced",
 ) -> list[int]:
     if requested_seeds_per_scenario <= 0:
         return [0 for _ in reachabilities]
@@ -124,7 +125,7 @@ def allocate_scenario_seed_budgets(
         chosen_index = max(
             candidate_indices,
             key=lambda index: (
-                _priority_rank(priority_classes[index]),
+                _strategy_priority_rank(strategy, priority_classes[index]),
                 capacities[index] - allocations[index],
                 capacities[index],
                 len(replayable_targets(reachabilities[index])),
@@ -326,6 +327,12 @@ def _priority_rank(priority_class: str) -> int:
         "no_boundary": 0,
         "disabled": -1,
     }.get(priority_class, -1)
+
+
+def _strategy_priority_rank(strategy: str, priority_class: str) -> int:
+    if strategy == "frontier_first":
+        return _priority_rank(priority_class)
+    return 0
 
 
 def _legacy_priority_class(payload: dict[str, object]) -> str:

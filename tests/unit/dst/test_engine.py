@@ -73,11 +73,13 @@ def test_run_verification_uses_ci_replay_and_property_budgets(monkeypatch, tmp_p
         _scenarios,
         *,
         seeds_per_scenario: int,
+        search_strategy: str,
         fault_targets=None,
         boundary_usage=None,
         root=None,
     ):
         captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["search_strategy"] = search_strategy
         captured["fault_targets"] = fault_targets
         captured["boundary_usage"] = boundary_usage
         return [], []
@@ -115,11 +117,13 @@ def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypa
         _scenarios,
         *,
         seeds_per_scenario: int,
+        search_strategy: str,
         fault_targets=None,
         boundary_usage=None,
         root=None,
     ):
         captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["search_strategy"] = search_strategy
         captured["fault_targets"] = fault_targets
         captured["boundary_usage"] = boundary_usage
         return [], []
@@ -135,6 +139,7 @@ def test_run_verification_defaults_to_local_replay_and_property_budgets(monkeypa
     run_verification(tmp_path)
 
     assert captured["seeds_per_scenario"] == 3
+    assert captured["search_strategy"] == "balanced"
     assert captured["max_examples"] == 100
     assert captured["fault_targets"] == ["http"]
     assert captured["boundary_usage"].supported_targets == ()
@@ -158,11 +163,13 @@ def test_run_verification_uses_gentle_fault_profile_local_budgets(monkeypatch, t
         _scenarios,
         *,
         seeds_per_scenario: int,
+        search_strategy: str,
         fault_targets=None,
         boundary_usage=None,
         root=None,
     ):
         captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["search_strategy"] = search_strategy
         return [], []
 
     monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
@@ -176,6 +183,7 @@ def test_run_verification_uses_gentle_fault_profile_local_budgets(monkeypatch, t
     run_verification(tmp_path)
 
     assert captured["seeds_per_scenario"] == 1
+    assert captured["search_strategy"] == "balanced"
     assert captured["max_examples"] == 25
 
 
@@ -196,11 +204,13 @@ def test_run_verification_uses_hostile_fault_profile_local_budgets(monkeypatch, 
         _scenarios,
         *,
         seeds_per_scenario: int,
+        search_strategy: str,
         fault_targets=None,
         boundary_usage=None,
         root=None,
     ):
         captured["seeds_per_scenario"] = seeds_per_scenario
+        captured["search_strategy"] = search_strategy
         return [], []
 
     monkeypatch.setattr("litmus.dst.engine._run_replay", fake_run_replay)
@@ -214,6 +224,7 @@ def test_run_verification_uses_hostile_fault_profile_local_budgets(monkeypatch, 
     run_verification(tmp_path)
 
     assert captured["seeds_per_scenario"] == 9
+    assert captured["search_strategy"] == "frontier_first"
     assert captured["max_examples"] == 250
 
 

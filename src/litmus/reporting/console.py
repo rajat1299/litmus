@@ -72,6 +72,7 @@ def _performance_summary_line(projection: VerificationProjection) -> str:
             f"budget<={performance['budget_ms'] / 1000:.2f}s "
             f"mode={performance['mode']} "
             f"profile={performance['fault_profile']} "
+            f"strategy={performance['search_strategy']} "
             "within_budget=unknown"
         )
     return (
@@ -80,6 +81,7 @@ def _performance_summary_line(projection: VerificationProjection) -> str:
         f"budget<={performance['budget_ms'] / 1000:.2f}s "
         f"mode={performance['mode']} "
         f"profile={performance['fault_profile']} "
+        f"strategy={performance['search_strategy']} "
         f"within_budget={'yes' if performance['within_budget'] else 'no'}"
     )
 

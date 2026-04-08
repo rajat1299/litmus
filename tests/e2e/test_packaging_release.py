@@ -131,7 +131,7 @@ def test_alpha_docs_and_built_wheel_support_the_demo_flow(tmp_path) -> None:
     assert verify_result.returncode == 1, verify_result.stdout
     assert "Litmus verify" in verify_result.stdout
     assert "Performance:" in verify_result.stdout
-    assert "budget<=10.00s mode=local profile=default within_budget=yes" in verify_result.stdout
+    assert "budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes" in verify_result.stdout
     assert "Launch budgets: replay_seeds/scenario=3 property_examples=100" in verify_result.stdout
     assert "Budget policy: launch-default under-10s path" in verify_result.stdout
     latest_run_id = json.loads((demo_repo / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]

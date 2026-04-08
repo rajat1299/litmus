@@ -112,6 +112,7 @@ class PerformanceCounts:
     mode: str
     fault_profile: str
     budget_policy: str
+    search_strategy: str
     measured: bool
     elapsed_ms: int | None
     budget_ms: int
@@ -125,6 +126,7 @@ class PerformanceCounts:
             "mode": self.mode,
             "fault_profile": self.fault_profile,
             "budget_policy": self.budget_policy,
+            "search_strategy": self.search_strategy,
             "measured": self.measured,
             "elapsed_ms": self.elapsed_ms,
             "budget_ms": self.budget_ms,
@@ -343,6 +345,7 @@ class PerformancePayload(BaseModel):
     mode: str
     fault_profile: str
     budget_policy: str
+    search_strategy: str
     measured: bool
     elapsed_ms: int | None = None
     budget_ms: int

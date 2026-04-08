@@ -12,6 +12,7 @@ from litmus.performance import (
     elapsed_ms,
     property_max_examples_for_mode,
     replay_seed_count_for_mode,
+    search_strategy_for_mode,
     verify_budget_ms_for_mode,
 )
 from litmus.properties.runner import PropertyCheckStatus
@@ -24,6 +25,7 @@ class PerformanceProjection:
     mode: str
     fault_profile: str
     budget_policy: str
+    search_strategy: str
     measured: bool
     elapsed_ms: int | None
     budget_ms: int
@@ -37,6 +39,7 @@ class PerformanceProjection:
             "mode": self.mode,
             "fault_profile": self.fault_profile,
             "budget_policy": self.budget_policy,
+            "search_strategy": self.search_strategy,
             "measured": self.measured,
             "elapsed_ms": self.elapsed_ms,
             "budget_ms": self.budget_ms,
@@ -117,6 +120,9 @@ def performance_projection_from_result(result) -> PerformanceProjection:
     property_max_examples = getattr(result, "property_max_examples", None)
     if property_max_examples is None:
         property_max_examples = property_max_examples_for_mode(mode, fault_profile=fault_profile)
+    search_strategy = getattr(result, "search_strategy", None)
+    if search_strategy is None:
+        search_strategy = search_strategy_for_mode(mode, fault_profile=fault_profile)
     duration_ms = elapsed_ms(
         getattr(result, "started_at", None),
         getattr(result, "completed_at", None),
@@ -132,6 +138,7 @@ def performance_projection_from_result(result) -> PerformanceProjection:
         mode=mode,
         fault_profile=fault_profile.value,
         budget_policy=budget_policy_for_mode(mode, fault_profile=fault_profile),
+        search_strategy=search_strategy,
         measured=measured,
         elapsed_ms=duration_ms,
         budget_ms=budget_ms,

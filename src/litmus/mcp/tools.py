@@ -77,6 +77,7 @@ def run_verify_operation(
             mode=projection.performance["mode"],
             fault_profile=projection.performance["fault_profile"],
             budget_policy=projection.performance["budget_policy"],
+            search_strategy=projection.performance["search_strategy"],
             measured=projection.performance["measured"],
             elapsed_ms=projection.performance["elapsed_ms"],
             budget_ms=projection.performance["budget_ms"],

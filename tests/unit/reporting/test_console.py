@@ -131,7 +131,7 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
             "Scenarios: 1",
             "Replay: unchanged=1 breaking=1 benign=0 improvement=0",
             "Properties: passed=1 failed=0 skipped=1",
-            "Performance: elapsed=2.10s budget<=10.00s mode=local profile=default within_budget=yes",
+            "Performance: elapsed=2.10s budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes",
             "Launch budgets: replay_seeds/scenario=3 property_examples=100",
             "Search budget: requested_total=3 allocated_total=1 executed=1 single_target=0 kind_diverse=0 priority_multi=0 frontier_capped=1 redistributed=1 no_boundary=1 targets=none kinds=none",
             "Budget policy: launch-default under-10s path",

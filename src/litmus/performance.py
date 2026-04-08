@@ -71,6 +71,20 @@ def replay_seed_count_for_mode(
     return LOCAL_REPLAY_SEEDS_PER_SCENARIO
 
 
+def search_strategy_for_mode(
+    mode: object,
+    *,
+    fault_profile: FaultProfile | str = FaultProfile.DEFAULT,
+) -> str:
+    resolved_mode = coerce_run_mode(mode)
+    resolved_fault_profile = coerce_fault_profile(fault_profile)
+    if resolved_mode == "ci":
+        return "frontier_first"
+    if resolved_fault_profile is FaultProfile.HOSTILE:
+        return "frontier_first"
+    return "balanced"
+
+
 def elapsed_ms(started_at: str | None, completed_at: str | None) -> int | None:
     if started_at is None or completed_at is None:
         return None
