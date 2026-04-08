@@ -678,32 +678,60 @@ def test_litmus_replay_supports_direct_sqlalchemy_asyncsession_constructor(tmp_p
     assert "Traceback" not in replay_result.stderr
 
 
+def test_litmus_replay_supports_redis_client_module_from_url_constructor(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, redis_constructor_shape="client_class_from_url")
+
+    verify_result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert verify_result.returncode == 1, verify_result.stdout
+
+    replay_result = subprocess.run(
+        ["litmus", "replay", "seed:2"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert replay_result.returncode == 0, replay_result.stderr
+    assert "Classification: breaking_change" in replay_result.stdout
+    assert "Execution fidelity: matched" in replay_result.stdout
+    assert "Traceback" not in replay_result.stderr
+
+
 def _write_cross_layer_dst_repo(
     tmp_path: Path,
     *,
+    redis_constructor_shape: str = "module_from_url",
     sqlalchemy_constructor_shape: str = "async_sessionmaker",
 ) -> Path:
     repo_root = tmp_path
     service_dir = repo_root / "service"
     tests_dir = repo_root / "tests"
     redis_dir = repo_root / "redis"
+    redis_asyncio_dir = redis_dir / "asyncio"
     sqlalchemy_dir = repo_root / "sqlalchemy"
     sqlalchemy_ext_dir = sqlalchemy_dir / "ext"
     sqlalchemy_orm_dir = sqlalchemy_dir / "orm"
     service_dir.mkdir()
     tests_dir.mkdir()
     redis_dir.mkdir()
+    redis_asyncio_dir.mkdir()
     sqlalchemy_dir.mkdir()
     sqlalchemy_ext_dir.mkdir()
     sqlalchemy_orm_dir.mkdir()
 
     (redis_dir / "__init__.py").write_text("", encoding="utf-8")
-    (redis_dir / "asyncio.py").write_text(
+    (redis_asyncio_dir / "__init__.py").write_text(
         textwrap.dedent(
             """
-            class Redis:
-                def __init__(self, *args, **kwargs):
-                    raise RuntimeError("litmus should patch redis.asyncio.Redis")
+            from .client import Redis
 
 
             def from_url(*args, **kwargs):
@@ -720,6 +748,21 @@ def _write_cross_layer_dst_repo(
                 async def set(self, key, value):
                     self._store[key] = value
                     return True
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (redis_asyncio_dir / "client.py").write_text(
+        textwrap.dedent(
+            """
+            class Redis:
+                def __init__(self, *args, **kwargs):
+                    raise RuntimeError("litmus should patch redis.asyncio.client.Redis")
+
+                @classmethod
+                def from_url(cls, *args, **kwargs):
+                    raise RuntimeError("litmus should patch redis.asyncio.client.Redis.from_url")
             """
         ).strip()
         + "\n",
@@ -837,6 +880,18 @@ def _write_cross_layer_dst_repo(
     )
 
     (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    redis_import = "from redis.asyncio import from_url"
+    redis_constructor = 'redis = from_url("redis://cache")'
+    if redis_constructor_shape == "class_from_url":
+        redis_import = "from redis.asyncio import Redis"
+        redis_constructor = 'redis = Redis.from_url("redis://cache")'
+    elif redis_constructor_shape == "client_class":
+        redis_import = "from redis.asyncio.client import Redis"
+        redis_constructor = 'redis = Redis("redis://cache")'
+    elif redis_constructor_shape == "client_class_from_url":
+        redis_import = "from redis.asyncio.client import Redis"
+        redis_constructor = 'redis = Redis.from_url("redis://cache")'
+
     sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
     sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
     sqlalchemy_session_guard = ""
@@ -862,7 +917,7 @@ def _write_cross_layer_dst_repo(
             import json
 
             import httpx
-            from redis.asyncio import from_url
+            __REDIS_IMPORT__
             from sqlalchemy import Column, MetaData, String, Table, insert, select
             __SQLALCHEMY_IMPORT__
 
@@ -908,7 +963,7 @@ def _write_cross_layer_dst_repo(
             )
             engine = create_async_engine("sqlite+aiosqlite:///:memory:")
             __SQLALCHEMY_SESSION_FACTORY__
-            redis = from_url("redis://cache")
+            __REDIS_CONSTRUCTOR__
 
 
             @app.post("/payments/charge")
@@ -937,6 +992,8 @@ def _write_cross_layer_dst_repo(
                 return {"status_code": 200, "json": {"status": "charged"}}
             """
     ).strip()
+    app_source = app_source.replace("__REDIS_IMPORT__", redis_import)
+    app_source = app_source.replace("__REDIS_CONSTRUCTOR__", redis_constructor)
     app_source = app_source.replace("__SQLALCHEMY_IMPORT__", sqlalchemy_import)
     app_source = app_source.replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
     if sqlalchemy_constructor_shape == "direct_async_session":

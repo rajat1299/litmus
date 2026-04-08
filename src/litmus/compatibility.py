@@ -27,6 +27,8 @@ LAUNCH_COMPATIBILITY_MATRIX: dict[str, object] = {
         "supported_shapes": [
             "redis.asyncio.Redis",
             "redis.asyncio.Redis.from_url",
+            "redis.asyncio.client.Redis",
+            "redis.asyncio.client.Redis.from_url",
         ],
     },
 }

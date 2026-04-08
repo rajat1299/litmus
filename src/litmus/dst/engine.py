@@ -726,7 +726,7 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
                     for alias in node.names
                     if alias.name == "AsyncSession"
                 )
-            elif node.module == "redis.asyncio":
+            elif node.module in {"redis.asyncio", "redis.asyncio.client"}:
                 redis_factory_aliases.update(
                     alias.asname or alias.name
                     for alias in node.names

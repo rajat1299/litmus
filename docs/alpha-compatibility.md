@@ -10,7 +10,7 @@ The top-level `README.md` remains aspirational. Use this file when you need the 
 - ASGI app surface: FastAPI / Starlette-style ASGI apps discovered from the current workspace
 - HTTP boundary: `httpx` / `aiohttp` through the shipped outbound HTTP simulator
 - SQLAlchemy boundary: `sqlalchemy.ext.asyncio` via `create_async_engine` plus either direct `AsyncSession(...)`, `async_sessionmaker`, or `sqlalchemy.orm.sessionmaker(..., class_=AsyncSession)`
-- Redis boundary: `redis.asyncio.Redis(...)` and `redis.asyncio.Redis.from_url(...)`
+- Redis boundary: `redis.asyncio.Redis(...)`, `redis.asyncio.Redis.from_url(...)`, `redis.asyncio.client.Redis(...)`, and `redis.asyncio.client.Redis.from_url(...)`
 
 ## Capability States
 
@@ -39,6 +39,8 @@ The current Redis async launch slice is intentionally narrow:
 
 - `redis.asyncio.Redis(...)`
 - `redis.asyncio.Redis.from_url(...)`
+- `redis.asyncio.client.Redis(...)`
+- `redis.asyncio.client.Redis.from_url(...)`
 - simulator-backed key/value operations exercised through the shipped verify and replay loop
 
 Examples outside that slice should degrade as `unsupported` rather than silently claiming full DST coverage.

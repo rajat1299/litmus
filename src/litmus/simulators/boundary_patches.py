@@ -40,9 +40,7 @@ def patched_supported_boundaries(root: Path | str | None = None):
         sqlalchemy_orm_patch = _patch_sqlalchemy_orm()
         if sqlalchemy_orm_patch is not None:
             patchers.append(sqlalchemy_orm_patch)
-        redis_patch = _patch_redis_async()
-        if redis_patch is not None:
-            patchers.append(redis_patch)
+        patchers.extend(_patch_redis_async())
         try:
             yield
         finally:
@@ -98,23 +96,52 @@ def _patch_sqlalchemy_orm() -> _ModulePatch | None:
     return _ModulePatch(module, original)
 
 
-def _patch_redis_async() -> _ModulePatch | None:
+def _patch_redis_async() -> list[_ModulePatch]:
+    patchers: list[_ModulePatch] = []
+
     try:
         module = importlib.import_module("redis.asyncio")
     except ImportError:
-        return None
+        module = None
 
-    original: dict[str, object] = {}
+    if module is not None:
+        original: dict[str, object] = {}
+        package_constructor = _build_patched_redis_constructor(
+            supported_shape="redis.asyncio.Redis",
+            from_url_shape="redis.asyncio.Redis.from_url",
+        )
 
-    if hasattr(module, "Redis"):
-        original["Redis"] = module.Redis
-        module.Redis = _PatchedRedisConstructor
+        if hasattr(module, "Redis"):
+            original["Redis"] = module.Redis
+            module.Redis = package_constructor
 
-    if hasattr(module, "from_url"):
-        original["from_url"] = module.from_url
-        module.from_url = _PatchedRedisConstructor.from_url
+        if hasattr(module, "from_url"):
+            original["from_url"] = module.from_url
+            module.from_url = package_constructor.from_url
 
-    return _ModulePatch(module, original)
+        if original:
+            patchers.append(_ModulePatch(module, original))
+
+    try:
+        client_module = importlib.import_module("redis.asyncio.client")
+    except ImportError:
+        client_module = None
+
+    if client_module is not None:
+        original: dict[str, object] = {}
+        client_constructor = _build_patched_redis_constructor(
+            supported_shape="redis.asyncio.client.Redis",
+            from_url_shape="redis.asyncio.client.Redis.from_url",
+        )
+
+        if hasattr(client_module, "Redis"):
+            original["Redis"] = client_module.Redis
+            client_module.Redis = client_constructor
+
+        if original:
+            patchers.append(_ModulePatch(client_module, original))
+
+    return patchers
 
 
 def _patched_create_async_engine(url: str, *args, **kwargs):
@@ -194,21 +221,24 @@ def _uses_sqlalchemy_asyncsession(kwargs: dict[str, object]) -> bool:
     return expected_class is not None and async_session_class is expected_class
 
 
-class _PatchedRedisConstructor:
-    def __new__(cls, *args, **kwargs):
-        return _PatchedRedisProxy(
-            supported_shape="redis.asyncio.Redis",
-            args=args,
-            kwargs=kwargs,
-        )
+def _build_patched_redis_constructor(*, supported_shape: str, from_url_shape: str):
+    class _PatchedRedisConstructor:
+        def __new__(cls, *args, **kwargs):
+            return _PatchedRedisProxy(
+                supported_shape=supported_shape,
+                args=args,
+                kwargs=kwargs,
+            )
 
-    @classmethod
-    def from_url(cls, url: str, *args, **kwargs):
-        return _PatchedRedisProxy(
-            supported_shape="redis.asyncio.Redis.from_url",
-            args=(url, *args),
-            kwargs=kwargs,
-        )
+        @classmethod
+        def from_url(cls, url: str, *args, **kwargs):
+            return _PatchedRedisProxy(
+                supported_shape=from_url_shape,
+                args=(url, *args),
+                kwargs=kwargs,
+            )
+
+    return _PatchedRedisConstructor
 
 
 class _PatchedAsyncEngineProxy:

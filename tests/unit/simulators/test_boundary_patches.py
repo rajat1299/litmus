@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
+from pathlib import Path
+import sys
 
 from litmus.dst.faults import FaultPlan
 from litmus.dst.runtime import RuntimeContext
@@ -9,6 +12,7 @@ from litmus.simulators.boundary_patches import (
     _build_patched_asyncsession_constructor,
     _build_patched_orm_sessionmaker,
     activate_runtime,
+    patched_supported_boundaries,
 )
 
 
@@ -111,3 +115,62 @@ def test_patched_asyncsession_constructor_preserves_keyword_bind_when_falling_ba
         "bind": bind,
         "expire_on_commit": False,
     }
+
+
+def test_patched_supported_boundaries_support_redis_client_module_imports(tmp_path: Path) -> None:
+    _clear_test_modules("redis")
+    redis_asyncio_dir = tmp_path / "redis" / "asyncio"
+    redis_asyncio_dir.mkdir(parents=True)
+
+    (tmp_path / "redis" / "__init__.py").write_text("", encoding="utf-8")
+    (redis_asyncio_dir / "__init__.py").write_text(
+        (
+            "from .client import Redis\n"
+            "def from_url(*args, **kwargs):\n"
+            "    raise RuntimeError('litmus should patch redis.asyncio.from_url')\n"
+        ),
+        encoding="utf-8",
+    )
+    (redis_asyncio_dir / "client.py").write_text(
+        (
+            "class Redis:\n"
+            "    def __init__(self, *args, **kwargs):\n"
+            "        raise RuntimeError('litmus should patch redis.asyncio.client.Redis')\n"
+            "    @classmethod\n"
+            "    def from_url(cls, *args, **kwargs):\n"
+            "        raise RuntimeError('litmus should patch redis.asyncio.client.Redis.from_url')\n"
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = RuntimeContext(seed=1, fault_plan=FaultPlan(seed=1))
+
+    async def _exercise() -> None:
+        with patched_supported_boundaries(tmp_path):
+            client_module = importlib.import_module("redis.asyncio.client")
+            with activate_runtime(runtime):
+                client = client_module.Redis("redis://cache")
+                await client.get("charge:1")
+                from_url_client = client_module.Redis.from_url("redis://cache")
+                await from_url_client.get("charge:2")
+
+    asyncio.run(_exercise())
+
+    assert any(
+        event.kind == "boundary_intercepted"
+        and event.metadata["boundary"] == "redis"
+        and event.metadata["supported_shape"] == "redis.asyncio.client.Redis"
+        for event in runtime.trace
+    )
+    assert any(
+        event.kind == "boundary_intercepted"
+        and event.metadata["boundary"] == "redis"
+        and event.metadata["supported_shape"] == "redis.asyncio.client.Redis.from_url"
+        for event in runtime.trace
+    )
+
+
+def _clear_test_modules(*prefixes: str) -> None:
+    for name in list(sys.modules):
+        if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):
+            sys.modules.pop(name, None)
