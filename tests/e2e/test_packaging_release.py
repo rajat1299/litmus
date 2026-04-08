@@ -10,17 +10,15 @@ import sys
 
 def _assert_local_launch_budget(summary: dict[str, object]) -> None:
     performance = summary["performance"]
-    assert performance == {
-        "mode": "local",
-        "fault_profile": "default",
-        "budget_policy": "launch_default",
-        "measured": True,
-        "elapsed_ms": performance["elapsed_ms"],
-        "budget_ms": 10_000,
-        "within_budget": True,
-        "replay_seeds_per_scenario": 3,
-        "property_max_examples": 100,
-    }
+    assert performance["mode"] == "local"
+    assert performance["fault_profile"] == "default"
+    assert performance["budget_policy"] == "launch_default"
+    assert performance["measured"] is True
+    assert performance["budget_ms"] == 10_000
+    assert performance["within_budget"] is True
+    assert performance["replay_seeds_per_scenario"] == 3
+    assert performance["property_max_examples"] == 100
+    assert performance["search_budget"]["requested_seeds_per_scenario"] == 3
     assert isinstance(performance["elapsed_ms"], int)
     assert 0 <= performance["elapsed_ms"] <= performance["budget_ms"]
 

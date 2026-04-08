@@ -4,6 +4,7 @@ from litmus.dst.reachability import PlannedFaultSeed, ScenarioReachability, Targ
 from litmus.dst.runtime import TraceEvent
 from litmus.replay.models import ReplayCheckpoint, ReplayResponseDetails, SchedulerDecision
 from litmus.replay.trace import ReplayTraceRecord, replay_fault_plan, replay_trace_record_from_dict, replay_trace_record_to_dict
+from litmus.search_budget import ScenarioSearchBudget
 
 
 def test_replay_fault_plan_reconstructs_schedule_from_trace_record() -> None:
@@ -118,6 +119,14 @@ def test_replay_trace_record_round_trips_target_selection_artifact() -> None:
                 fault_kind="timeout",
                 selection_source="fault_path",
             ),
+        ),
+        search_budget=ScenarioSearchBudget(
+            requested_seeds=3,
+            allocated_seeds=3,
+            allocation_mode="target_spread",
+            selected_targets=("http", "redis"),
+            scenario_seed_start=1,
+            scenario_seed_end=3,
         ),
     )
 

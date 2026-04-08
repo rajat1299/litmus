@@ -40,6 +40,7 @@ from litmus.replay.models import ReplayResponseDetails
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.models import RunMode
 from litmus.scenarios.builder import Scenario, build_scenarios
+from litmus.search_budget import build_scenario_search_budget
 from litmus.verify_scope import VerifyScope, apply_verification_scope, default_verification_scope
 
 LOCAL_PROPERTY_MAX_EXAMPLES = 100
@@ -325,6 +326,12 @@ async def _run_replay(
                     selection_source="no_boundary",
                 )
             ]
+        scenario_search_budget = build_scenario_search_budget(
+            seed_start=next_seed_value,
+            requested_seeds=seeds_per_scenario,
+            reachability=reachability,
+            planned_fault_seeds=planned_fault_seeds,
+        )
         for planned_seed in planned_fault_seeds:
             if planned_seed.selection_source == "no_boundary":
                 fault_plan = build_fault_plan(
@@ -397,6 +404,7 @@ async def _run_replay(
                             reachability=reachability,
                             planned_fault_seed=planned_seed,
                         ),
+                        search_budget=scenario_search_budget,
                     )
                 )
         next_seed_value += len(planned_fault_seeds)

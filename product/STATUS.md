@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-07
-**Phase:** Track B2 complete
+**Phase:** Track B3 slice 1 in progress
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In progress | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, the bounded CLI management surface, the suggested-invariant review lifecycle, and performance/SLO hardening have landed; bounded moat-deepening work now resumes with scheduler-level deterministic replay |
+| Release readiness | In progress | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, the bounded CLI management surface, the suggested-invariant review lifecycle, and performance/SLO hardening have landed; bounded moat-deepening work now continues with search-budget scaling and smarter fault-budget accounting |
 
 ---
 
@@ -78,6 +78,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-19 | Suggested invariant review workflow | Codex | Done | WS-13, WS-18 | 2026-04-07 |
 | WS-20 | Performance and launch SLO hardening | Codex | Done | WS-17, WS-18, WS-19 | 2026-04-07 |
 | WS-21 | Scheduler-level deterministic replay | Codex | Done | WS-16, WS-17, WS-20 | 2026-04-07 |
+| WS-22 | Search-depth scaling and smarter fault budgets | Codex | In progress | WS-17, WS-20, WS-21 | 2026-04-07 |
 
 ---
 
@@ -115,6 +116,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Landed a follow-up WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: fidelity payloads now carry recorded versus replay scheduler decisions for decision drift, and CLI/MCP explanation surfaces render drift kind plus decision-specific divergence details instead of checkpoint-style `missing` placeholders |
 | 2026-04-07 | Completed Track B2 as WS-21 on `codex/b2-scheduler-ledger-slice1`: replay now covers both planner and execution scheduler decisions within the bounded hybrid contract, including probe/target-selection ledger entries, replay-time planner recomputation, recorded replay outcomes, and decision-aware CLI/MCP drift explanations with honest WS-16 fallback for legacy artifacts |
 | 2026-04-07 | Fixed a post-completion WS-21 review issue on `codex/b2-scheduler-ledger-slice1`: replay-time planner recomputation now preserves the original scenario seed window for non-first seeds, so unchanged multi-target routes no longer report false scheduler drift on `seed:2`, `seed:3`, and later replayed seeds |
+| 2026-04-07 | Claimed Track B3 slice 1 as WS-22 on branch `codex/b3-search-budget-slice1` with a bounded scope around explicit search-budget artifacts and accounting: record requested versus allocated replay seeds per scenario, expose target-aware budget usage in run summaries, and defer any actual depth/default changes until the accounting contract is reviewed |
+| 2026-04-07 | Landed the first WS-22 review slice on `codex/b3-search-budget-slice1`: verify artifacts now persist per-scenario search-budget snapshots, shared verification summaries expose requested versus allocated replay budget plus target/no-boundary accounting, and CLI/MCP surfaces carry the same bounded search-budget contract without changing current search depth |
 
 ---
 
@@ -123,7 +126,7 @@ Update this table whenever work is claimed, blocked, or completed.
 1. Use `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the execution map for post-WS-17 launch closeout, moat depth, and platform expansion work.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
 3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
-4. Treat Track B2 as complete and use B3 in `docs/plans/2026-04-05-litmus-next-phase-action-items.md` as the next moat-depth candidate.
+4. Treat Track B2 as complete, keep WS-22 bounded to search-budget artifacts/accounting first, and defer any default-depth changes until that slice is reviewed.
 5. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---

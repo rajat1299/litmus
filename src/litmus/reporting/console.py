@@ -32,6 +32,7 @@ def render_verification_summary(result) -> str:
         "Launch budgets: "
         f"replay_seeds/scenario={projection.performance['replay_seeds_per_scenario']} "
         f"property_examples={projection.performance['property_max_examples']}",
+        _search_budget_line(projection),
         _budget_policy_line(projection),
         f"Confidence: {projection.confidence:.2f}",
     ]
@@ -94,6 +95,21 @@ def _budget_policy_line(projection: VerificationProjection) -> str:
         "ci_deeper": "CI deeper-search path",
     }
     return f"Budget policy: {descriptions[policy]}"
+
+
+def _search_budget_line(projection: VerificationProjection) -> str:
+    search_budget = projection.performance["search_budget"]
+    targets = search_budget["unique_selected_targets"]
+    rendered_targets = "none" if not targets else ",".join(targets)
+    return (
+        "Search budget: "
+        f"requested_total={search_budget['requested_total_replay_seeds']} "
+        f"allocated_total={search_budget['allocated_total_replay_seeds']} "
+        f"executed={search_budget['executed_replays']} "
+        f"single_target={search_budget['target_single_scenarios']} "
+        f"no_boundary={search_budget['no_boundary_scenarios']} "
+        f"targets={rendered_targets}"
+    )
 
 
 def _boundary_coverage_lines(result) -> list[str]:

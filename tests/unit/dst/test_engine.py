@@ -346,6 +346,15 @@ def test_run_replay_spreads_local_fault_targets_across_http_sqlalchemy_and_redis
     assert len(replay_results) == 3
     assert len(replay_traces) == 3
     assert captured_targets == ["http", "sqlalchemy", "redis"]
+    assert replay_traces[0].search_budget is not None
+    assert replay_traces[0].search_budget.to_dict() == {
+        "requested_seeds": 3,
+        "allocated_seeds": 3,
+        "allocation_mode": "target_spread",
+        "selected_targets": ["http", "sqlalchemy", "redis"],
+        "scenario_seed_start": 1,
+        "scenario_seed_end": 3,
+    }
 
 
 def test_run_replay_narrows_fault_targets_to_runtime_detected_boundaries(monkeypatch) -> None:
@@ -543,6 +552,15 @@ def test_run_replay_uses_single_no_fault_seed_when_no_supported_boundaries_are_d
             "fault_kind": "none",
             "selection_source": "no_boundary",
         },
+    }
+    assert replay_traces[0].search_budget is not None
+    assert replay_traces[0].search_budget.to_dict() == {
+        "requested_seeds": 3,
+        "allocated_seeds": 1,
+        "allocation_mode": "no_boundary",
+        "selected_targets": [],
+        "scenario_seed_start": 1,
+        "scenario_seed_end": 1,
     }
 
 

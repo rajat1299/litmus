@@ -71,6 +71,9 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.performance.measured is True
     assert result.performance.budget_ms == 10000
     assert result.performance.within_budget is True
+    assert result.performance.search_budget.no_boundary_scenarios == 1
+    assert result.performance.search_budget.target_single_scenarios == 0
+    assert result.performance.search_budget.allocated_total_replay_seeds == 1
     assert result.compatibility.matrix["python"] == "3.11+"
     assert result.compatibility.matrix["http"]["package"] == "httpx/aiohttp"
     assert result.compatibility.boundaries["http"].status == "not_detected"
@@ -95,6 +98,9 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.performance.measured is True
     assert payload.performance.replay_seeds_per_scenario == 3
     assert payload.performance.property_max_examples == 100
+    assert payload.performance.search_budget.no_boundary_scenarios == 1
+    assert payload.performance.search_budget.target_single_scenarios == 0
+    assert payload.performance.search_budget.unique_selected_targets == []
 
     compatibility_property = schema["properties"]["compatibility"]
     assert "$ref" in compatibility_property
@@ -194,6 +200,7 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
     assert result.performance.budget_policy == "ci_deeper"
     assert result.performance.measured is True
     assert result.performance.budget_ms == 60000
+    assert result.performance.search_budget.requested_seeds_per_scenario == 500
 
 
 def test_run_list_invariants_operation_returns_visible_invariants(tmp_path: Path) -> None:

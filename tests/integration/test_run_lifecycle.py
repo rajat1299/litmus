@@ -81,6 +81,28 @@ def test_litmus_verify_writes_replayable_run_record(tmp_path: Path) -> None:
             "selection_source": "no_boundary",
         },
     }
+    assert run_payload["artifacts"]["replay_traces"][0]["search_budget"] == {
+        "requested_seeds": 3,
+        "allocated_seeds": 1,
+        "allocation_mode": "no_boundary",
+        "selected_targets": [],
+        "scenario_seed_start": 1,
+        "scenario_seed_end": 1,
+    }
+    assert run_payload["activities"][0]["summary"]["performance"]["search_budget"] == {
+        "requested_seeds_per_scenario": 3,
+        "requested_total_replay_seeds": 3,
+        "allocated_total_replay_seeds": 1,
+        "executed_replays": 1,
+        "scenarios_with_reachable_targets": 0,
+        "scenarios_without_reachable_targets": 1,
+        "target_single_scenarios": 0,
+        "target_spread_scenarios": 0,
+        "no_boundary_scenarios": 1,
+        "disabled_scenarios": 0,
+        "reduced_allocation_scenarios": 1,
+        "unique_selected_targets": [],
+    }
     assert not (repo_root / ".litmus" / "replay-traces.json").exists()
 
 

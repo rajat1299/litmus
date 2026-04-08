@@ -7,6 +7,7 @@ from litmus.dst.faults import FaultPlan, FaultSpec
 from litmus.dst.reachability import TargetSelectionArtifact
 from litmus.dst.runtime import BoundaryCoverage, TraceEvent
 from litmus.replay.models import ReplayCheckpoint, ReplayResponseDetails, SchedulerDecision
+from litmus.search_budget import ScenarioSearchBudget
 
 
 @dataclass(slots=True)
@@ -25,6 +26,7 @@ class ReplayTraceRecord:
     recorded_outcome: ReplayResponseDetails | None = None
     execution_transcript: list[ReplayCheckpoint] | None = None
     target_selection: TargetSelectionArtifact | None = None
+    search_budget: ScenarioSearchBudget | None = None
 
 
 def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
@@ -59,6 +61,9 @@ def replay_trace_record_to_dict(record: ReplayTraceRecord) -> dict[str, Any]:
         "target_selection": None
         if record.target_selection is None
         else record.target_selection.to_dict(),
+        "search_budget": None
+        if record.search_budget is None
+        else record.search_budget.to_dict(),
     }
 
 
@@ -100,6 +105,9 @@ def replay_trace_record_from_dict(payload: dict[str, Any]) -> ReplayTraceRecord:
         target_selection=None
         if payload.get("target_selection") is None
         else TargetSelectionArtifact.from_dict(payload["target_selection"]),
+        search_budget=None
+        if payload.get("search_budget") is None
+        else ScenarioSearchBudget.from_dict(payload["search_budget"]),
     )
 
 

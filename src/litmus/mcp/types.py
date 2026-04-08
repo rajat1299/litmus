@@ -118,6 +118,7 @@ class PerformanceCounts:
     within_budget: bool | None
     replay_seeds_per_scenario: int
     property_max_examples: int
+    search_budget: SearchBudgetCounts
 
     def to_dict(self) -> dict[str, str | int | bool | None]:
         return {
@@ -130,6 +131,39 @@ class PerformanceCounts:
             "within_budget": self.within_budget,
             "replay_seeds_per_scenario": self.replay_seeds_per_scenario,
             "property_max_examples": self.property_max_examples,
+            "search_budget": self.search_budget.to_dict(),
+        }
+
+
+@dataclass(slots=True)
+class SearchBudgetCounts:
+    requested_seeds_per_scenario: int
+    requested_total_replay_seeds: int
+    allocated_total_replay_seeds: int
+    executed_replays: int
+    scenarios_with_reachable_targets: int
+    scenarios_without_reachable_targets: int
+    target_single_scenarios: int
+    target_spread_scenarios: int
+    no_boundary_scenarios: int
+    disabled_scenarios: int
+    reduced_allocation_scenarios: int
+    unique_selected_targets: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "requested_seeds_per_scenario": self.requested_seeds_per_scenario,
+            "requested_total_replay_seeds": self.requested_total_replay_seeds,
+            "allocated_total_replay_seeds": self.allocated_total_replay_seeds,
+            "executed_replays": self.executed_replays,
+            "scenarios_with_reachable_targets": self.scenarios_with_reachable_targets,
+            "scenarios_without_reachable_targets": self.scenarios_without_reachable_targets,
+            "target_single_scenarios": self.target_single_scenarios,
+            "target_spread_scenarios": self.target_spread_scenarios,
+            "no_boundary_scenarios": self.no_boundary_scenarios,
+            "disabled_scenarios": self.disabled_scenarios,
+            "reduced_allocation_scenarios": self.reduced_allocation_scenarios,
+            "unique_selected_targets": list(self.unique_selected_targets),
         }
 
 
@@ -303,6 +337,22 @@ class PerformancePayload(BaseModel):
     within_budget: bool | None = None
     replay_seeds_per_scenario: int
     property_max_examples: int
+    search_budget: SearchBudgetPayload
+
+
+class SearchBudgetPayload(BaseModel):
+    requested_seeds_per_scenario: int
+    requested_total_replay_seeds: int
+    allocated_total_replay_seeds: int
+    executed_replays: int
+    scenarios_with_reachable_targets: int
+    scenarios_without_reachable_targets: int
+    target_single_scenarios: int
+    target_spread_scenarios: int
+    no_boundary_scenarios: int
+    disabled_scenarios: int
+    reduced_allocation_scenarios: int
+    unique_selected_targets: list[str]
 
 
 class BoundaryCoveragePayload(BaseModel):

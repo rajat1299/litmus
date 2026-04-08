@@ -16,6 +16,7 @@ from litmus.performance import (
 )
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
+from litmus.search_budget import summarize_search_budget
 
 
 @dataclass(slots=True)
@@ -29,6 +30,7 @@ class PerformanceProjection:
     within_budget: bool | None
     replay_seeds_per_scenario: int
     property_max_examples: int
+    search_budget: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +43,7 @@ class PerformanceProjection:
             "within_budget": self.within_budget,
             "replay_seeds_per_scenario": self.replay_seeds_per_scenario,
             "property_max_examples": self.property_max_examples,
+            "search_budget": dict(self.search_budget),
         }
 
 
@@ -120,6 +123,11 @@ def performance_projection_from_result(result) -> PerformanceProjection:
     )
     budget_ms = verify_budget_ms_for_mode(mode)
     measured = duration_ms is not None
+    search_budget = summarize_search_budget(
+        scenario_count=len(getattr(result, "scenarios", [])),
+        requested_seeds_per_scenario=replay_seeds_per_scenario,
+        replay_traces=list(getattr(result, "replay_traces", [])),
+    )
     return PerformanceProjection(
         mode=mode,
         fault_profile=fault_profile.value,
@@ -130,6 +138,7 @@ def performance_projection_from_result(result) -> PerformanceProjection:
         within_budget=None if duration_ms is None else duration_ms <= budget_ms,
         replay_seeds_per_scenario=replay_seeds_per_scenario,
         property_max_examples=property_max_examples,
+        search_budget=search_budget.to_dict(),
     )
 
 

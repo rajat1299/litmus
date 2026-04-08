@@ -262,12 +262,27 @@ def test_record_verification_run_uses_measured_result_timing_in_summary(tmp_path
     assert run.activities[0].summary["performance"] == {
         "mode": "local",
         "fault_profile": "default",
+        "budget_policy": "launch_default",
         "measured": True,
         "elapsed_ms": 2500,
         "budget_ms": 10000,
         "within_budget": True,
         "replay_seeds_per_scenario": 3,
         "property_max_examples": 100,
+        "search_budget": {
+            "requested_seeds_per_scenario": 3,
+            "requested_total_replay_seeds": 0,
+            "allocated_total_replay_seeds": 0,
+            "executed_replays": 0,
+            "scenarios_with_reachable_targets": 0,
+            "scenarios_without_reachable_targets": 0,
+            "target_single_scenarios": 0,
+            "target_spread_scenarios": 0,
+            "no_boundary_scenarios": 0,
+            "disabled_scenarios": 0,
+            "reduced_allocation_scenarios": 0,
+            "unique_selected_targets": [],
+        },
     }
 
 
@@ -296,10 +311,25 @@ def test_record_verification_run_marks_summary_performance_unmeasured_without_re
     assert run.activities[0].summary["performance"] == {
         "mode": "local",
         "fault_profile": "default",
+        "budget_policy": "launch_default",
         "measured": False,
         "elapsed_ms": None,
         "budget_ms": 10000,
         "within_budget": None,
         "replay_seeds_per_scenario": 3,
         "property_max_examples": 100,
+        "search_budget": {
+            "requested_seeds_per_scenario": 3,
+            "requested_total_replay_seeds": 0,
+            "allocated_total_replay_seeds": 0,
+            "executed_replays": 0,
+            "scenarios_with_reachable_targets": 0,
+            "scenarios_without_reachable_targets": 0,
+            "target_single_scenarios": 0,
+            "target_spread_scenarios": 0,
+            "no_boundary_scenarios": 0,
+            "disabled_scenarios": 0,
+            "reduced_allocation_scenarios": 0,
+            "unique_selected_targets": [],
+        },
     }

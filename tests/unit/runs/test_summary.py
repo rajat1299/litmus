@@ -17,6 +17,7 @@ from litmus.replay.differential import DifferentialReplayResult, ReplayClassific
 from litmus.replay.trace import ReplayTraceRecord
 from litmus.runs.summary import VerificationProjection, summarize_verification_result
 from litmus.scenarios.builder import Scenario
+from litmus.search_budget import ScenarioSearchBudget
 
 
 def test_verification_projection_owns_shared_verification_counts() -> None:
@@ -102,6 +103,14 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
                         },
                     ),
                 ],
+                search_budget=ScenarioSearchBudget(
+                    requested_seeds=3,
+                    allocated_seeds=1,
+                    allocation_mode="no_boundary",
+                    selected_targets=(),
+                    scenario_seed_start=1,
+                    scenario_seed_end=1,
+                ),
             )
         ],
         property_results=[
@@ -126,6 +135,20 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
         "within_budget": True,
         "replay_seeds_per_scenario": 3,
         "property_max_examples": 100,
+        "search_budget": {
+            "requested_seeds_per_scenario": 3,
+            "requested_total_replay_seeds": 3,
+            "allocated_total_replay_seeds": 1,
+            "executed_replays": 1,
+            "scenarios_with_reachable_targets": 0,
+            "scenarios_without_reachable_targets": 1,
+            "target_single_scenarios": 0,
+            "target_spread_scenarios": 0,
+            "no_boundary_scenarios": 1,
+            "disabled_scenarios": 0,
+            "reduced_allocation_scenarios": 1,
+            "unique_selected_targets": [],
+        },
     }
     assert projection.invariants == {
         "total": 2,
@@ -207,6 +230,14 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
                     ),
                     TraceEvent(kind="boundary_simulated", metadata={"boundary": "redis"}),
                 ],
+                search_budget=ScenarioSearchBudget(
+                    requested_seeds=500,
+                    allocated_seeds=500,
+                    allocation_mode="target_single",
+                    selected_targets=("redis",),
+                    scenario_seed_start=1,
+                    scenario_seed_end=500,
+                ),
             ),
             ReplayTraceRecord(
                 seed="seed:2",
@@ -227,6 +258,14 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
                         },
                     ),
                 ],
+                search_budget=ScenarioSearchBudget(
+                    requested_seeds=500,
+                    allocated_seeds=500,
+                    allocation_mode="target_single",
+                    selected_targets=("redis",),
+                    scenario_seed_start=1,
+                    scenario_seed_end=500,
+                ),
             ),
         ],
         property_results=[],
@@ -244,6 +283,20 @@ def test_verification_projection_marks_mixed_boundary_usage_as_partial() -> None
         "within_budget": True,
         "replay_seeds_per_scenario": 500,
         "property_max_examples": 500,
+        "search_budget": {
+            "requested_seeds_per_scenario": 500,
+            "requested_total_replay_seeds": 500,
+            "allocated_total_replay_seeds": 500,
+            "executed_replays": 2,
+            "scenarios_with_reachable_targets": 1,
+            "scenarios_without_reachable_targets": 0,
+            "target_single_scenarios": 1,
+            "target_spread_scenarios": 0,
+            "no_boundary_scenarios": 0,
+            "disabled_scenarios": 0,
+            "reduced_allocation_scenarios": 0,
+            "unique_selected_targets": ["redis"],
+        },
     }
     assert projection.compatibility["boundaries"]["redis"]["status"] == "partial"
     assert projection.compatibility["boundaries"]["redis"]["supported_shapes"] == [
@@ -282,4 +335,18 @@ def test_verification_projection_marks_hostile_local_profile_as_opt_in_deeper_pa
         "within_budget": True,
         "replay_seeds_per_scenario": 9,
         "property_max_examples": 250,
+        "search_budget": {
+            "requested_seeds_per_scenario": 9,
+            "requested_total_replay_seeds": 0,
+            "allocated_total_replay_seeds": 0,
+            "executed_replays": 0,
+            "scenarios_with_reachable_targets": 0,
+            "scenarios_without_reachable_targets": 0,
+            "target_single_scenarios": 0,
+            "target_spread_scenarios": 0,
+            "no_boundary_scenarios": 0,
+            "disabled_scenarios": 0,
+            "reduced_allocation_scenarios": 0,
+            "unique_selected_targets": [],
+        },
     }

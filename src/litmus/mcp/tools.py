@@ -25,6 +25,7 @@ from litmus.mcp.types import (
     PropertyCounts,
     ReplayCounts,
     ReplayOperationResult,
+    SearchBudgetCounts,
     VerifyOperationResult,
 )
 from litmus.replay.differential import ReplayClassification, run_differential_replay
@@ -72,7 +73,18 @@ def run_verify_operation(
             improvement=projection.replay["improvement"],
         ),
         properties=PropertyCounts(**projection.properties),
-        performance=PerformanceCounts(**projection.performance),
+        performance=PerformanceCounts(
+            mode=projection.performance["mode"],
+            fault_profile=projection.performance["fault_profile"],
+            budget_policy=projection.performance["budget_policy"],
+            measured=projection.performance["measured"],
+            elapsed_ms=projection.performance["elapsed_ms"],
+            budget_ms=projection.performance["budget_ms"],
+            within_budget=projection.performance["within_budget"],
+            replay_seeds_per_scenario=projection.performance["replay_seeds_per_scenario"],
+            property_max_examples=projection.performance["property_max_examples"],
+            search_budget=SearchBudgetCounts(**projection.performance["search_budget"]),
+        ),
         boundary_coverage=BoundaryCoverageCounts.from_mapping(boundary_coverage_from_result(result)),
         compatibility=compatibility_report_from_result(result),
         replay_seeds=[record.seed for record in result.replay_traces],
