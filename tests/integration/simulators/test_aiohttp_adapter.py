@@ -51,6 +51,7 @@ def test_patch_aiohttp_preserves_client_response_transparency() -> None:
                     assert isinstance(response, aiohttp.ClientResponse)
                     assert response.status == 200
                     assert response.headers["content-type"] == "application/json"
+                    assert response.headers["Content-Type"] == "application/json"
                     assert await response.json() == {"status": "ok"}
                     assert await response.text() == '{"status": "ok"}'
                     assert await response.read() == b'{"status": "ok"}'

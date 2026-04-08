@@ -241,6 +241,7 @@ def test_run_asgi_app_preserves_aiohttp_client_response_transparency() -> None:
                                 "status": response.status,
                                 "body": body,
                                 "content_type": response.headers["content-type"],
+                                "content_type_title": response.headers["Content-Type"],
                             }
                         ).encode("utf-8"),
                     }
@@ -261,6 +262,7 @@ def test_run_asgi_app_preserves_aiohttp_client_response_transparency() -> None:
         "status": 200,
         "body": {},
         "content_type": "application/json",
+        "content_type_title": "application/json",
     }
 
 

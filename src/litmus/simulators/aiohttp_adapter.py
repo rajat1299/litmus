@@ -5,24 +5,26 @@ from contextlib import contextmanager
 import json
 
 import aiohttp
+from multidict import CIMultiDict, CIMultiDictProxy
 
 from litmus.simulators.base import HttpConnectionRefusedError, HttpTimeoutError, SimulatedHttpResponse
 from litmus.simulators.http import HttpSimulator
 
 
 class _BaseSimulatedAiohttpResponse:
-    __slots__ = ("_response",)
+    __slots__ = ("_headers", "_response")
 
     def __init__(self, response: SimulatedHttpResponse) -> None:
         self._response = response
+        self._headers = CIMultiDictProxy(CIMultiDict(response.headers))
 
     @property
     def status(self) -> int:
         return self._response.status_code
 
     @property
-    def headers(self) -> dict[str, str]:
-        return self._response.headers
+    def headers(self) -> CIMultiDictProxy[str]:
+        return self._headers
 
     async def __aenter__(self):
         return self
