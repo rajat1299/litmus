@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from litmus.cli import app
 from litmus.errors import VerificationScopeError
+from litmus.runs import RunMode
 from litmus.watch import run_watch
 
 
@@ -164,3 +165,25 @@ def test_run_watch_propagates_unexpected_internal_errors(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="unexpected bug"):
         run_watch(repo_root, watcher=fake_watch, verify_runner=fake_verify_runner)
+
+
+def test_run_watch_passes_watch_mode_to_verifier_when_supported(tmp_path, monkeypatch) -> None:
+    repo_root = tmp_path
+
+    def fake_watch(*_args, **_kwargs):
+        yield {("modified", str(repo_root / "service" / "app.py"))}
+
+    captured_modes: list[RunMode] = []
+
+    def fake_verify_runner(_root, *, mode=RunMode.LOCAL):
+        captured_modes.append(mode)
+        return object()
+
+    monkeypatch.setattr("litmus.watch.record_verification_run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("litmus.watch.render_verification_summary", lambda _result: "summary")
+
+    messages: list[str] = []
+    run_watch(repo_root, watcher=fake_watch, emit=messages.append, verify_runner=fake_verify_runner)
+
+    assert captured_modes == [RunMode.WATCH]
+    assert messages[-1] == "summary"

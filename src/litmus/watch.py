@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import TypeAlias
@@ -15,7 +16,7 @@ WatchChange: TypeAlias = tuple[object, str]
 WatchBatch: TypeAlias = Iterable[WatchChange]
 Watcher: TypeAlias = Callable[[Path], Iterable[WatchBatch]]
 Emitter: TypeAlias = Callable[[str], None]
-Verifier: TypeAlias = Callable[[Path], VerificationResult]
+Verifier: TypeAlias = Callable[..., VerificationResult]
 
 IGNORED_PARTS = {
     ".git",
@@ -47,7 +48,7 @@ def run_watch(
 
         emit(f"Changed: {', '.join(changed_paths)}")
         try:
-            result = verify_runner(repo_root)
+            result = _run_watch_verification(verify_runner, repo_root)
         except LitmusUserError as exc:
             clear_latest_replayable_run(repo_root)
             emit(f"Verification error: {exc}")
@@ -60,6 +61,17 @@ def run_watch(
             activity_type=ActivityType.WATCH_ITERATION,
         )
         emit(render_verification_summary(result))
+
+
+def _run_watch_verification(verify_runner: Verifier, repo_root: Path) -> VerificationResult:
+    verifier_signature = inspect.signature(verify_runner)
+    for parameter in verifier_signature.parameters.values():
+        if parameter.kind is inspect.Parameter.VAR_KEYWORD:
+            return verify_runner(repo_root, mode=RunMode.WATCH)
+        if parameter.name == "mode":
+            return verify_runner(repo_root, mode=RunMode.WATCH)
+
+    return verify_runner(repo_root)
 
 
 def _relevant_paths(root: Path, changes: WatchBatch) -> list[str]:
