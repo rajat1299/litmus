@@ -1652,6 +1652,7 @@ def _write_cross_layer_dst_repo(
         redis_constructor = 'redis = Redis.from_url("redis://cache")'
     sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
     sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
+    sqlalchemy_session_guard = ""
     if sqlalchemy_constructor_shape == "orm_sessionmaker":
         sqlalchemy_import = (
             "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine\n"
@@ -1663,6 +1664,10 @@ def _write_cross_layer_dst_repo(
     elif sqlalchemy_constructor_shape == "direct_async_session":
         sqlalchemy_import = "from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine"
         sqlalchemy_session_factory = "SessionLocal = AsyncSession"
+        sqlalchemy_session_guard = (
+            '                    if not isinstance(session, AsyncSession):\n'
+            '                        raise TypeError("expected AsyncSession type identity")\n'
+        )
 
     app_source = textwrap.dedent(
         """
@@ -1752,6 +1757,11 @@ def _write_cross_layer_dst_repo(
     app_source = app_source.replace("__SQLALCHEMY_SESSION_FACTORY__", sqlalchemy_session_factory)
     if sqlalchemy_constructor_shape == "direct_async_session":
         app_source = app_source.replace("async with SessionLocal() as session:", "async with SessionLocal(engine) as session:")
+    if sqlalchemy_session_guard:
+        app_source = app_source.replace(
+            "                    await session.begin()",
+            f"{sqlalchemy_session_guard}                    await session.begin()",
+        )
 
     (service_dir / "app.py").write_text(
         app_source

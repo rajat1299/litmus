@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from litmus.dst.faults import FaultPlan
 from litmus.dst.runtime import RuntimeContext
 from litmus.simulators.boundary_patches import (
@@ -53,6 +55,41 @@ def test_patched_asyncsession_constructor_supports_patched_async_engine() -> Non
         and event.metadata["supported_shape"] == "sqlalchemy.ext.asyncio.AsyncSession"
         for event in runtime.trace
     )
+
+
+def test_patched_asyncsession_constructor_preserves_type_identity_for_supported_code() -> None:
+    class OriginalAsyncSession:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+    patched = _build_patched_asyncsession_constructor(OriginalAsyncSession)
+    engine = _PatchedAsyncEngineProxy(url="sqlite+aiosqlite:///:memory:", args=(), kwargs={})
+    runtime = RuntimeContext(seed=1, fault_plan=FaultPlan(seed=1))
+
+    with activate_runtime(runtime):
+        session = patched(engine)
+
+    assert isinstance(patched, type)
+    assert isinstance(session, patched)
+
+
+def test_patched_asyncsession_constructor_preserves_type_identity_inside_async_with() -> None:
+    class OriginalAsyncSession:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+    async def _exercise() -> None:
+        patched = _build_patched_asyncsession_constructor(OriginalAsyncSession)
+        engine = _PatchedAsyncEngineProxy(url="sqlite+aiosqlite:///:memory:", args=(), kwargs={})
+        runtime = RuntimeContext(seed=1, fault_plan=FaultPlan(seed=1))
+
+        with activate_runtime(runtime):
+            async with patched(engine) as session:
+                assert isinstance(session, patched)
+
+    asyncio.run(_exercise())
 
 
 def test_patched_asyncsession_constructor_preserves_keyword_bind_when_falling_back() -> None:

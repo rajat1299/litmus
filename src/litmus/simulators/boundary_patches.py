@@ -134,16 +134,37 @@ def _patched_async_sessionmaker(bind, *args, **kwargs):
 
 
 def _build_patched_asyncsession_constructor(original_async_session):
-    def _patched_async_session(*args, **kwargs):
-        resolved_bind = args[0] if args else kwargs.get("bind")
-        if isinstance(resolved_bind, _PatchedAsyncEngineProxy) and current_runtime() is not None:
-            return _PatchedAsyncSession(
-                resolved_bind,
-                supported_shape="sqlalchemy.ext.asyncio.AsyncSession",
-            )
-        return original_async_session(*args, **kwargs)
+    original_meta = type(original_async_session)
 
-    return _patched_async_session
+    class _PatchedAsyncSessionMeta(original_meta):
+        def __call__(cls, *args, **kwargs):
+            resolved_bind = args[0] if args else kwargs.get("bind")
+            if isinstance(resolved_bind, _PatchedAsyncEngineProxy) and current_runtime() is not None:
+                return _PatchedAsyncSession(
+                    resolved_bind,
+                    supported_shape="sqlalchemy.ext.asyncio.AsyncSession",
+                )
+            return original_async_session(*args, **kwargs)
+
+        def __instancecheck__(cls, instance):
+            return isinstance(instance, _PatchedAsyncSession) or isinstance(instance, original_async_session)
+
+        def __subclasscheck__(cls, subclass):
+            return subclass is _PatchedAsyncSession or issubclass(subclass, original_async_session)
+
+    return _PatchedAsyncSessionMeta(
+        getattr(original_async_session, "__name__", "AsyncSession"),
+        (original_async_session,),
+        {
+            "__doc__": getattr(original_async_session, "__doc__", None),
+            "__module__": getattr(original_async_session, "__module__", __name__),
+            "__qualname__": getattr(
+                original_async_session,
+                "__qualname__",
+                getattr(original_async_session, "__name__", "AsyncSession"),
+            ),
+        },
+    )
 
 
 def _build_patched_orm_sessionmaker(original_sessionmaker):
@@ -248,7 +269,8 @@ class _PatchedAsyncSession:
         self._session = simulator.session()
 
     async def __aenter__(self):
-        return await self._session.__aenter__()
+        await self._session.__aenter__()
+        return self
 
     async def __aexit__(self, exc_type, exc, tb):
         return await self._session.__aexit__(exc_type, exc, tb)
