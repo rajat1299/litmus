@@ -177,6 +177,7 @@ def _execute_replay(root: Path, seed: str) -> _ReplayExecutionResult:
         record.app_reference,
         scenario,
         seed_value=record.seed_value,
+        scenario_seed_start=_scenario_seed_start_for_record(source_run, record),
         root=root,
     )
 
@@ -269,3 +270,16 @@ def _replay_outcome_matches_recorded_run(
             continue
         return checkpoint.status_code == current_status_code
     return True
+
+
+def _scenario_seed_start_for_record(source_run, record) -> int:
+    matching_seed_values = sorted(
+        candidate.seed_value
+        for candidate in source_run.replay_traces
+        if candidate.method == record.method
+        and candidate.path == record.path
+        and candidate.request_payload == record.request_payload
+    )
+    if not matching_seed_values:
+        return record.seed_value
+    return matching_seed_values[0]

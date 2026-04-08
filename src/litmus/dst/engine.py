@@ -18,6 +18,7 @@ from litmus.dst.reachability import (
     ReachabilityProbeRecord,
     ScenarioReachability,
     TargetSelectionArtifact,
+    planned_fault_seed_for_value,
     plan_local_fault_seeds,
     representative_fault_kind_for_target,
 )
@@ -427,6 +428,7 @@ def replay_target_selection_artifact(
     scenario: Scenario,
     *,
     seed_value: int,
+    scenario_seed_start: int,
     root: Path | None = None,
     candidate_targets: list[str] | None = None,
 ) -> TargetSelectionArtifact:
@@ -440,13 +442,12 @@ def replay_target_selection_artifact(
             root=root,
         )
     )
-    planned_fault_seeds = plan_local_fault_seeds(
-        seed_start=seed_value,
-        reachability=reachability,
-        seeds_per_scenario=1,
-    )
-    if planned_fault_seeds:
-        planned_seed = planned_fault_seeds[0]
+    if reachability.selected_targets:
+        planned_seed = planned_fault_seed_for_value(
+            seed_start=scenario_seed_start,
+            seed_value=seed_value,
+            reachability=reachability,
+        )
     else:
         planned_seed = PlannedFaultSeed(
             seed_value=seed_value,

@@ -615,6 +615,7 @@ def test_litmus_replay_explains_sqlalchemy_fault_context_from_shipped_verify_pat
 
     assert replay_result.returncode == 0, replay_result.stderr
     assert "Classification: breaking_change" in replay_result.stdout
+    assert "Execution fidelity: matched" in replay_result.stdout
     assert "Step 1 scheduled connection_dropped on sqlalchemy." in replay_result.stdout
     assert "Injected connection_dropped on sqlalchemy for begin at step 1." in replay_result.stdout
     assert "Simulated sqlalchemy with Litmus state machines." in replay_result.stdout

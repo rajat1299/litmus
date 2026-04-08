@@ -5,6 +5,7 @@ from litmus.dst.reachability import (
     ReachabilityProbeRecord,
     ScenarioReachability,
     TargetSelectionArtifact,
+    planned_fault_seed_for_value,
     plan_local_fault_seeds,
 )
 
@@ -81,6 +82,27 @@ def test_plan_local_fault_seeds_uses_target_aware_representative_faults() -> Non
         ("sqlalchemy", "connection_dropped"),
         ("redis", "timeout"),
     ]
+
+
+def test_planned_fault_seed_for_value_uses_absolute_seed_position_within_scenario_window() -> None:
+    reachability = ScenarioReachability(
+        clean_path_targets=("http",),
+        fault_path_targets=("sqlalchemy", "redis"),
+        selected_targets=("http", "sqlalchemy", "redis"),
+    )
+
+    planned = planned_fault_seed_for_value(
+        seed_start=1,
+        seed_value=2,
+        reachability=reachability,
+    )
+
+    assert planned == PlannedFaultSeed(
+        seed_value=2,
+        target="sqlalchemy",
+        fault_kind="connection_dropped",
+        selection_source="fault_path",
+    )
 
 
 def test_target_selection_artifact_captures_reachability_and_planned_seed() -> None:

@@ -131,22 +131,35 @@ def plan_local_fault_seeds(
     if seeds_per_scenario <= 0 or not reachability.selected_targets:
         return []
 
-    planned: list[PlannedFaultSeed] = []
+    return [
+        planned_fault_seed_for_value(
+            seed_start=seed_start,
+            seed_value=seed_start + offset,
+            reachability=reachability,
+        )
+        for offset in range(seeds_per_scenario)
+    ]
+
+
+def planned_fault_seed_for_value(
+    *,
+    seed_start: int,
+    seed_value: int,
+    reachability: ScenarioReachability,
+) -> PlannedFaultSeed:
+    if not reachability.selected_targets:
+        raise ValueError("Cannot select a planned fault seed without any selected targets.")
+
+    offset = max(seed_value - seed_start, 0)
     clean_targets = set(reachability.clean_path_targets)
     targets = list(reachability.selected_targets)
-
-    for offset in range(seeds_per_scenario):
-        target = targets[offset % len(targets)]
-        planned.append(
-            PlannedFaultSeed(
-                seed_value=seed_start + offset,
-                target=target,
-                fault_kind=representative_fault_kind_for_target(target),
-                selection_source="clean_path" if target in clean_targets else "fault_path",
-            )
-        )
-
-    return planned
+    target = targets[offset % len(targets)]
+    return PlannedFaultSeed(
+        seed_value=seed_value,
+        target=target,
+        fault_kind=representative_fault_kind_for_target(target),
+        selection_source="clean_path" if target in clean_targets else "fault_path",
+    )
 
 
 def representative_fault_kind_for_target(target: str) -> str:

@@ -114,6 +114,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Landed the first WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: replay traces now persist a scheduler decision ledger plus replay checkpoints, `litmus replay` consumes the ledger for Litmus-owned fault-plan decisions, scheduler-aware drift reasons are surfaced, and legacy WS-16 execution-transcript fallback remains intact |
 | 2026-04-07 | Landed a follow-up WS-21 review slice on `codex/b2-scheduler-ledger-slice1`: fidelity payloads now carry recorded versus replay scheduler decisions for decision drift, and CLI/MCP explanation surfaces render drift kind plus decision-specific divergence details instead of checkpoint-style `missing` placeholders |
 | 2026-04-07 | Completed Track B2 as WS-21 on `codex/b2-scheduler-ledger-slice1`: replay now covers both planner and execution scheduler decisions within the bounded hybrid contract, including probe/target-selection ledger entries, replay-time planner recomputation, recorded replay outcomes, and decision-aware CLI/MCP drift explanations with honest WS-16 fallback for legacy artifacts |
+| 2026-04-07 | Fixed a post-completion WS-21 review issue on `codex/b2-scheduler-ledger-slice1`: replay-time planner recomputation now preserves the original scenario seed window for non-first seeds, so unchanged multi-target routes no longer report false scheduler drift on `seed:2`, `seed:3`, and later replayed seeds |
 
 ---
 
