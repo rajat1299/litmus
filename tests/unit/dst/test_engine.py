@@ -2044,6 +2044,56 @@ def test_fault_targets_detect_redis_client_from_url_via_import_from(tmp_path: Pa
     assert _fault_targets_for_loaded_app("service.app:app", tmp_path) == ["http", "redis"]
 
 
+def test_fault_targets_detect_redis_client_from_url_via_module_alias(tmp_path: Path) -> None:
+    from litmus.discovery.app import load_asgi_app
+
+    _clear_test_modules("service", "redis")
+    service_dir = tmp_path / "service"
+    redis_asyncio_dir = tmp_path / "redis" / "asyncio"
+    service_dir.mkdir()
+    redis_asyncio_dir.mkdir(parents=True)
+
+    (service_dir / "__init__.py").write_text("", encoding="utf-8")
+    (service_dir / "app.py").write_text(
+        (
+            "import redis.asyncio.client as redis_client\n"
+            "class FastAPI:\n"
+            "    pass\n"
+            'redis_client_instance = redis_client.Redis.from_url("redis://cache")\n'
+            "app = FastAPI()\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "redis" / "__init__.py").write_text("", encoding="utf-8")
+    (redis_asyncio_dir / "__init__.py").write_text(
+        (
+            "from .client import Redis\n"
+            "def from_url(*args, **kwargs):\n"
+            "    return object()\n"
+        ),
+        encoding="utf-8",
+    )
+    (redis_asyncio_dir / "client.py").write_text(
+        (
+            "class Redis:\n"
+            "    def __init__(self, *args, **kwargs):\n"
+            "        pass\n"
+            "    @classmethod\n"
+            "    def from_url(cls, *args, **kwargs):\n"
+            "        return object()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    load_asgi_app("service.app:app", tmp_path)
+
+    boundary_usage = _boundary_usage_for_loaded_app("service.app:app", tmp_path)
+
+    assert boundary_usage.supported_targets == ("redis",)
+    assert boundary_usage.unsupported_targets == ()
+    assert _fault_targets_for_loaded_app("service.app:app", tmp_path) == ["http", "redis"]
+
+
 def _clear_test_modules(*prefixes: str) -> None:
     for name in list(sys.modules):
         if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):

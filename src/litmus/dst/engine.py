@@ -707,8 +707,8 @@ def _boundary_usage_for_module(tree: ast.AST) -> tuple[set[str], set[str]]:
             for alias in node.names:
                 if alias.name == "sqlalchemy.ext.asyncio":
                     sqlalchemy_module_aliases.add(alias.asname or "sqlalchemy.ext.asyncio")
-                elif alias.name == "redis.asyncio":
-                    redis_module_aliases.add(alias.asname or "redis.asyncio")
+                elif alias.name in {"redis.asyncio", "redis.asyncio.client"}:
+                    redis_module_aliases.add(alias.asname or alias.name)
         elif isinstance(node, ast.ImportFrom) and node.module is not None:
             if node.module == "sqlalchemy.ext.asyncio":
                 sqlalchemy_factory_aliases.update(

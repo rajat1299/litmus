@@ -348,6 +348,31 @@ def test_litmus_verify_supports_redis_client_module_constructor(tmp_path: Path) 
     assert "redis.asyncio.client.Redis" in compatibility["boundaries"]["redis"]["supported_shapes"]
 
 
+def test_litmus_verify_targets_redis_for_client_module_alias_from_url(tmp_path: Path) -> None:
+    repo_root = _write_cross_layer_dst_repo(tmp_path, redis_constructor_shape="client_module_alias_from_url")
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "DST coverage:" in result.stdout
+    assert "- redis: detected, intercepted, simulated, faulted" in result.stdout
+    assert "Traceback" not in result.stderr
+
+    latest_run_id = json.loads((repo_root / ".litmus" / "runs" / "latest.json").read_text(encoding="utf-8"))["run_id"]
+    run_payload = json.loads((repo_root / ".litmus" / "runs" / latest_run_id / "run.json").read_text(encoding="utf-8"))
+    replay_traces = run_payload["artifacts"]["replay_traces"]
+    assert any(
+        any(event["kind"] == "fault_injected" and event["metadata"]["target"] == "redis" for event in trace["trace"])
+        for trace in replay_traces
+    )
+
+
 def test_litmus_verify_supports_sqlalchemy_orm_sessionmaker_async_constructor(tmp_path: Path) -> None:
     repo_root = _write_cross_layer_dst_repo(tmp_path, sqlalchemy_constructor_shape="orm_sessionmaker")
 
@@ -1693,6 +1718,9 @@ def _write_cross_layer_dst_repo(
     elif redis_constructor_shape == "client_class_from_url":
         redis_import = "from redis.asyncio.client import Redis"
         redis_constructor = 'redis = Redis.from_url("redis://cache")'
+    elif redis_constructor_shape == "client_module_alias_from_url":
+        redis_import = "import redis.asyncio.client as redis_client"
+        redis_constructor = 'redis = redis_client.Redis.from_url("redis://cache")'
     sqlalchemy_import = "from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine"
     sqlalchemy_session_factory = "SessionLocal = async_sessionmaker(engine, expire_on_commit=False)"
     sqlalchemy_session_guard = ""
