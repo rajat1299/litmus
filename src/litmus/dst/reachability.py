@@ -11,6 +11,13 @@ TARGET_AWARE_COVERAGE_FAULTS: dict[str, str] = {
     "sqlalchemy": "connection_dropped",
 }
 
+PLANNED_FAULT_KINDS_BY_TARGET: dict[str, tuple[str, ...]] = {
+    "http": ("timeout", "connection_refused", "http_error", "slow_response"),
+    "sqlalchemy": ("connection_dropped", "pool_exhausted"),
+    # `partial_write` is operation-gated in the simulator and can become a no-op on read-only routes.
+    "redis": ("timeout", "connection_refused", "moved"),
+}
+
 
 @dataclass(slots=True, frozen=True)
 class ReachabilityProbeRecord:
@@ -170,7 +177,9 @@ def representative_fault_kind_for_target(target: str) -> str:
 
 
 def planned_fault_kind_for_target(target: str, *, cycle: int) -> str:
-    target_kinds = DEFAULT_FAULT_KINDS_BY_TARGET.get(target)
+    target_kinds = PLANNED_FAULT_KINDS_BY_TARGET.get(target)
+    if target_kinds is None:
+        target_kinds = tuple(DEFAULT_FAULT_KINDS_BY_TARGET.get(target, []))
     if not target_kinds:
         return representative_fault_kind_for_target(target)
     return target_kinds[cycle % len(target_kinds)]

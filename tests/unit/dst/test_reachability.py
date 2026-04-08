@@ -84,6 +84,23 @@ def test_plan_local_fault_seeds_diversifies_fault_kinds_for_single_target_budget
     ]
 
 
+def test_plan_local_fault_seeds_excludes_operation_gated_partial_write_from_default_redis_cycle() -> None:
+    reachability = ScenarioReachability(
+        clean_path_targets=("redis",),
+        fault_path_targets=(),
+        selected_targets=("redis",),
+    )
+
+    planned = plan_local_fault_seeds(seed_start=1, reachability=reachability, seeds_per_scenario=4)
+
+    assert [(seed.target, seed.fault_kind) for seed in planned] == [
+        ("redis", "timeout"),
+        ("redis", "connection_refused"),
+        ("redis", "moved"),
+        ("redis", "timeout"),
+    ]
+
+
 def test_plan_local_fault_seeds_uses_target_aware_representative_faults() -> None:
     reachability = ScenarioReachability(
         clean_path_targets=("http",),

@@ -119,6 +119,7 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-07 | Claimed Track B3 slice 1 as WS-22 on branch `codex/b3-search-budget-slice1` with a bounded scope around explicit search-budget artifacts and accounting: record requested versus allocated replay seeds per scenario, expose target-aware budget usage in run summaries, and defer any actual depth/default changes until the accounting contract is reviewed |
 | 2026-04-07 | Landed the first WS-22 review slice on `codex/b3-search-budget-slice1`: verify artifacts now persist per-scenario search-budget snapshots, shared verification summaries expose requested versus allocated replay budget plus target/no-boundary accounting, and CLI/MCP surfaces carry the same bounded search-budget contract without changing current search depth |
 | 2026-04-08 | Landed a follow-up WS-22 slice on `codex/b3-search-budget-slice1`: repeated same-target replay seeds now diversify fault kinds instead of rerunning identical target/kind pairs, and search-budget artifacts/summaries expose planned fault-kind coverage so narrower scenarios remain explainable |
+| 2026-04-08 | Fixed a post-review WS-22 issue on `codex/b3-search-budget-slice1`: Redis planner diversification now excludes operation-gated `partial_write` from the default replay-kind cycle, so read-only routes no longer spend budget on no-op faults or overstate planned kind diversity |
 
 ---
 
