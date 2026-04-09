@@ -233,9 +233,11 @@ def set_config_value(root: Path | str, *, key: str, value: str) -> ConfigSetResu
         overrides = {"suggested_invariants": value}
     elif key == "fault_profile":
         overrides = {"fault_profile": value}
+    elif key == "decision_policy":
+        overrides = {"decision_policy": value}
     else:
         raise LitmusUserError(
-            "Unsupported config key. Use one of: app, suggested_invariants, fault_profile."
+            "Unsupported config key. Use one of: app, suggested_invariants, fault_profile, decision_policy."
         )
 
     current = load_repo_config(repo_root, overrides=overrides)
@@ -245,6 +247,7 @@ def set_config_value(root: Path | str, *, key: str, value: str) -> ConfigSetResu
             app=current.app,
             suggested_invariants=current.suggested_invariants,
             fault_profile=current.fault_profile,
+            decision_policy=current.decision_policy,
         )
         display_value = current.app or value
     elif key == "suggested_invariants":
@@ -252,15 +255,25 @@ def set_config_value(root: Path | str, *, key: str, value: str) -> ConfigSetResu
             app=current.app,
             suggested_invariants=current.suggested_invariants,
             fault_profile=current.fault_profile,
+            decision_policy=current.decision_policy,
         )
         display_value = "true" if current.suggested_invariants else "false"
+    elif key == "fault_profile":
+        next_config = RepoConfig(
+            app=current.app,
+            suggested_invariants=current.suggested_invariants,
+            fault_profile=current.fault_profile,
+            decision_policy=current.decision_policy,
+        )
+        display_value = current.fault_profile.value
     else:
         next_config = RepoConfig(
             app=current.app,
             suggested_invariants=current.suggested_invariants,
             fault_profile=current.fault_profile,
+            decision_policy=current.decision_policy,
         )
-        display_value = current.fault_profile.value
+        display_value = current.decision_policy.value
 
     write_repo_config(config_path, next_config, include_defaults=True)
     return ConfigSetResult(config_path=config_path, key=key, value=display_value)

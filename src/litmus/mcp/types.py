@@ -4,6 +4,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from litmus.compatibility import CompatibilityReport
+from litmus.decisioning import (
+    EvidenceSummary,
+    PolicyEvaluation,
+    RiskAssessment,
+    VerificationVerdict,
+)
 from litmus.invariants.models import Invariant
 from litmus.properties.runner import PropertyCheckStatus
 from litmus.replay.differential import ReplayClassification
@@ -241,6 +247,10 @@ class VerifyOperationResult:
     replay: ReplayCounts
     properties: PropertyCounts
     performance: PerformanceCounts
+    evidence: EvidenceSummary
+    risk_assessment: RiskAssessment
+    policy_evaluation: PolicyEvaluation
+    verification_verdict: VerificationVerdict
     boundary_coverage: dict[str, BoundaryCoverageCounts] = field(default_factory=dict)
     compatibility: CompatibilityReport = field(
         default_factory=lambda: CompatibilityReport.from_dict({})
@@ -258,6 +268,10 @@ class VerifyOperationResult:
             "replay": self.replay.to_dict(),
             "properties": self.properties.to_dict(),
             "performance": self.performance.to_dict(),
+            "evidence": self.evidence.to_dict(),
+            "risk_assessment": self.risk_assessment.to_dict(),
+            "policy_evaluation": self.policy_evaluation.to_dict(),
+            "verification_verdict": self.verification_verdict.to_dict(),
             "boundary_coverage": {
                 boundary: coverage.to_dict()
                 for boundary, coverage in self.boundary_coverage.items()
@@ -419,6 +433,56 @@ class CompatibilityPayload(BaseModel):
     boundaries: CompatibilityBoundariesPayload
 
 
+class UnsupportedGapPayload(BaseModel):
+    boundary: str
+    detail: str
+    status: str
+
+
+class EvidencePayload(BaseModel):
+    confidence_score: float
+    total_signals: int
+    replay_signals: int
+    property_signals: int
+    detected_boundary_count: int
+    unsupported_gap_count: int
+    pending_review_count: int
+    replay_counts: dict[str, int]
+    property_counts: dict[str, int]
+    invariant_counts: dict[str, int]
+
+
+class RiskAssessmentPayload(BaseModel):
+    level: str
+    risk_classes: list[str]
+    detected_boundaries: list[str]
+    unsupported_gaps: list[UnsupportedGapPayload]
+    evidence_expectations: list[str]
+    reasons: list[str]
+
+
+class PolicyCheckPayload(BaseModel):
+    name: str
+    status: str
+    detail: str
+    blocking: bool
+
+
+class PolicyEvaluationPayload(BaseModel):
+    policy_name: str
+    merge_recommendation: str
+    checks: list[PolicyCheckPayload]
+    failing_checks: list[str]
+    warning_checks: list[str]
+
+
+class VerificationVerdictPayload(BaseModel):
+    decision: str
+    summary: str
+    reasons: list[str]
+    confidence_score: float
+
+
 class InvariantViewPayload(BaseModel):
     name: str
     source: str
@@ -495,6 +559,10 @@ class VerifyOperationPayload(BaseModel):
     replay: ReplayCountsPayload
     properties: PropertyCountsPayload
     performance: PerformancePayload
+    evidence: EvidencePayload
+    risk_assessment: RiskAssessmentPayload
+    policy_evaluation: PolicyEvaluationPayload
+    verification_verdict: VerificationVerdictPayload
     boundary_coverage: dict[str, BoundaryCoveragePayload]
     compatibility: CompatibilityPayload
     replay_seeds: list[str]

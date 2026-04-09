@@ -13,6 +13,9 @@ inputs:
     description: Minimum confidence score required to pass the check.
     required: false
     default: "80"
+  decision-policy:
+    description: Optional repo-local decision policy override for this run.
+    required: false
   comment:
     description: Whether to write a PR comment artifact.
     required: false
@@ -22,9 +25,18 @@ outputs:
   confidence:
     description: Confidence score as a decimal between 0.00 and 1.00.
     value: ${{ steps.litmus.outputs.confidence }}
+  action-status:
+    description: Action execution status. `verified` means Litmus produced a verification result; `verification_error` means the action failed before a shared decision was available.
+    value: ${{ steps.litmus.outputs.action-status }}
   verdict:
     description: Litmus pass/fail verdict.
     value: ${{ steps.litmus.outputs.verdict }}
+  decision:
+    description: Litmus shared verification decision for completed runs. Empty when the action fails before verification completes.
+    value: ${{ steps.litmus.outputs.decision }}
+  merge-recommendation:
+    description: Litmus shared merge recommendation for completed runs. Empty when the action fails before verification completes.
+    value: ${{ steps.litmus.outputs.merge-recommendation }}
   comment-path:
     description: Absolute path to the generated PR comment markdown.
     value: ${{ steps.litmus.outputs.comment-path }}
@@ -49,6 +61,7 @@ runs:
         LITMUS_GITHUB_TOKEN: ${{ inputs.token }}
         LITMUS_COMMENT_PATH: ${{ runner.temp }}/litmus-pr-comment.md
         LITMUS_MIN_SCORE: ${{ inputs.min-score }}
+        LITMUS_DECISION_POLICY: ${{ inputs.decision-policy }}
         LITMUS_MODE: ${{ inputs.mode }}
         LITMUS_COMMENT: ${{ inputs.comment }}
       run: uv run --directory "${{ github.action_path }}" python -m litmus.github_action.report

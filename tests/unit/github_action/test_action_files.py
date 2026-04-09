@@ -9,10 +9,12 @@ def test_action_yaml_exposes_outputs_and_runs_report_module() -> None:
     assert "using: composite" in action_yml
     assert "token:" in action_yml
     assert "min-score" in action_yml
+    assert "decision-policy" in action_yml
     assert "comment-path" in action_yml
     assert "python -m litmus.github_action.report" in action_yml
     assert "LITMUS_WORKSPACE" in action_yml
     assert "LITMUS_GITHUB_TOKEN" in action_yml
+    assert "LITMUS_DECISION_POLICY" in action_yml
 
 
 def test_repo_workflow_runs_on_pull_requests_using_local_action() -> None:

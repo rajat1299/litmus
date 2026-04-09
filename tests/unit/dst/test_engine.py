@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sys
 
-from litmus.config import RepoConfig
+from litmus.config import DecisionPolicy, RepoConfig
 from litmus.dst.engine import (
     _boundary_usage_for_loaded_app,
     _fault_targets_for_boundary_coverage,
@@ -227,6 +227,45 @@ def test_run_verification_uses_hostile_fault_profile_local_budgets(monkeypatch, 
     assert captured["seeds_per_scenario"] == 9
     assert captured["search_strategy"] == "frontier_first"
     assert captured["max_examples"] == 250
+
+
+def test_run_verification_allows_per_run_decision_policy_override(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        "litmus.dst.engine.load_repo_config",
+        lambda _root, overrides=None: RepoConfig(
+            decision_policy=DecisionPolicy.STRICT_LOCAL_V1
+            if overrides and overrides.get("decision_policy") == "strict_local_v1"
+            else DecisionPolicy.ALPHA_LOCAL_V1
+        ),
+    )
+    monkeypatch.setattr("litmus.dst.engine.discover_app_reference", lambda _root: "service.app:app")
+    monkeypatch.setattr("litmus.dst.engine.load_asgi_app", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "litmus.dst.engine._collect_routes",
+        lambda _root: [
+            RouteDefinition(
+                method="GET",
+                path="/health",
+                handler_name="health",
+                file_path="service/app.py",
+            )
+        ],
+    )
+    monkeypatch.setattr("litmus.dst.engine._collect_test_files", lambda _root: [])
+    monkeypatch.setattr("litmus.dst.engine.mine_invariants_from_tests", lambda _files: [])
+    monkeypatch.setattr("litmus.dst.engine.build_scenarios", lambda _routes, _invariants: [])
+    monkeypatch.setattr(
+        "litmus.dst.engine._run_replay",
+        lambda *_args, **_kwargs: asyncio.sleep(0, result=([], [])),
+    )
+    monkeypatch.setattr("litmus.dst.engine._run_property_checks", lambda *_args, **_kwargs: [])
+
+    result = run_verification(tmp_path, decision_policy="strict_local_v1")
+
+    assert result.decision_policy is DecisionPolicy.STRICT_LOCAL_V1
+    assert result.decision_bundle is not None
+    assert result.decision_bundle.policy.policy_name == "strict_local_v1"
+    assert result.decision_bundle.policy.merge_recommendation.value == "block"
 
 
 def test_run_verification_keeps_watch_mode_balanced_under_hostile_profile(monkeypatch, tmp_path: Path) -> None:

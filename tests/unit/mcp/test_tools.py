@@ -79,6 +79,10 @@ def test_run_verify_operation_records_mcp_run_and_returns_structured_summary(tmp
     assert result.performance.search_budget.frontier_capped_scenarios == 1
     assert result.performance.search_budget.multi_target_priority_scenarios == 0
     assert result.performance.search_budget.unique_planned_fault_kinds == []
+    assert result.evidence.total_signals == 1
+    assert result.risk_assessment.level == "elevated"
+    assert result.policy_evaluation.merge_recommendation == "allow"
+    assert result.verification_verdict.decision == "safe"
     assert result.compatibility.matrix["python"] == "3.11+"
     assert result.compatibility.matrix["http"]["package"] == "httpx/aiohttp"
     assert result.compatibility.matrix["http"]["supported_shapes"] == [
@@ -106,6 +110,10 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert payload.compatibility.boundaries.redis.status == "not_detected"
     assert payload.compatibility.boundaries.redis.unsupported_details == []
     assert payload.invariants.pending_review == 0
+    assert payload.evidence.total_signals == 1
+    assert payload.risk_assessment.level == "elevated"
+    assert payload.policy_evaluation.merge_recommendation == "allow"
+    assert payload.verification_verdict.decision == "safe"
     assert payload.performance.mode == "mcp"
     assert payload.performance.budget_policy == "mcp_local_agent"
     assert payload.performance.search_strategy == "balanced"
@@ -124,6 +132,10 @@ def test_verify_operation_payload_exposes_typed_compatibility_schema(tmp_path: P
     assert "$ref" in compatibility_property
     compatibility_schema = schema["$defs"][compatibility_property["$ref"].split("/")[-1]]
     assert set(compatibility_schema["properties"]) == {"matrix", "boundaries"}
+
+    assert {"evidence", "risk_assessment", "policy_evaluation", "verification_verdict"} <= set(
+        schema["properties"]
+    )
 
     boundaries_schema = schema["$defs"][compatibility_schema["properties"]["boundaries"]["$ref"].split("/")[-1]]
     assert set(boundaries_schema["properties"]) == {"http", "sqlalchemy", "redis"}
@@ -221,6 +233,57 @@ def test_run_verify_operation_passes_mode_through_to_run_verification(monkeypatc
     assert result.performance.measured is True
     assert result.performance.budget_ms == 60000
     assert result.performance.search_budget.requested_seeds_per_scenario == 500
+
+
+def test_run_verify_operation_passes_decision_policy_override_to_run_verification(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class _DummyResult:
+        app_reference = "service.app:app"
+        scope_label = "full repo"
+        started_at = "2026-04-07T12:00:00+00:00"
+        completed_at = "2026-04-07T12:00:00+00:00"
+        mode = "mcp"
+        fault_profile = "default"
+        decision_policy = "strict_local_v1"
+        replay_seeds_per_scenario = 3
+        search_strategy = "balanced"
+        property_max_examples = 100
+        routes = []
+        invariants = []
+        scenarios = []
+        replay_results = []
+        replay_traces = []
+        property_results = []
+
+    monkeypatch.setattr(
+        "litmus.mcp.tools._resolve_scope",
+        lambda *_args, **_kwargs: captured.setdefault("scope", object()),
+    )
+    monkeypatch.setattr(
+        "litmus.mcp.tools.run_verification",
+        lambda root, *, mode, scope, decision_policy=None: captured.update(
+            {
+                "root": root,
+                "mode": mode,
+                "scope": scope,
+                "decision_policy": decision_policy,
+            }
+        )
+        or _DummyResult(),
+    )
+    monkeypatch.setattr(
+        "litmus.mcp.tools.record_verification_run",
+        lambda *_args, **_kwargs: type("Run", (), {"run_id": "run-123"})(),
+    )
+
+    result = run_verify_operation(tmp_path, decision_policy="strict_local_v1")
+
+    assert captured["decision_policy"] == "strict_local_v1"
+    assert result.policy_evaluation.policy_name == "strict_local_v1"
 
 
 def test_run_list_invariants_operation_returns_visible_invariants(tmp_path: Path) -> None:

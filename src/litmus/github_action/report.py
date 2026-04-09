@@ -4,11 +4,10 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
+from litmus.decisioning import MergeRecommendation, evaluate_verification_result
 from litmus.dst.engine import run_verification
 from litmus.errors import LitmusUserError, VerificationModeError
 from litmus.github_action.publish import publish_pr_comment
-from litmus.properties.runner import PropertyCheckStatus
-from litmus.replay.differential import ReplayClassification
 from litmus.reporting.confidence import calculate_confidence_score
 from litmus.reporting.console import render_verification_summary
 from litmus.reporting.pr_comment import render_pr_comment
@@ -18,7 +17,10 @@ from litmus.runs import RunMode, record_verification_run
 @dataclass(slots=True)
 class ActionReport:
     confidence: float
+    action_status: str
     verdict: str
+    decision: str | None
+    merge_recommendation: str | None
     should_fail: bool
     summary: str
     comment: str
@@ -57,19 +59,18 @@ def build_action_report(
     include_comment: bool,
 ) -> ActionReport:
     confidence = calculate_confidence_score(result.replay_results, result.property_results)
-    has_breaking_replay = any(
-        replay.classification is ReplayClassification.BREAKING_CHANGE
-        for replay in result.replay_results
+    decision_bundle = getattr(result, "decision_bundle", None) or evaluate_verification_result(result)
+    policy_requires_failure = (
+        decision_bundle.policy.merge_recommendation is not MergeRecommendation.ALLOW
     )
-    has_failed_property = any(
-        property_result.status is PropertyCheckStatus.FAILED
-        for property_result in result.property_results
-    )
-    should_fail = has_breaking_replay or has_failed_property or confidence < min_score
+    should_fail = policy_requires_failure or confidence < min_score
 
     return ActionReport(
         confidence=confidence,
+        action_status="verified",
         verdict="fail" if should_fail else "pass",
+        decision=decision_bundle.verdict.decision.value,
+        merge_recommendation=decision_bundle.policy.merge_recommendation.value,
         should_fail=should_fail,
         summary=render_verification_summary(result),
         comment=render_pr_comment(result),
@@ -99,23 +100,26 @@ def write_action_report(
 
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(
-            "\n".join(
-                [
-                    f"confidence={report.confidence:.2f}",
-                    f"verdict={report.verdict}",
-                    f"comment-path={written_comment_path}",
-                ]
-            )
-            + "\n",
-            encoding="utf-8",
-        )
+        output_lines = [
+            f"confidence={report.confidence:.2f}",
+            f"action-status={report.action_status}",
+            f"verdict={report.verdict}",
+        ]
+        if report.decision is not None:
+            output_lines.append(f"decision={report.decision}")
+        if report.merge_recommendation is not None:
+            output_lines.append(f"merge-recommendation={report.merge_recommendation}")
+        output_lines.append(f"comment-path={written_comment_path}")
+        output_path.write_text("\n".join(output_lines) + "\n", encoding="utf-8")
 
 
 def build_error_action_report(error: LitmusUserError) -> ActionReport:
     return ActionReport(
         confidence=0.0,
+        action_status="verification_error",
         verdict="fail",
+        decision=None,
+        merge_recommendation=None,
         should_fail=True,
         summary=f"Litmus verify\nError: {error}",
         comment="",
@@ -134,6 +138,7 @@ def main() -> None:
     )
     include_comment = os.getenv("LITMUS_COMMENT", "true").strip().lower() != "false"
     min_score = parse_min_score(os.getenv("LITMUS_MIN_SCORE"))
+    decision_policy = _optional_string(os.getenv("LITMUS_DECISION_POLICY"))
     github = _github_comment_context()
 
     try:
@@ -141,6 +146,7 @@ def main() -> None:
         report = run_github_action(
             workspace=workspace,
             mode=mode,
+            decision_policy=decision_policy,
             min_score=min_score,
             include_comment=include_comment,
             outputs=outputs,
@@ -188,11 +194,15 @@ def run_github_action(
     *,
     workspace: Path,
     mode: RunMode,
+    decision_policy: str | None = None,
     min_score: float,
     include_comment: bool,
     outputs: ActionOutputPaths,
 ) -> ActionReport:
-    result = run_verification(workspace, mode=mode)
+    if decision_policy is None:
+        result = run_verification(workspace, mode=mode)
+    else:
+        result = run_verification(workspace, mode=mode, decision_policy=decision_policy)
     record_verification_run(workspace, result, mode=mode)
 
     report = build_action_report(

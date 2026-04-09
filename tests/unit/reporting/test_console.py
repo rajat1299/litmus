@@ -122,6 +122,11 @@ def test_render_verification_summary_outputs_expected_copy_contract() -> None:
         [
             "Litmus verify",
             "Surface: grounded alpha for Python async ASGI services",
+            "Decision: unsafe",
+            "Merge recommendation: block",
+            "Risk: high classes=reliability,correctness,external_dependency,data_integrity",
+            "Evidence: signals=3 detected_boundaries=2 unsupported_gaps=1 pending_review=1",
+            "Policy: alpha_local_v1 failing=blocking_regressions,supported_boundary_coverage warnings=suggested_invariant_review",
             "App: service.app:app",
             "Scope: full repo",
             "Routes: 1",

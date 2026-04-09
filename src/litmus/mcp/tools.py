@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from litmus.compatibility import compatibility_report_from_result
+from litmus.decisioning import evaluate_verification_result
 from litmus.discovery.app import default_app_loader
 from litmus.dst.asgi import run_asgi_app
 from litmus.dst.engine import (
@@ -51,13 +52,23 @@ def run_verify_operation(
     target: Path | str | None = None,
     staged: bool = False,
     diff: str | None = None,
+    decision_policy: str | None = None,
     mode: RunMode = RunMode.MCP,
 ) -> VerifyOperationResult:
     repo_root = Path(root)
     scope = _resolve_scope(repo_root, target=target, staged=staged, diff=diff)
-    result = run_verification(repo_root, mode=mode, scope=scope)
+    if decision_policy is None:
+        result = run_verification(repo_root, mode=mode, scope=scope)
+    else:
+        result = run_verification(
+            repo_root,
+            mode=mode,
+            scope=scope,
+            decision_policy=decision_policy,
+        )
     run = record_verification_run(repo_root, result, mode=mode)
     projection = VerificationProjection.from_result(result)
+    decision_bundle = getattr(result, "decision_bundle", None) or evaluate_verification_result(result)
     pending_review = sum(1 for invariant in result.invariants if invariant.is_pending_suggestion())
     return VerifyOperationResult(
         run_id=run.run_id,
@@ -86,6 +97,10 @@ def run_verify_operation(
             property_max_examples=projection.performance["property_max_examples"],
             search_budget=SearchBudgetCounts(**projection.performance["search_budget"]),
         ),
+        evidence=decision_bundle.evidence,
+        risk_assessment=decision_bundle.risk,
+        policy_evaluation=decision_bundle.policy,
+        verification_verdict=decision_bundle.verdict,
         boundary_coverage=BoundaryCoverageCounts.from_mapping(boundary_coverage_from_result(result)),
         compatibility=compatibility_report_from_result(result),
         replay_seeds=[record.seed for record in result.replay_traces],

@@ -12,6 +12,8 @@ Current grounded alpha surface:
 - replay over the latest replayable local run artifacts under `.litmus/runs/`
 - compatibility and degradation contract documented in `docs/alpha-compatibility.md`
 - local fault-profile controls are grounded presets: `default`, `gentle`, and `hostile`
+- local decision-policy controls are grounded repo-local profiles: `alpha_local_v1` and `strict_local_v1`
+- per-run policy overrides are grounded on `litmus verify --decision-policy ...`, MCP `verify(decision_policy=...)`, and the GitHub Action `decision-policy` input
 
 Performance contract:
 
@@ -85,6 +87,11 @@ The shipped demo is intentionally broken on the happy path. Expected output shap
 
 ```text
 Litmus verify
+Decision: unsafe
+Merge recommendation: block
+Risk: high classes=reliability,correctness
+Evidence: signals=2 detected_boundaries=0 unsupported_gaps=0 pending_review=0
+Policy: alpha_local_v1 failing=blocking_regressions warnings=none
 App: app:app
 Routes: 1
 Invariants: 2
@@ -134,7 +141,7 @@ This MCP surface is intentionally local:
 - transport: stdio only
 - scope: current workspace
 - tools: `verify`, `list_invariants`, `replay`, `explain_failure`
-- results: structured payloads backed by the same local run and replay artifacts as the CLI, including compatibility and degradation status
+- results: structured payloads backed by the same local run and replay artifacts as the CLI, including local risk assessment, evidence, policy evaluation, verification verdict, compatibility, and degradation status
 
 ## Compatibility Contract
 
@@ -163,6 +170,8 @@ uv run --project ../.. litmus verify
 Expected output shape:
 
 ```text
+Decision: safe
+Merge recommendation: allow
 Replay: unchanged=2 breaking=0 benign=0 improvement=0
 Performance: elapsed=0.65s budget<=10.00s mode=local profile=default strategy=balanced within_budget=yes
 Budget policy: launch-default under-10s path
@@ -173,7 +182,9 @@ Confidence: 1.00
 
 - mined tests become the replay baseline
 - `litmus verify` writes replay artifacts under `.litmus/`
+- `litmus verify` now persists a local decision bundle with risk, evidence, policy, and verdict into those run artifacts
+- repo config can now switch local merge policy between the default `alpha_local_v1` and a stricter `strict_local_v1` profile without changing the shared four-value decision contract
 - `litmus replay <seed>` reproduces a failing scenario from those artifacts
 - a concrete app fix can be rerun to green
 
-This alpha does not yet prove the full aspirational DST product story described in the main repo README.
+This alpha does not yet prove the full aspirational DST product story described in the main repo README, and it still does not include a hosted control plane. The system of record remains local and file-backed in this repository.

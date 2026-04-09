@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from litmus.config import FaultProfile, RepoConfig, load_repo_config, write_repo_config
+from litmus.config import DecisionPolicy, FaultProfile, RepoConfig, load_repo_config, write_repo_config
 from litmus.errors import ConfigParseError
 
 
@@ -93,6 +93,18 @@ def test_load_repo_config_reads_fault_profile_from_litmus_yaml(tmp_path: Path) -
     assert config.fault_profile is FaultProfile.HOSTILE
 
 
+def test_load_repo_config_reads_decision_policy_from_litmus_yaml(tmp_path: Path) -> None:
+    (tmp_path / "litmus.yaml").write_text(
+        'app: "service.main:app"\ndecision_policy: strict_local_v1\n',
+        encoding="utf-8",
+    )
+
+    config = load_repo_config(tmp_path)
+
+    assert config.app == "service.main:app"
+    assert config.decision_policy is DecisionPolicy.STRICT_LOCAL_V1
+
+
 def test_load_repo_config_raises_config_parse_error_for_invalid_fault_profile(tmp_path: Path) -> None:
     (tmp_path / "litmus.yaml").write_text(
         'app: "service.main:app"\nfault_profile: chaos\n',
@@ -100,6 +112,16 @@ def test_load_repo_config_raises_config_parse_error_for_invalid_fault_profile(tm
     )
 
     with pytest.raises(ConfigParseError, match="fault_profile"):
+        load_repo_config(tmp_path)
+
+
+def test_load_repo_config_raises_config_parse_error_for_invalid_decision_policy(tmp_path: Path) -> None:
+    (tmp_path / "litmus.yaml").write_text(
+        'app: "service.main:app"\ndecision_policy: aggressive\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigParseError, match="decision_policy"):
         load_repo_config(tmp_path)
 
 
@@ -112,6 +134,7 @@ def test_write_repo_config_can_materialize_explicit_defaults(tmp_path: Path) -> 
             app="service.main:app",
             suggested_invariants=False,
             fault_profile=FaultProfile.DEFAULT,
+            decision_policy=DecisionPolicy.ALPHA_LOCAL_V1,
         ),
         include_defaults=True,
     )
@@ -120,4 +143,5 @@ def test_write_repo_config_can_materialize_explicit_defaults(tmp_path: Path) -> 
         "app: service.main:app\n"
         "suggested_invariants: false\n"
         "fault_profile: default\n"
+        "decision_policy: alpha_local_v1\n"
     )

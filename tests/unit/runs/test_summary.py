@@ -206,6 +206,103 @@ def test_verification_projection_owns_shared_verification_counts() -> None:
             "Unsupported constructor or type import in loaded app modules."
         ],
     }
+    assert projection.evidence == {
+        "confidence_score": pytest.approx(2 / 3, rel=1e-6),
+        "total_signals": 3,
+        "replay_signals": 2,
+        "property_signals": 1,
+        "detected_boundary_count": 2,
+        "unsupported_gap_count": 1,
+        "pending_review_count": 1,
+        "replay_counts": {
+            "unchanged": 1,
+            "breaking_change": 1,
+            "benign_change": 0,
+            "improvement": 0,
+        },
+        "property_counts": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 1,
+        },
+        "invariant_counts": {
+            "total": 2,
+            "confirmed": 1,
+            "suggested": 1,
+        },
+    }
+    assert projection.risk_assessment == {
+        "level": "high",
+        "risk_classes": [
+            "reliability",
+            "correctness",
+            "external_dependency",
+            "data_integrity",
+        ],
+        "detected_boundaries": ["http", "redis"],
+        "unsupported_gaps": [
+            {
+                "boundary": "redis",
+                "detail": "Unsupported constructor or type import in loaded app modules.",
+                "status": "unsupported",
+            }
+        ],
+        "evidence_expectations": [
+            "deterministic_replay",
+            "property_checks",
+            "supported_boundary_coverage",
+            "reviewed_suggested_invariants",
+        ],
+        "reasons": [
+            "1 route(s) are in the current verification scope.",
+            "Detected boundary coverage on http, redis.",
+            "Unsupported coverage remains on redis.",
+            "1 suggested invariants still need review.",
+        ],
+    }
+    assert projection.policy_evaluation == {
+        "policy_name": "alpha_local_v1",
+        "merge_recommendation": "block",
+        "checks": [
+            {
+                "name": "blocking_regressions",
+                "status": "failed",
+                "detail": "Breaking replay or failed property check detected.",
+                "blocking": True,
+            },
+            {
+                "name": "sufficient_evidence",
+                "status": "passed",
+                "detail": "At least one replay or property signal was recorded.",
+                "blocking": False,
+            },
+            {
+                "name": "supported_boundary_coverage",
+                "status": "failed",
+                "detail": "Unsupported boundary coverage was detected in the exercised path.",
+                "blocking": False,
+            },
+            {
+                "name": "suggested_invariant_review",
+                "status": "warning",
+                "detail": "1 suggested invariants still need review.",
+                "blocking": False,
+            },
+        ],
+        "failing_checks": ["blocking_regressions", "supported_boundary_coverage"],
+        "warning_checks": ["suggested_invariant_review"],
+    }
+    assert projection.verification_verdict == {
+        "decision": "unsafe",
+        "summary": "Verification found a blocking regression in the current grounded surface.",
+        "reasons": [
+            "Breaking replay or failed property check detected.",
+            "Unsupported boundary coverage was detected in the exercised path.",
+            "1 suggested invariants still need review.",
+            "redis: Unsupported constructor or type import in loaded app modules.",
+        ],
+        "confidence_score": pytest.approx(2 / 3, rel=1e-6),
+    }
     assert projection.confidence == pytest.approx(2 / 3, rel=1e-6)
     assert summarize_verification_result(result) == projection.to_dict()
 

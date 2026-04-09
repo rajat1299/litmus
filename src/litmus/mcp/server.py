@@ -39,6 +39,7 @@ def build_mcp_server(root: Path | None = None) -> FastMCP:
         target: str | None = None,
         staged: bool = False,
         diff: str | None = None,
+        decision_policy: str | None = None,
     ) -> VerifyOperationPayload:
         result = await anyio.to_thread.run_sync(
             partial(
@@ -47,6 +48,7 @@ def build_mcp_server(root: Path | None = None) -> FastMCP:
                 target=target,
                 staged=staged,
                 diff=diff,
+                decision_policy=decision_policy,
             )
         )
         return VerifyOperationPayload.from_operation(result)

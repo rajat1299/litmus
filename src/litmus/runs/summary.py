@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from litmus.compatibility import compatibility_report_from_result
+from litmus.decisioning import evaluate_verification_result
 from litmus.performance import (
     budget_policy_for_mode,
     coerce_fault_profile,
@@ -61,12 +62,17 @@ class VerificationProjection:
     properties: dict[str, int]
     compatibility: dict[str, Any]
     performance: dict[str, Any]
+    evidence: dict[str, Any]
+    risk_assessment: dict[str, Any]
+    policy_evaluation: dict[str, Any]
+    verification_verdict: dict[str, Any]
     confidence: float
 
     @classmethod
     def from_result(cls, result) -> VerificationProjection:
-        from litmus.reporting.confidence import calculate_confidence_score
+        from litmus.confidence import calculate_confidence_score
 
+        decision_bundle = getattr(result, "decision_bundle", None) or evaluate_verification_result(result)
         replay_counts = Counter(replay.classification.value for replay in result.replay_results)
         property_counts = Counter(property_result.status.value for property_result in result.property_results)
         confirmed_invariants = sum(1 for invariant in result.invariants if invariant.status.value == "confirmed")
@@ -95,6 +101,10 @@ class VerificationProjection:
             },
             compatibility=compatibility_report_from_result(result).to_dict(),
             performance=performance.to_dict(),
+            evidence=decision_bundle.evidence.to_dict(),
+            risk_assessment=decision_bundle.risk.to_dict(),
+            policy_evaluation=decision_bundle.policy.to_dict(),
+            verification_verdict=decision_bundle.verdict.to_dict(),
             confidence=calculate_confidence_score(result.replay_results, result.property_results),
         )
 
@@ -107,6 +117,10 @@ class VerificationProjection:
             "properties": dict(self.properties),
             "compatibility": dict(self.compatibility),
             "performance": dict(self.performance),
+            "evidence": dict(self.evidence),
+            "risk_assessment": dict(self.risk_assessment),
+            "policy_evaluation": dict(self.policy_evaluation),
+            "verification_verdict": dict(self.verification_verdict),
             "confidence": self.confidence,
         }
 

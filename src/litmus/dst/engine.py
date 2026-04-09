@@ -7,7 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 import sys
 
-from litmus.config import FaultProfile, RepoConfig, load_repo_config
+from litmus.config import DecisionPolicy, FaultProfile, RepoConfig, load_repo_config
+from litmus.decisioning import VerificationDecisionBundle, evaluate_verification_result
 from litmus.discovery.app import default_app_loader, discover_app_reference
 from litmus.discovery.project import iter_python_files
 from litmus.discovery.routes import RouteDefinition, extract_routes
@@ -69,10 +70,12 @@ class VerificationResult:
     completed_at: str | None = None
     mode: RunMode | str = RunMode.LOCAL
     fault_profile: FaultProfile | str = FaultProfile.DEFAULT
+    decision_policy: DecisionPolicy | str = DecisionPolicy.ALPHA_LOCAL_V1
     replay_seeds_per_scenario: int | None = None
     search_strategy: str | None = None
     property_max_examples: int | None = None
     scope_label: str = "full repo"
+    decision_bundle: VerificationDecisionBundle | None = None
 
 
 @dataclass(slots=True)
@@ -97,9 +100,10 @@ def run_verification(
     mode: RunMode | str = RunMode.LOCAL,
     *,
     scope: VerifyScope | None = None,
+    decision_policy: DecisionPolicy | str | None = None,
 ) -> VerificationResult:
     started_at = datetime.now(UTC).isoformat()
-    inputs = collect_verification_inputs(root, scope=scope)
+    inputs = collect_verification_inputs(root, scope=scope, decision_policy=decision_policy)
     verification_mode = _coerce_run_mode(mode)
     replay_seed_budget = replay_seed_count_for_mode(
         verification_mode,
@@ -135,7 +139,7 @@ def run_verification(
             max_examples=property_example_budget,
         )
     completed_at = datetime.now(UTC).isoformat()
-    return VerificationResult(
+    result = VerificationResult(
         scope_label=inputs.scope_label,
         app_reference=inputs.app_reference,
         routes=inputs.routes,
@@ -148,20 +152,28 @@ def run_verification(
         completed_at=completed_at,
         mode=verification_mode,
         fault_profile=inputs.config.fault_profile,
+        decision_policy=inputs.config.decision_policy,
         replay_seeds_per_scenario=replay_seed_budget,
         search_strategy=replay_search_strategy,
         property_max_examples=property_example_budget,
     )
+    result.decision_bundle = evaluate_verification_result(result)
+    return result
 
 
 def collect_verification_inputs(
     root: Path | str,
     *,
     scope: VerifyScope | None = None,
+    decision_policy: DecisionPolicy | str | None = None,
 ) -> VerificationInputs:
     repo_root = Path(root)
     active_scope = scope or default_verification_scope()
-    config = load_repo_config(repo_root)
+    overrides = None if decision_policy is None else {"decision_policy": decision_policy}
+    if overrides is None:
+        config = load_repo_config(repo_root)
+    else:
+        config = load_repo_config(repo_root, overrides=overrides)
     app_reference = discover_app_reference(repo_root)
     discovered_routes = _collect_routes(repo_root)
     discovered_invariants = mine_invariants_from_tests(_collect_test_files(repo_root))

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 
-from litmus.config import FaultProfile
+from litmus.config import DecisionPolicy, FaultProfile
 from litmus.dst.engine import run_verification
 from litmus.errors import LitmusUserError
 from litmus.init_flow import bootstrap_repo
@@ -79,6 +79,11 @@ def verify(
     target: Path | None = typer.Argument(None, help="Optional file or directory path to scope verification."),
     staged: bool = typer.Option(False, "--staged", help="Scope verification to staged git changes."),
     diff: str | None = typer.Option(None, "--diff", help="Scope verification to a named git diff range."),
+    decision_policy: DecisionPolicy | None = typer.Option(
+        None,
+        "--decision-policy",
+        help="Override the repo decision policy for this run.",
+    ),
 ) -> None:
     try:
         scope = resolve_verification_scope(
@@ -87,7 +92,10 @@ def verify(
             staged=staged,
             diff=diff,
         )
-        result = run_verification(Path.cwd(), scope=scope)
+        if decision_policy is None:
+            result = run_verification(Path.cwd(), scope=scope)
+        else:
+            result = run_verification(Path.cwd(), scope=scope, decision_policy=decision_policy)
     except LitmusUserError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from None

@@ -12,6 +12,11 @@ def render_verification_summary(result) -> str:
     lines = [
         "Litmus verify",
         f"Surface: {GROUNDED_ALPHA_SURFACE_LABEL}",
+        f"Decision: {projection.verification_verdict['decision']}",
+        f"Merge recommendation: {projection.policy_evaluation['merge_recommendation']}",
+        _risk_summary_line(projection),
+        _evidence_summary_line(projection),
+        _policy_summary_line(projection),
         f"App: {projection.app_reference}",
         f"Scope: {projection.scope_label}",
         f"Routes: {projection.routes}",
@@ -84,6 +89,30 @@ def _performance_summary_line(projection: VerificationProjection) -> str:
         f"strategy={performance['search_strategy']} "
         f"within_budget={'yes' if performance['within_budget'] else 'no'}"
     )
+
+
+def _risk_summary_line(projection: VerificationProjection) -> str:
+    risk = projection.risk_assessment
+    classes = ",".join(risk["risk_classes"]) if risk["risk_classes"] else "none"
+    return f"Risk: {risk['level']} classes={classes}"
+
+
+def _evidence_summary_line(projection: VerificationProjection) -> str:
+    evidence = projection.evidence
+    return (
+        "Evidence: "
+        f"signals={evidence['total_signals']} "
+        f"detected_boundaries={evidence['detected_boundary_count']} "
+        f"unsupported_gaps={evidence['unsupported_gap_count']} "
+        f"pending_review={evidence['pending_review_count']}"
+    )
+
+
+def _policy_summary_line(projection: VerificationProjection) -> str:
+    policy = projection.policy_evaluation
+    failing = ",".join(policy["failing_checks"]) if policy["failing_checks"] else "none"
+    warnings = ",".join(policy["warning_checks"]) if policy["warning_checks"] else "none"
+    return f"Policy: {policy['policy_name']} failing={failing} warnings={warnings}"
 
 
 def _budget_policy_line(projection: VerificationProjection) -> str:

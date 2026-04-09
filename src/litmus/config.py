@@ -16,11 +16,17 @@ class FaultProfile(str, Enum):
     HOSTILE = "hostile"
 
 
+class DecisionPolicy(str, Enum):
+    ALPHA_LOCAL_V1 = "alpha_local_v1"
+    STRICT_LOCAL_V1 = "strict_local_v1"
+
+
 @dataclass(slots=True)
 class RepoConfig:
     app: str | None = None
     suggested_invariants: bool = False
     fault_profile: FaultProfile = FaultProfile.DEFAULT
+    decision_policy: DecisionPolicy = DecisionPolicy.ALPHA_LOCAL_V1
 
 
 def load_repo_config(root: Path | str, *, overrides: dict[str, object] | None = None) -> RepoConfig:
@@ -32,6 +38,7 @@ def load_repo_config(root: Path | str, *, overrides: dict[str, object] | None = 
         app=_coerce_app_reference(data.get("app")),
         suggested_invariants=_coerce_bool(data.get("suggested_invariants", False), field_name="suggested_invariants"),
         fault_profile=_coerce_fault_profile(data.get("fault_profile")),
+        decision_policy=_coerce_decision_policy(data.get("decision_policy")),
     )
 
 
@@ -44,6 +51,8 @@ def write_repo_config(path: Path | str, config: RepoConfig, *, include_defaults:
         payload["suggested_invariants"] = config.suggested_invariants
     if include_defaults or config.fault_profile is not FaultProfile.DEFAULT:
         payload["fault_profile"] = config.fault_profile.value
+    if include_defaults or config.decision_policy is not DecisionPolicy.ALPHA_LOCAL_V1:
+        payload["decision_policy"] = config.decision_policy.value
     output_path.write_text(
         yaml.safe_dump(payload, sort_keys=False),
         encoding="utf-8",
@@ -120,3 +129,26 @@ def _coerce_fault_profile(value: object) -> FaultProfile:
                 f"Invalid Litmus config field 'fault_profile': expected one of {valid_profiles}."
             ) from exc
     raise ConfigParseError("Invalid Litmus config field 'fault_profile': expected a string value.")
+
+
+def coerce_decision_policy(value: DecisionPolicy | str) -> DecisionPolicy:
+    if isinstance(value, DecisionPolicy):
+        return value
+    return _coerce_decision_policy(value)
+
+
+def _coerce_decision_policy(value: object) -> DecisionPolicy:
+    if value is None:
+        return DecisionPolicy.ALPHA_LOCAL_V1
+    if isinstance(value, DecisionPolicy):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        try:
+            return DecisionPolicy(normalized)
+        except ValueError as exc:
+            valid_policies = ", ".join(policy.value for policy in DecisionPolicy)
+            raise ConfigParseError(
+                f"Invalid Litmus config field 'decision_policy': expected one of {valid_policies}."
+            ) from exc
+    raise ConfigParseError("Invalid Litmus config field 'decision_policy': expected a string value.")

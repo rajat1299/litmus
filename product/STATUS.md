@@ -1,8 +1,8 @@
 # Product Status
 
 **Project:** Litmus
-**Status Date:** 2026-04-08
-**Phase:** Track B4 slice 7 in progress
+**Status Date:** 2026-04-09
+**Phase:** WS-26 policy overrides complete
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -10,7 +10,7 @@
 
 ## Current Objective
 
-Keep the shipped verification product honest and demonstrable after tranche 1 by closing public-alpha truth drift first, then continue bounded moat-deepening slices without broadening the launch surface or weakening the zero-config contract.
+Keep the shipped verification product honest while using the new local decision model as the product contract for future PR policy, learning, and hosted control-plane work, without introducing premature service scaffolding.
 
 ---
 
@@ -22,7 +22,7 @@ Keep the shipped verification product honest and demonstrable after tranche 1 by
 | Engineering plan | Ready | Master plan written for parallel execution |
 | Agent operating model | Ready | Agent handbook and workstream packets added |
 | Implementation | Complete | WS-09 through WS-17 are done; tranche 1 is closed, WS-15 cross-layer DST landed, WS-16 replay fidelity landed, and WS-17 target-aware local reachability coverage landed |
-| Release readiness | In progress | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, the bounded CLI management surface, the suggested-invariant review lifecycle, performance/SLO hardening, scheduler-level deterministic replay, and search-budget scaling/smarter fault-budget accounting have landed; bounded moat-deepening work now continues with broader supported-stack simulator fidelity |
+| Release readiness | In progress | Demo app, packaged CLI smoke proof, grounded alpha/package docs, tagged release automation, compatibility/degradation reporting, the bounded CLI management surface, the suggested-invariant review lifecycle, performance/SLO hardening, scheduler-level deterministic replay, search-budget scaling/smarter fault-budget accounting, broader supported-stack fidelity, the repo-local decision contract, and repo-local policy profiles/merge controls have landed; hosted control-plane work remains doc-defined but intentionally unimplemented |
 
 ---
 
@@ -80,6 +80,9 @@ Update this table whenever work is claimed, blocked, or completed.
 | WS-21 | Scheduler-level deterministic replay | Codex | Done | WS-16, WS-17, WS-20 | 2026-04-07 |
 | WS-22 | Search-depth scaling and smarter fault budgets | Codex | Done | WS-17, WS-20, WS-21 | 2026-04-08 |
 | WS-23 | Broader supported-stack simulator fidelity | Codex | In progress | WS-17, WS-21, WS-22 | 2026-04-08 |
+| WS-24 | Repo-local decision model and policy surfaces | Codex | Done | WS-12, WS-14, WS-22, WS-23 | 2026-04-09 |
+| WS-25 | Repo-local policy profiles and merge controls | Codex | Done | WS-18, WS-24 | 2026-04-09 |
+| WS-26 | Per-run policy overrides across CLI, MCP, and GitHub Action | Codex | Done | WS-24, WS-25 | 2026-04-09 |
 
 ---
 
@@ -138,6 +141,16 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-08 | Landed the fifth WS-23 review slice on `codex/b4-supported-stack-fidelity-slice1`: Litmus now reports exact shipped HTTP client shapes as `httpx.AsyncClient` and `aiohttp.ClientSession`, and verify/replay coverage now exercises the aiohttp path instead of leaving the HTTP launch claim at a generic `httpx/aiohttp` label |
 | 2026-04-08 | Claimed Track B4 slice 6 on `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around aiohttp response transparency: preserve ordinary `aiohttp.ClientResponse` use on the already-supported `aiohttp.ClientSession` path, keep HTTP simulator semantics unchanged, and leave deeper HTTP semantics plus other library surfaces for later B4 slices |
 | 2026-04-08 | Claimed Track B4 slice 7 on `codex/b4-supported-stack-fidelity-slice1` with a bounded scope around Redis lifecycle transparency: preserve `async with Redis(...)`, `async with Redis.from_url(...)`, and `await redis.aclose()` on already-supported Redis async constructor/import paths, keep Redis simulator semantics unchanged, and leave broader Redis connection/pipeline/pubsub semantics for later B4 slices |
+| 2026-04-08 | Claimed WS-24 as the first repo-local product-contract slice: add durable risk-assessment, policy-evaluation, evidence, and verification-verdict objects to local verification results and run summaries; thread those decisions through CLI, PR, and MCP surfaces; keep persistence file-backed under `.litmus/runs`; and define the hosted control plane only in docs until the local contract is proven |
+| 2026-04-08 | Completed WS-24 as the first repo-local confidence-platform slice: verification runs now persist evidence, risk assessment, policy evaluation, and verification verdict objects; CLI, PR, GitHub Action, and MCP surfaces render the same local decision contract; and the hosted control plane is now defined in docs as future work rather than scaffolded code |
+| 2026-04-09 | Reopened WS-24 for review follow-up: make GitHub Action enforcement honor `review_required`, separate action execution failures from semantic verification outcomes, and raise the risk label for selected-route/no-signal blind spots so the local trust contract stays operationally honest |
+| 2026-04-09 | Completed the WS-24 review follow-up: GitHub Action failure semantics now honor non-`allow` merge recommendations, action-level execution failures no longer report `insufficient_evidence`, and selected-route/no-signal blind spots now surface as elevated risk instead of low risk |
+| 2026-04-09 | Reopened WS-24 again for action-contract follow-up: keep GitHub Action execution failures outside the shared four-value decision contract by moving error state into a separate action-status field instead of overloading `decision` |
+| 2026-04-09 | Completed the WS-24 action-contract follow-up: GitHub Action now emits `action-status` for execution state, reserves `decision` and `merge-recommendation` for completed verification runs, and declares the action outputs explicitly in `action.yml` |
+| 2026-04-09 | Claimed WS-25 as the next repo-local confidence slice: add configurable local policy profiles and merge controls on top of the shared four-value decision contract, keep policy state file-backed in repo config, and avoid introducing hosted control-plane scaffolding |
+| 2026-04-09 | Completed WS-25: repo config now supports local decision-policy profiles, the strict local profile can block insufficient-evidence and unsupported-coverage runs without changing the four semantic verdict values, and CLI/run-artifact surfaces persist the configured policy outcome honestly |
+| 2026-04-09 | Claimed WS-26 as the next repo-local confidence slice: add per-run decision-policy overrides to CLI, MCP, and GitHub Action entrypoints so stricter merge controls can be selected at execution time without editing repo config or introducing hosted state |
+| 2026-04-09 | Completed WS-26: CLI, MCP, and GitHub Action can now override the repo decision-policy per run, so stricter merge controls can be selected at execution time while staying inside the same local four-value decision contract and file-backed trust model |
 
 ---
 
@@ -147,7 +160,8 @@ Update this table whenever work is claimed, blocked, or completed.
 2. Treat Track A1 as complete and keep the aspirational top-level `README.md` intentionally unchanged.
 3. Treat WS-20 as complete on `main` and keep any remaining launch-budget follow-up bounded to explicit review slices.
 4. Treat Track B2 and Track B3 as complete, keep WS-23 bounded to common SQLAlchemy, Redis async, and HTTP client-shape/response transparency/lifecycle coverage plus honest compatibility reporting and constructor transparency, and defer deeper simulator semantics plus other library shapes to later B4 slices.
-5. Keep `product/STATUS.md` as the single live source for what is in flight.
+5. Make WS-24 the first local confidence-platform slice: risk, evidence, policy, and verdict become durable local objects before any hosted-plane code exists.
+6. Keep `product/STATUS.md` as the single live source for what is in flight.
 
 ---
 

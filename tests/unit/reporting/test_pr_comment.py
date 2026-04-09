@@ -101,6 +101,11 @@ def test_render_pr_comment_summarizes_failures_with_replay_commands() -> None:
 
     assert "## Litmus Verification (Grounded Alpha)" in comment
     assert "Surface: `Python async ASGI services`" in comment
+    assert "### Decision" in comment
+    assert "- Verdict: `unsafe`" in comment
+    assert "- Merge recommendation: `block`" in comment
+    assert "- Risk: `high` (`reliability`, `correctness`)" in comment
+    assert "- Failed policy checks: `blocking_regressions`" in comment
     assert "Confidence score: `0.33`" in comment
     assert "- `POST /payments/charge`" in comment
     assert "- `GET /health`" in comment
@@ -158,6 +163,8 @@ def test_render_pr_comment_reports_clean_verification_runs() -> None:
 
     assert "## Litmus Verification (Grounded Alpha)" in comment
     assert "Surface: `Python async ASGI services`" in comment
+    assert "- Verdict: `safe`" in comment
+    assert "- Merge recommendation: `allow`" in comment
     assert "Confidence score: `1.00`" in comment
     assert "- Invariants: total=0 confirmed=0 suggested=0" in comment
     assert "### Failing Seeds" in comment

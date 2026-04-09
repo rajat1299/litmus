@@ -113,6 +113,8 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
 
     assert result.returncode == 0, result.stderr
     assert "Litmus verify" in result.stdout
+    assert "Decision: safe" in result.stdout
+    assert "Merge recommendation: allow" in result.stdout
     assert "App: service.app:app" in result.stdout
     summary = _latest_verify_summary(repo_root)
     assert summary == {
@@ -136,8 +138,16 @@ def test_litmus_verify_runs_end_to_end_against_mined_scenarios(tmp_path) -> None
         },
         "compatibility": _expected_not_detected_compatibility(),
         "performance": summary["performance"],
+        "evidence": summary["evidence"],
+        "risk_assessment": summary["risk_assessment"],
+        "policy_evaluation": summary["policy_evaluation"],
+        "verification_verdict": summary["verification_verdict"],
         "confidence": 1.0,
     }
+    assert summary["evidence"]["total_signals"] == 2
+    assert summary["risk_assessment"]["level"] == "elevated"
+    assert summary["policy_evaluation"]["merge_recommendation"] == "allow"
+    assert summary["verification_verdict"]["decision"] == "safe"
     assert summary["performance"]["mode"] == "local"
     assert summary["performance"]["budget_ms"] == 10000
     assert summary["performance"]["within_budget"] is True
@@ -190,6 +200,8 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
 
     assert result.returncode == 0, result.stderr
     assert "Litmus verify" in result.stdout
+    assert "Decision: insufficient_evidence" in result.stdout
+    assert "Merge recommendation: review_required" in result.stdout
     summary = _latest_verify_summary(repo_root)
     assert summary == {
         "routes": 1,
@@ -212,11 +224,136 @@ def test_litmus_verify_under_reports_confidence_when_no_signals_exist(tmp_path) 
         },
         "compatibility": _expected_not_detected_compatibility(),
         "performance": summary["performance"],
+        "evidence": summary["evidence"],
+        "risk_assessment": summary["risk_assessment"],
+        "policy_evaluation": summary["policy_evaluation"],
+        "verification_verdict": summary["verification_verdict"],
         "confidence": 0.0,
     }
+    assert summary["evidence"]["total_signals"] == 0
+    assert summary["risk_assessment"]["level"] == "elevated"
+    assert summary["policy_evaluation"]["merge_recommendation"] == "review_required"
+    assert summary["verification_verdict"]["decision"] == "insufficient_evidence"
     assert summary["performance"]["mode"] == "local"
     assert summary["performance"]["budget_ms"] == 10000
     assert summary["performance"]["within_budget"] is True
+
+
+def test_litmus_verify_uses_strict_local_policy_from_repo_config(tmp_path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    service_dir.mkdir()
+
+    (repo_root / "litmus.yaml").write_text(
+        textwrap.dedent(
+            """
+            app: "service.app:app"
+            decision_policy: strict_local_v1
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                return {"status": "ok"}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Decision: insufficient_evidence" in result.stdout
+    assert "Merge recommendation: block" in result.stdout
+    assert "Policy: strict_local_v1 failing=sufficient_evidence warnings=none" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["policy_evaluation"]["policy_name"] == "strict_local_v1"
+    assert summary["policy_evaluation"]["merge_recommendation"] == "block"
+    assert summary["policy_evaluation"]["checks"][1]["name"] == "sufficient_evidence"
+    assert summary["policy_evaluation"]["checks"][1]["blocking"] is True
+    assert summary["verification_verdict"]["decision"] == "insufficient_evidence"
+
+
+def test_litmus_verify_accepts_per_run_decision_policy_override(tmp_path) -> None:
+    repo_root = tmp_path
+    service_dir = repo_root / "service"
+    service_dir.mkdir()
+
+    (service_dir / "app.py").write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+
+            class FastAPI:
+                def __init__(self) -> None:
+                    self.routes = {}
+
+                def get(self, path: str):
+                    def decorator(func):
+                        self.routes[("GET", path)] = func
+                        return func
+
+                    return decorator
+
+
+            app = FastAPI()
+
+
+            @app.get("/health")
+            async def health():
+                return {"status": "ok"}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["litmus", "verify", "--decision-policy", "strict_local_v1"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Decision: insufficient_evidence" in result.stdout
+    assert "Merge recommendation: block" in result.stdout
+    assert "Policy: strict_local_v1 failing=sufficient_evidence warnings=none" in result.stdout
+    summary = _latest_verify_summary(repo_root)
+    assert summary["policy_evaluation"]["policy_name"] == "strict_local_v1"
+    assert summary["policy_evaluation"]["merge_recommendation"] == "block"
 
 
 def test_litmus_verify_reports_app_load_error_cleanly(tmp_path: Path) -> None:
@@ -842,9 +979,13 @@ def test_litmus_verify_scopes_to_curated_suggestions_file(tmp_path: Path) -> Non
     assert "Scope: paths: .litmus/invariants.yaml" in result.stdout
     summary = _latest_verify_summary(repo_root)
     assert summary["routes"] == 1
-    assert summary["invariants"] == {"total": 1, "confirmed": 0, "suggested": 1}
+    assert summary["invariants"] == {"total": 2, "confirmed": 0, "suggested": 2}
     assert summary["scenarios"] == 0
     assert "refund_needs_review: Review refund behavior before trusting this endpoint." in result.stdout
+    assert (
+        "refund_post_payments_refund_needs_confirmed_anchor: "
+        "POST /payments/refund is selected for verification without a confirmed mined invariant anchor."
+    ) in result.stdout
 
 
 def test_litmus_verify_scopes_to_staged_curated_suggestions_file(tmp_path: Path) -> None:
@@ -873,9 +1014,13 @@ def test_litmus_verify_scopes_to_staged_curated_suggestions_file(tmp_path: Path)
     assert "Scope: staged diff" in result.stdout
     summary = _latest_verify_summary(repo_root)
     assert summary["routes"] == 1
-    assert summary["invariants"] == {"total": 1, "confirmed": 0, "suggested": 1}
+    assert summary["invariants"] == {"total": 2, "confirmed": 0, "suggested": 2}
     assert summary["scenarios"] == 0
     assert "refund_needs_review: Review refund behavior before trusting this route." in result.stdout
+    assert (
+        "refund_post_payments_refund_needs_confirmed_anchor: "
+        "POST /payments/refund is selected for verification without a confirmed mined invariant anchor."
+    ) in result.stdout
 
 
 def test_litmus_verify_scopes_to_explicit_changed_path(tmp_path: Path) -> None:

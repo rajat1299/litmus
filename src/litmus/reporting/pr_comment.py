@@ -24,6 +24,15 @@ def render_pr_comment(result) -> str:
         f"Confidence score: `{confidence:.2f}`",
         f"App: `{projection.app_reference}`",
         "",
+        "### Decision",
+        f"- Verdict: `{projection.verification_verdict['decision']}`",
+        f"- Merge recommendation: `{projection.policy_evaluation['merge_recommendation']}`",
+        _risk_summary_line(projection),
+        f"- Summary: {projection.verification_verdict['summary']}",
+        _policy_failing_checks_line(projection),
+        _policy_warning_checks_line(projection),
+        _evidence_summary_line(projection),
+        "",
         "### Affected Endpoints",
     ]
     lines.extend(f"- `{endpoint}`" for endpoint in _affected_endpoints(result))
@@ -252,3 +261,38 @@ def _coverage_token(snapshot) -> str:
     if snapshot.detected:
         return "detected"
     return "none"
+
+
+def _risk_summary_line(projection: VerificationProjection) -> str:
+    risk = projection.risk_assessment
+    if risk["risk_classes"]:
+        rendered_classes = ", ".join(f"`{risk_class}`" for risk_class in risk["risk_classes"])
+        return f"- Risk: `{risk['level']}` ({rendered_classes})"
+    return f"- Risk: `{risk['level']}`"
+
+
+def _policy_failing_checks_line(projection: VerificationProjection) -> str:
+    failing_checks = projection.policy_evaluation["failing_checks"]
+    if not failing_checks:
+        return "- Failed policy checks: none"
+    rendered = ", ".join(f"`{check}`" for check in failing_checks)
+    return f"- Failed policy checks: {rendered}"
+
+
+def _policy_warning_checks_line(projection: VerificationProjection) -> str:
+    warning_checks = projection.policy_evaluation["warning_checks"]
+    if not warning_checks:
+        return "- Warning policy checks: none"
+    rendered = ", ".join(f"`{check}`" for check in warning_checks)
+    return f"- Warning policy checks: {rendered}"
+
+
+def _evidence_summary_line(projection: VerificationProjection) -> str:
+    evidence = projection.evidence
+    return (
+        "- Evidence: "
+        f"signals={evidence['total_signals']} "
+        f"detected_boundaries={evidence['detected_boundary_count']} "
+        f"unsupported_gaps={evidence['unsupported_gap_count']} "
+        f"pending_review={evidence['pending_review_count']}"
+    )

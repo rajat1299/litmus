@@ -355,23 +355,34 @@ def test_litmus_config_set_writes_explicit_litmus_yaml_values(tmp_path: Path) ->
         cwd=tmp_path,
         check=False,
     )
+    decision_policy_result = subprocess.run(
+        ["litmus", "config", "set", "decision_policy", "strict_local_v1"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
 
     assert app_result.returncode == 0, app_result.stderr
     assert suggested_result.returncode == 0, suggested_result.stderr
     assert fault_profile_result.returncode == 0, fault_profile_result.stderr
+    assert decision_policy_result.returncode == 0, decision_policy_result.stderr
     assert "Set app = service.main:app" in app_result.stdout
     assert "Set suggested_invariants = true" in suggested_result.stdout
     assert "Set fault_profile = hostile" in fault_profile_result.stdout
+    assert "Set decision_policy = strict_local_v1" in decision_policy_result.stdout
 
     config = load_repo_config(tmp_path)
     assert config.app == "service.main:app"
     assert config.suggested_invariants is True
     assert config.fault_profile is FaultProfile.HOSTILE
+    assert config.decision_policy.value == "strict_local_v1"
 
     config_text = (tmp_path / "litmus.yaml").read_text(encoding="utf-8")
     assert "app: service.main:app" in config_text
     assert "suggested_invariants: true" in config_text
     assert "fault_profile: hostile" in config_text
+    assert "decision_policy: strict_local_v1" in config_text
 
 
 def test_litmus_config_set_can_repair_invalid_fault_profile_value(tmp_path: Path) -> None:
