@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 
-from litmus.config import DecisionPolicy, FaultProfile
+from litmus.config import DecisionPolicy
 from litmus.dst.engine import run_verification
 from litmus.errors import LitmusUserError
 from litmus.init_flow import bootstrap_repo
@@ -282,10 +282,6 @@ def config_set_command(
 ) -> None:
     try:
         result = set_config_value(Path.cwd(), key=key, value=value)
-    except ValueError:
-        valid_profiles = ", ".join(profile.value for profile in FaultProfile)
-        typer.echo(f"Unsupported fault profile. Use one of: {valid_profiles}.", err=True)
-        raise typer.Exit(code=1) from None
     except LitmusUserError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from None

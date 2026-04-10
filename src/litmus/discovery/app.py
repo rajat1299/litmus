@@ -4,6 +4,7 @@ import ast
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import importlib
+from importlib.util import cache_from_source
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -37,6 +38,7 @@ class AppLoader:
                 root=root_path,
                 module_name=module_name,
             )
+            _purge_repo_bytecode(root=root_path, module_name=module_name)
             with patched_supported_boundaries(root_path):
                 try:
                     module = importlib.import_module(module_name)
@@ -191,6 +193,41 @@ def _module_is_internal_to_litmus(module: ModuleType | None) -> bool:
 
 def _module_name_conflicts(name: str, top_level_module: str) -> bool:
     return name == top_level_module or name.startswith(f"{top_level_module}.")
+
+
+def _purge_repo_bytecode(*, root: Path | None, module_name: str) -> None:
+    if root is None:
+        return
+
+    module_parts = module_name.split(".")
+    source_paths: set[Path] = set()
+    for index in range(1, len(module_parts) + 1):
+        prefix = root.joinpath(*module_parts[:index])
+        package_init = prefix / "__init__.py"
+        if package_init.exists():
+            source_paths.add(package_init)
+        module_source = prefix.with_suffix(".py")
+        if module_source.exists():
+            source_paths.add(module_source)
+
+    for source_path in source_paths:
+        _remove_bytecode_for_source(source_path)
+
+
+def _remove_bytecode_for_source(source_path: Path) -> None:
+    cache_dir = source_path.parent / "__pycache__"
+    if not cache_dir.exists():
+        return
+
+    patterns = {f"{source_path.stem}.*.pyc"}
+    try:
+        patterns.add(Path(cache_from_source(str(source_path))).name)
+    except NotImplementedError:
+        pass
+
+    for pattern in patterns:
+        for candidate in cache_dir.glob(pattern):
+            candidate.unlink(missing_ok=True)
 
 
 def _module_paths(module: ModuleType) -> list[Path]:

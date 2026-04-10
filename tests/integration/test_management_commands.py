@@ -404,6 +404,23 @@ def test_litmus_config_set_can_repair_invalid_fault_profile_value(tmp_path: Path
     assert load_repo_config(tmp_path).fault_profile is FaultProfile.GENTLE
 
 
+def test_litmus_config_set_reports_invalid_decision_policy_value(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["litmus", "config", "set", "decision_policy", "definitely_not_real"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "Unsupported fault profile" not in result.stderr
+    assert (
+        "Invalid Litmus config field 'decision_policy': expected one of alpha_local_v1, strict_local_v1."
+        in result.stderr
+    )
+
+
 def _write_invariants_fixture(tmp_path: Path) -> Path:
     invariants_path = tmp_path / ".litmus" / "invariants.yaml"
     invariants_path.parent.mkdir(parents=True, exist_ok=True)

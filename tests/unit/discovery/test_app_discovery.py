@@ -100,6 +100,41 @@ app = FastAPI("broken")
     assert second_app.status == "broken"
 
 
+def test_load_asgi_app_observes_same_size_on_disk_edits_without_stale_bytecode(tmp_path: Path) -> None:
+    service = tmp_path / "service"
+    service.mkdir()
+    app_path = service / "main.py"
+    app_path.write_text(
+        """
+class FastAPI:
+    def __init__(self, status: str) -> None:
+        self.status = status
+
+app = FastAPI("charged")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    first_app = load_asgi_app("service.main:app", tmp_path)
+    assert first_app.status == "charged"
+
+    app_path.write_text(
+        """
+class FastAPI:
+    def __init__(self, status: str) -> None:
+        self.status = status
+
+app = FastAPI("delayed")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    second_app = load_asgi_app("service.main:app", tmp_path)
+    assert second_app.status == "delayed"
+
+
 def test_app_loader_reloads_conflicting_helper_modules_across_repo_roots(tmp_path: Path) -> None:
     repo_one = tmp_path / "repo-one"
     repo_two = tmp_path / "repo-two"

@@ -2,7 +2,7 @@
 
 **Project:** Litmus
 **Status Date:** 2026-04-09
-**Phase:** WS-26 policy overrides complete
+**Phase:** WS-26 review follow-up complete
 **Spec Version:** v0.2
 **Launch Target Covered By This Repo:** v0.1 product launch
 
@@ -151,6 +151,8 @@ Update this table whenever work is claimed, blocked, or completed.
 | 2026-04-09 | Completed WS-25: repo config now supports local decision-policy profiles, the strict local profile can block insufficient-evidence and unsupported-coverage runs without changing the four semantic verdict values, and CLI/run-artifact surfaces persist the configured policy outcome honestly |
 | 2026-04-09 | Claimed WS-26 as the next repo-local confidence slice: add per-run decision-policy overrides to CLI, MCP, and GitHub Action entrypoints so stricter merge controls can be selected at execution time without editing repo config or introducing hosted state |
 | 2026-04-09 | Completed WS-26: CLI, MCP, and GitHub Action can now override the repo decision-policy per run, so stricter merge controls can be selected at execution time while staying inside the same local four-value decision contract and file-backed trust model |
+| 2026-04-09 | Reopened WS-26 for review follow-up: fix the replay regression where same-status body drift can load stale app bytecode and misclassify as unchanged, and tighten CLI config-set error mapping so invalid `decision_policy` values report the correct key-specific validation error |
+| 2026-04-09 | Completed the WS-26 review follow-up: app loading now purges target-module bytecode before import so replay sees same-size source edits, invalid `decision_policy` config writes now surface the correct config validation error, and the full repo test suite is green again |
 
 ---
 
